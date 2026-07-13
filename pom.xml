@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>in.bemyprofessional</groupId>
+  <artifactId>bmp-platform</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <name>BMP Platform (modular monolith)</name>
+  <description>
+    Be My Professional — one deployable, 8 business modules, one PostgreSQL.
+    Module boundaries are enforced by Spring Modulith + the Maven dependency graph.
+    Extraction to real microservices is a per-module decision made later, on evidence.
+  </description>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.4.1</version>
+    <relativePath/>
+  </parent>
+
+  <properties>
+    <java.version>21</java.version>
+    <maven.compiler.release>21</maven.compiler.release>
+    <spring-modulith.version>1.3.1</spring-modulith.version>
+    <archunit.version>1.3.0</archunit.version>
+  </properties>
+
+  <modules>
+    <module>bmp-common</module>
+    <module>bmp-user</module>
+    <module>bmp-salon</module>
+    <module>bmp-booking</module>
+    <module>bmp-payment</module>
+    <module>bmp-review</module>
+    <module>bmp-rewards</module>
+    <module>bmp-admin</module>
+    <module>bmp-notification</module>
+    <module>bmp-app</module>
+  </modules>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.springframework.modulith</groupId>
+        <artifactId>spring-modulith-bom</artifactId>
+        <version>${spring-modulith.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <!-- internal modules -->
+      <dependency><groupId>in.bemyprofessional</groupId><artifactId>bmp-common</artifactId><version>${project.version}</version></dependency>
+      <dependency><groupId>in.bemyprofessional</groupId><artifactId>bmp-user</artifactId><version>${project.version}</version></dependency>
+      <dependency><groupId>in.bemyprofessional</groupId><artifactId>bmp-salon</artifactId><version>${project.version}</version></dependency>
+      <dependency><groupId>in.bemyprofessional</groupId><artifactId>bmp-booking</artifactId><version>${project.version}</version></dependency>
+      <dependency><groupId>in.bemyprofessional</groupId><artifactId>bmp-payment</artifactId><version>${project.version}</version></dependency>
+      <dependency><groupId>in.bemyprofessional</groupId><artifactId>bmp-review</artifactId><version>${project.version}</version></dependency>
+      <dependency><groupId>in.bemyprofessional</groupId><artifactId>bmp-rewards</artifactId><version>${project.version}</version></dependency>
+      <dependency><groupId>in.bemyprofessional</groupId><artifactId>bmp-admin</artifactId><version>${project.version}</version></dependency>
+      <dependency><groupId>in.bemyprofessional</groupId><artifactId>bmp-notification</artifactId><version>${project.version}</version></dependency>
+      <dependency>
+        <groupId>com.tngtech.archunit</groupId>
+        <artifactId>archunit-junit5</artifactId>
+        <version>${archunit.version}</version>
+        <scope>test</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <!-- every module gets these -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

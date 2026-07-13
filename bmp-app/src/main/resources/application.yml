@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: bmp
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bmp
+    username: bmp
+    password: ${BMP_DB_PASSWORD:devonly}
+  jpa:
+    hibernate:
+      ddl-auto: validate     # Flyway owns the schema, Hibernate only validates
+    open-in-view: false
+  flyway:
+    schemas: common_schema,user_schema,salon_schema,booking_schema,payment_schema,review_schema,rewards_schema,admin_schema,notification_schema
+    create-schemas: true
+
+server:
+  port: 8080
+
+# One database, one schema per module. Cross-schema FKs are real FKs.
+# Extraction later = move one schema out; FKs at that seam become app-level checks then.
