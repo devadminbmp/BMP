@@ -74,4 +74,13 @@ public class PaymentOrder {
     public Instant getPaymentCapturedAt() { return paymentCapturedAt; }
     public String getStatus() { return status; }
     public Instant getCreatedAt() { return createdAt; }
+
+    // Mutators used by service layer
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public void setPaymentCapturedAt(Instant paymentCapturedAt) {
+        this.paymentCapturedAt = paymentCapturedAt;
+    }
 }
