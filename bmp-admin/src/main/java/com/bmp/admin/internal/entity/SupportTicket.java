@@ -77,4 +77,29 @@ public class SupportTicket {
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
     public Instant getResolvedAt() { return resolvedAt; }
+
+    // Mutators used by service layer
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public void setResolvedAt(Instant resolvedAt) {
+        this.resolvedAt = resolvedAt;
+    }
+
+    public void setPriority(String priority) {
+        this.priority = priority;
+    }
+
+    public void setAssignedStaffId(UUID assignedStaffId) {
+        this.assignedStaffId = assignedStaffId;
+    }
+
+    /**
+     * Update the updatedAt timestamp from services that mutate the entity.
+     * Services are responsible for calling touch() inside @Transactional methods.
+     */
+    public void touch() {
+        this.updatedAt = Instant.now();
+    }
 }
