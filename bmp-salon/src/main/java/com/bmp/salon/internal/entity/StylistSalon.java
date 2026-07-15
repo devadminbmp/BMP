@@ -69,6 +69,8 @@ public class StylistSalon {
     public void setSalonRating(Integer salonRatingHundredths) { this.salonRating = salonRatingHundredths; } // for alumni snapshot
     public void setLeftAt(Instant leftAt) { this.leftAt = leftAt; }
     public void setIsAvailableToday(boolean isAvailableToday) { this.isAvailableToday = isAvailableToday; }
+    // JavaBeans-friendly setter alias (some static analyzers / call-sites expect setAvailableToday)
+    public void setAvailableToday(boolean availableToday) { this.isAvailableToday = availableToday; }
 }
 
 
