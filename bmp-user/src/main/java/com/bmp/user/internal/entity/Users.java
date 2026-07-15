@@ -77,4 +77,16 @@ public class Users {
     public boolean isVerified() { return isVerified; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    // Setters for mutable fields (phone is intentionally NOT settable — immutable identity)
+    public void setName(String name) { this.name = name; }
+    public void setGender(String gender) { this.gender = gender; }
+    public void setAge(int age) { this.age = age; }
+    public void setEmail(String email) { this.email = email; }
+    public void setProfilePhotoUrl(String profilePhotoUrl) { this.profilePhotoUrl = profilePhotoUrl; }
+    public void setHairType(String hairType) { this.hairType = hairType; }
+    public void setHairLength(String hairLength) { this.hairLength = hairLength; }
+
+    // Update timestamp on mutation
+    public void touch() { this.updatedAt = Instant.now(); }
 }

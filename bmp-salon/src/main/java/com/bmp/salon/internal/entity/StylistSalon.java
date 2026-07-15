@@ -2,7 +2,6 @@ package com.bmp.salon.internal.entity;
 
 import com.bmp.common.ids.UuidV7;
 import jakarta.persistence.*;
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -14,6 +13,8 @@ import java.util.UUID;
  * Getters only where a field is documented FROZEN/append-only in CONTEXT.md;
  * plain getters otherwise — add bespoke mutation methods per table as real
  * invariants surface (fast-moving pre-PMF team, not a final API).
+ * 
+ * Note: salon_rating stored as integer (hundredths): 4.71 -> 471. No BigDecimal per schema rule.
  */
 @Entity
 @Table(name = "stylist_salon", schema = "salon_schema")
@@ -29,7 +30,7 @@ public class StylistSalon {
     @Column(name = "status", nullable = false, length = 10)
     private String status;
     @Column(name = "salon_rating")
-    private BigDecimal salonRating;
+    private Integer salonRating; // stored as hundredths (471 = 4.71), FROZEN when alumni
     @Column(name = "salon_review_count", nullable = false)
     private int salonReviewCount;
     @Column(name = "is_available_today", nullable = false)
@@ -41,26 +42,33 @@ public class StylistSalon {
 
     protected StylistSalon() {} // JPA
 
-    public StylistSalon(UUID stylistId, UUID salonId, String status, BigDecimal salonRating, int salonReviewCount, boolean isAvailableToday, Instant joinedAt, Instant leftAt) {
+    public StylistSalon(UUID stylistId, UUID salonId, String status, Integer salonRatingHundredths, int salonReviewCount, boolean isAvailableToday, Instant joinedAt, Instant leftAt) {
         this.id = UuidV7.generate();
         this.stylistId = stylistId;
         this.salonId = salonId;
         this.status = status;
-        this.salonRating = salonRating;
+        this.salonRating = salonRatingHundredths;
         this.salonReviewCount = salonReviewCount;
         this.isAvailableToday = isAvailableToday;
         this.joinedAt = joinedAt;
         this.leftAt = leftAt;
-
     }
 
     public UUID getId() { return id; }
     public UUID getStylistId() { return stylistId; }
     public UUID getSalonId() { return salonId; }
     public String getStatus() { return status; }
-    public BigDecimal getSalonRating() { return salonRating; }
+    public Integer getSalonRating() { return salonRating; } // in hundredths
     public int getSalonReviewCount() { return salonReviewCount; }
     public boolean isAvailableToday() { return isAvailableToday; }
     public Instant getJoinedAt() { return joinedAt; }
     public Instant getLeftAt() { return leftAt; }
+
+    // Setters for mutable fields
+    public void setStatus(String status) { this.status = status; }
+    public void setSalonRating(Integer salonRatingHundredths) { this.salonRating = salonRatingHundredths; } // for alumni snapshot
+    public void setLeftAt(Instant leftAt) { this.leftAt = leftAt; }
+    public void setIsAvailableToday(boolean isAvailableToday) { this.isAvailableToday = isAvailableToday; }
 }
+
+

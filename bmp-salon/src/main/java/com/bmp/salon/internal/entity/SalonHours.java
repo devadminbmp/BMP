@@ -45,4 +45,8 @@ public class SalonHours {
     public int getDayOfWeek() { return dayOfWeek; }
     public String getOpenTime() { return openTime; }
     public String getCloseTime() { return closeTime; }
+
+    // Setters for upsert operation
+    public void setOpenTime(String openTime) { this.openTime = openTime; }
+    public void setCloseTime(String closeTime) { this.closeTime = closeTime; }
 }

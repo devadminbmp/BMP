@@ -2,7 +2,6 @@ package com.bmp.salon.internal.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -12,14 +11,14 @@ public final class StylistDtos {
 
     public record CreateStylistRequest(@NotBlank String name, UUID userId) {}
 
-    public record StylistResponse(UUID id, String name, UUID userId, BigDecimal overallRating,
+    public record StylistResponse(UUID id, String name, UUID userId, Integer overallRating, // in hundredths: 471 = 4.71
                                    int totalReviews, boolean isTopStylist, Instant createdAt) {}
 
     public record LinkStylistRequest(@NotNull UUID stylistId) {}
 
     public record StylistSalonResponse(UUID id, UUID stylistId, UUID salonId, String status,
-                                        boolean isAvailableToday, BigDecimal salonRating,
-                                        Integer salonReviewCount, Instant joinedAt, Instant leftAt) {}
+                                        boolean isAvailableToday, Integer salonRating, // in hundredths
+                                        int salonReviewCount, Instant joinedAt, Instant leftAt) {}
 
     public record AvailableTodayRequest(boolean isAvailableToday) {}
 

@@ -12,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -34,7 +33,7 @@ public class StylistCrudService {
 
     @Transactional
     public StylistResponse create(CreateStylistRequest req) {
-        Stylist s = new Stylist(req.userId(), req.name(), BigDecimal.ZERO, 0, false);
+        Stylist s = new Stylist(req.userId(), req.name(), 0, 0, false); // 0 rating = no reviews yet
         s = stylists.save(s);
         return toResponse(s);
     }
