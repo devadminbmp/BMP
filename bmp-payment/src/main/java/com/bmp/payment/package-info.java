@@ -11,9 +11,9 @@
  * plan. CONTEXT.md's later, more detailed Session-3 design (explicitly the
  * project's locked source of truth) specifies the 10 tables above instead —
  * this doc comment has been corrected to match. See V006__payment_schema.sql.
+ *
+ * <p><b>Session 5:</b> this is now an independently-deployable Spring Boot
+ * service (see its own pom.xml/Application.java/application.yml), not a Modulith
+ * module of one shared deployable. Spring Modulith annotation removed accordingly.
  */
-@org.springframework.modulith.ApplicationModule(
-    displayName = "Payment",
-    allowedDependencies = { "booking :: api", "common" }
-)
 package com.bmp.payment;

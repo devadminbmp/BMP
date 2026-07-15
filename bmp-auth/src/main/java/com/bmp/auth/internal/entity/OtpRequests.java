@@ -1,4 +1,4 @@
-package com.bmp.user.internal.entity;
+package com.bmp.auth.internal.entity;
 
 import com.bmp.common.ids.UuidV7;
 import jakarta.persistence.*;
@@ -53,4 +53,10 @@ public class OtpRequests {
     public Instant getLockedUntil() { return lockedUntil; }
     public Instant getExpiresAt() { return expiresAt; }
     public Instant getCreatedAt() { return createdAt; }
+    public void setPhone(String phone) { this.phone = phone; }
+    public void setOtpHash(String otpHash) { this.otpHash = otpHash; }
+    public void setAttempts(int attempts) { this.attempts = attempts; }
+    public void setLockedUntil(Instant lockedUntil) { this.lockedUntil = lockedUntil; }
+    public void setExpiresAt(Instant expiresAt) { this.expiresAt = expiresAt; }
+
 }

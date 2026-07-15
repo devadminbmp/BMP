@@ -1,0 +1,25 @@
+server:
+  port: 8086
+
+spring:
+  application:
+    name: bmp-review-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bmp
+    username: bmp
+    password: ${BMP_DB_PASSWORD:devonly}
+  jpa:
+    hibernate:
+      ddl-auto: validate   # Flyway owns the schema, Hibernate only validates
+    open-in-view: false
+  flyway:
+    schemas: common_schema,review_schema
+    create-schemas: true
+    baseline-on-migrate: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true

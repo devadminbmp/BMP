@@ -33,7 +33,8 @@ public enum BookingStatus {
     private static final Map<BookingStatus, Set<Transition>> ALLOWED = Map.of(
         PENDING, Set.of(
             new Transition(CONFIRMED, Actor.SYSTEM),   // Razorpay webhook ONLY
-            new Transition(CANCELLED, Actor.SYSTEM)    // payment failed / lock expired
+            new Transition(CANCELLED, Actor.SYSTEM),   // payment failed / lock expired
+            new Transition(CANCELLED, Actor.CUSTOMER)  // customer cancels before payment completes (BMP-25)
         ),
         CONFIRMED, Set.of(
             new Transition(ARRIVED,   Actor.SALON),

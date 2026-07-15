@@ -8,11 +8,13 @@
   <artifactId>bmp-platform</artifactId>
   <version>0.1.0-SNAPSHOT</version>
   <packaging>pom</packaging>
-  <name>BMP Platform (modular monolith)</name>
+  <name>BMP Platform (microservices, Session 5)</name>
   <description>
-    Be My Professional — one deployable, 8 business modules, one PostgreSQL.
-    Module boundaries are enforced by Spring Modulith + the Maven dependency graph.
-    Extraction to real microservices is a per-module decision made later, on evidence.
+    Be My Professional — 11 independently-deployable Spring Boot services (9 business/auth
+    services + eureka-server + api-gateway), one shared PostgreSQL instance (schema per
+    service). Formerly a modular monolith (see bmp-app/RETIRED.md) — pivoted to
+    microservices in Session 5. NOTE: this reversal was made with only one of the 3
+    founders present; see CONTEXT.md Session 5 log for the full flag.
   </description>
 
   <parent>
@@ -27,6 +29,10 @@
     <maven.compiler.release>21</maven.compiler.release>
     <spring-modulith.version>1.3.1</spring-modulith.version>
     <archunit.version>1.3.0</archunit.version>
+    <!-- Session 5: microservices pivot — Spring Cloud 2024.0.0 ("Moorgate") is the
+         release line compatible with Spring Boot 3.4.x, needed for Eureka + Gateway. -->
+    <spring-cloud.version>2024.0.0</spring-cloud.version>
+    <jjwt.version>0.12.6</jjwt.version>
   </properties>
 
   <modules>
@@ -39,7 +45,14 @@
     <module>bmp-rewards</module>
     <module>bmp-admin</module>
     <module>bmp-notification</module>
-    <module>bmp-app</module>
+    <module>bmp-auth</module>
+    <module>eureka-server</module>
+    <module>api-gateway</module>
+    <!-- bmp-app REMOVED from active build — Session 5 pivot to microservices means
+         there is no longer "one deployable"; each bmp-* module below is now its own
+         independently-buildable, independently-runnable Spring Boot service. The old
+         bmp-app/ directory is left in place (not deleted) as a historical record of the
+         monolith entry point; see bmp-app/RETIRED.md. -->
   </modules>
 
   <dependencyManagement>
@@ -48,6 +61,13 @@
         <groupId>org.springframework.modulith</groupId>
         <artifactId>spring-modulith-bom</artifactId>
         <version>${spring-modulith.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.springframework.cloud</groupId>
+        <artifactId>spring-cloud-dependencies</artifactId>
+        <version>${spring-cloud.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -61,6 +81,7 @@
       <dependency><groupId>in.bemyprofessional</groupId><artifactId>bmp-rewards</artifactId><version>${project.version}</version></dependency>
       <dependency><groupId>in.bemyprofessional</groupId><artifactId>bmp-admin</artifactId><version>${project.version}</version></dependency>
       <dependency><groupId>in.bemyprofessional</groupId><artifactId>bmp-notification</artifactId><version>${project.version}</version></dependency>
+      <dependency><groupId>in.bemyprofessional</groupId><artifactId>bmp-auth</artifactId><version>${project.version}</version></dependency>
       <dependency>
         <groupId>com.tngtech.archunit</groupId>
         <artifactId>archunit-junit5</artifactId>

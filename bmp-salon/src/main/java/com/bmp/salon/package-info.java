@@ -11,9 +11,9 @@
  * Darshan this session (CONTEXT.md Session Log has the full Q1-Q6 answers).
  * NOT YET ratified by Shivam/Achyuth — treat as a strong draft, not final, until
  * they've reviewed it.
+ *
+ * <p><b>Session 5:</b> this is now an independently-deployable Spring Boot
+ * service (see its own pom.xml/Application.java/application.yml), not a Modulith
+ * module of one shared deployable. Spring Modulith annotation removed accordingly.
  */
-@org.springframework.modulith.ApplicationModule(
-    displayName = "Salon",
-    allowedDependencies = { "user :: api", "common" }
-)
 package com.bmp.salon;

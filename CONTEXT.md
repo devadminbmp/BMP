@@ -68,63 +68,100 @@ Every Indian salon marketplace before BMP (Fabogo, Vyomo, Bulbul, Zoylee) died b
 
 ## Current Status
 
-**Phase: Schema Design Complete → Starting Backend Development**
+**Phase: Microservices Split Complete (Session 5) → Phase 1 CRUD Complete → Ready for Phase 3 (Inter-Service/Auth/Integrations)**
+
+⚠️ **Session 5 reversed the "modular monolith, not microservices" LOCKED decision below** (see
+Technology Stack table and Session 5 log entry). This was a **Darshan-only decision**, made and
+executed in a single Cowork session with Shivam and Achyuth not present — same caveat as the
+Session 4 availability-model work. **Flagged for both of you to review before this is treated
+as final.** Nothing here is unrecoverable (the old bmp-app monolith entry point still exists,
+see `bmp-app/RETIRED.md`), but going forward all 3 of you need to agree this is the direction.
 
 | Area | Status |
 |---|---|
 | Product strategy and GTM | ✅ LOCKED |
 | UX/UI design (60+ screens) | ✅ COMPLETE |
-| All 8 core module schemas (incl. Admin, Notification) | ✅ COMPLETE — V002-V009 migrations + 57 JPA entities written |
-| Maven multi-module skeleton | ✅ CREATED |
-| Admin module schema | ✅ DONE — V008, 4 tables + entities |
-| Notification module schema | ✅ DONE — V009, 1 table + entity |
+| All 8 core module schemas (incl. Admin, Notification) | ✅ COMPLETE — V001(outbox)+V002(+V003 for salon) migrations per service, 57 JPA entities |
+| Architecture | ⚠️ CHANGED Session 5 — modular monolith → **microservices** (Darshan-only, NOT ratified) |
+| Service registry (Eureka) + API Gateway | ✅ DONE — see Port Table in Session 5 log entry |
+| bmp-auth-service (OTP/JWT issuing) | ✅ DONE — full auth flow (request/verify OTP, refresh, logout) |
+| Admin module schema | ✅ DONE — 4 tables + entities |
+| Notification module schema | ✅ DONE — 1 table + entity |
 | Availability model paper design (Q1-Q6) | ✅ DRAFTED — ⚠️ Darshan-only sign-off, Shivam/Achyuth must review/ratify |
-| Availability model schema | ✅ DONE — V004, stylist_availability + walk_in_block |
+| Availability model schema | ✅ DONE — V003 (salon service), stylist_availability + walk_in_block |
 | Availability model algorithm (freeSlots/blockWalkIn) | 🔜 NOT STARTED — next technical priority |
-| LLD / API contracts | ⏳ PENDING (per-module CRUD endpoint shapes drafted in tracker, not yet in this file) |
+| LLD / API contracts | ✅ Phase 1 CRUD endpoints fully specified + built (see Phase 1 CRUD task files) |
 | Razorpay Route confirmation | ⏳ PENDING (confirm directly with Razorpay) |
-| Backend CRUD (per-service, no integrations) | 🔜 NOT STARTED — entities exist, controllers/services next |
-| Inter-service auth, OTP login, integrations | 🔜 NOT STARTED — deliberately deferred until CRUD is done |
+| Backend CRUD (per-service, no integrations) | ✅ DONE (Session 5) — repository + service + controller + DTO layers for all 9 Phase 1 tickets (BMP-22 through BMP-30), across all 8 business services |
+| Inter-service auth, OTP login, integrations | 🔜 NOT STARTED — deliberately deferred until CRUD was done (now it is); Feign wiring for cross-service calls (booking-status checks, live pricing lookups, etc.) is the next real gap, marked with TODO comments throughout the new service classes |
 
 ---
 
-## Technology Stack — LOCKED
+## Technology Stack — LOCKED (⚠️ Architecture row overridden Session 5 — see below)
 
 | Layer | Choice | Why |
 |---|---|---|
 | Language | Java 21 | LTS, virtual threads, records |
-| Framework | Spring Boot 3.4.1 + Spring Modulith | Enforces module boundaries at build time |
-| Architecture | Multi-module Maven monolith | 3-person team, pre-PMF, real FKs, one deploy |
-| Primary DB | PostgreSQL 16 + PostGIS 3.4 | Relational integrity + geospatial proximity search |
+| Framework | Spring Boot 3.4.1 + Spring Cloud 2024.0.0 | Netflix Eureka + Gateway + OpenFeign for microservices |
+| ~~Architecture~~ Architecture | ~~Multi-module Maven monolith~~ **Independent Spring Boot microservices, one per module, registered with Eureka, routed via Spring Cloud Gateway** | ⚠️ CHANGED Session 5, Darshan-only, NOT ratified by Shivam/Achyuth. Original reasoning (3-person team, pre-PMF, real FKs, one deploy) still applies and is why this reversal needs full-team review — see Session 5 log entry for the full tradeoff discussion. |
+| Primary DB | PostgreSQL 16 + PostGIS 3.4 | Relational integrity + geospatial proximity search. UNCHANGED: still one physical Postgres instance, schema-per-service — the split is at the service/deploy level, not the database level. |
 | Document DB | MongoDB 7 | Community feed only — not general purpose |
 | Cache / Locks | Redis | Slot locks during checkout only |
-| Async events | Postgres Outbox + relay worker | Replaces Kafka — simpler, same guarantees |
+| Async events | Postgres Outbox + relay worker (`bmp-common`, shared across all services) | Replaces Kafka — simpler, same guarantees. Now the ONLY sanctioned way for services to react to each other's state changes without a synchronous call. |
+| Inter-service sync calls | Spring Cloud OpenFeign | Used where a synchronous cross-service read is unavoidable (e.g. bmp-auth calling bmp-user). Marked with TODO comments everywhere a Phase 1 CRUD service should eventually call another service but doesn't yet. |
+| Service discovery | Netflix Eureka (`eureka-server`, port 8761) | All services register here; the gateway and Feign clients resolve `lb://bmp-*-service` through it. |
+| API Gateway | Spring Cloud Gateway (`api-gateway`, port 8080) | Single external entry point; routes by path prefix to each service. |
 | Payments | Razorpay Route | BMP never holds funds — splits at capture |
 | File storage | Cloudflare R2 | Before/after photos, salon photos, stylist photos |
 | WhatsApp | MSG91 | OTP + booking notifications + review prompts |
-| Boundary tests | ArchUnit + Spring Modulith verify() | Build fails if module boundaries are violated |
+| Boundary tests | ArchUnit + Spring Modulith verify() | ⚠️ Spring Modulith annotations were REMOVED from all `package-info.java` files in Session 5 (each module is now its own deployable, not a Modulith-verified module inside one app) — ArchUnit boundary tests need to be rewritten or retired; NOT yet done, flagged as a gap. |
 
-**DO NOT SUGGEST:** Kafka (replaced by outbox), microservices (using modular monolith), BigDecimal for money (integer paise only), separate DBs per module (one Postgres, multiple schemas).
+**DO NOT SUGGEST:** Kafka (replaced by outbox), BigDecimal for money (integer paise only), separate physical databases per module (still one Postgres, multiple schemas — only the deploy unit changed, not the DB topology).
+
+**Session 5 port table (standard-range, sequential):**
+
+| Service | Port |
+|---|---|
+| eureka-server | 8761 |
+| api-gateway | 8080 |
+| bmp-auth-service | 8081 |
+| bmp-user-service | 8082 |
+| bmp-salon-service | 8083 |
+| bmp-booking-service | 8084 |
+| bmp-payment-service | 8085 |
+| bmp-review-service | 8086 |
+| bmp-rewards-service | 8087 |
+| bmp-admin-service | 8088 |
+| bmp-notification-service | 8089 |
 
 ---
 
 ## Architecture — LOCKED
 
-### Project Structure
+### Project Structure (⚠️ CHANGED Session 5 — see Technology Stack table above)
 
 ```
-bmp-platform/                    ← Parent Maven POM
-├── bmp-common/                  ← Shared kernel (Money, UUIDv7, DomainEvent, Outbox)
-├── bmp-user/                    ← Auth, OTP, profiles, roles
-├── bmp-salon/                   ← Salons, stylists, services, availability model ⭐
-├── bmp-booking/                 ← Bookings, slot locks, state machine
-├── bmp-payment/                 ← Razorpay Route, webhooks, payouts, commission
-├── bmp-review/                  ← Reviews, ratings, community feed bridge
-├── bmp-rewards/                 ← Coupons, wallet, referrals, loyalty
-├── bmp-admin/                   ← bmp_staff, support tickets, audit log (PENDING)
-├── bmp-notification/            ← Outbox processor → WhatsApp/SMS/push
-└── bmp-app/                     ← ONE Spring Boot deployable, Flyway migrations
+bmp-platform/                    ← Parent Maven POM (dependency management only, no longer builds one app)
+├── bmp-common/                  ← Shared kernel (Money, UUIDv7, DomainEvent, Outbox) — imported by every service
+├── eureka-server/               ← Service registry, port 8761
+├── api-gateway/                 ← Spring Cloud Gateway, single entry point, port 8080
+├── bmp-auth/                    ← NEW Session 5 — OTP request/verify, JWT issuing, refresh/logout, port 8081
+├── bmp-user/                    ← independent service — profiles, roles, port 8082
+├── bmp-salon/                   ← independent service — salons, stylists, services, availability model ⭐, port 8083
+├── bmp-booking/                 ← independent service — bookings, slot locks, state machine, port 8084
+├── bmp-payment/                 ← independent service — Razorpay Route, webhooks, payouts, commission, port 8085
+├── bmp-review/                  ← independent service — reviews, ratings, community feed bridge, port 8086
+├── bmp-rewards/                 ← independent service — coupons, wallet, referrals, loyalty, port 8087
+├── bmp-admin/                   ← independent service — bmp_staff, support tickets, audit log, port 8088
+├── bmp-notification/            ← independent service — notification log (send integration still Phase 3), port 8089
+└── bmp-app/                     ← RETIRED Session 5 — no longer the entry point, see bmp-app/RETIRED.md, kept as historical record
 ```
+
+Each of the 8 business services + bmp-auth is now its own Spring Boot application: own `pom.xml`
+(parent = `bmp-platform` for dependency management only), own `Bmp*Application.java` with
+`@EnableDiscoveryClient`, own `application.yml` (port + datasource + Eureka + Flyway config), own
+`db/migration/` folder (`V001__common_outbox.sql` shared template + the service's own schema
+migration), and a full `internal/{entity,repository,service,controller,dto}` layer structure.
 
 ### Module Rules (enforced by ArchUnit — build fails if violated)
 
@@ -1014,72 +1051,4 @@ paper design), Phase 3 Inter-Service/Auth/Integrations (OTP, JWT/RBAC, outbox wi
 Razorpay/MSG91/FCM). 9 new CRUD tickets added (one per service), 2 new Phase 3 tickets
 (OTP auth, authorization middleware). Real migration numbers confirmed by reading
 V001__baseline_schemas_and_outbox.sql's own trailing comment (V002 user → V003 salon static →
-V004 availability BLOCKED → V005 booking → V006 payment → V007 review+rewards → V008 admin).
-
-#### Turn 5 — Actual schema + entities built (not just tickets)
-**Darshan:** "create schema which and all not present then create entities in project and give
-me full project structure."
-**What happened:** cloned the real repo (read-only, public), inspected existing conventions
-(plain JPA entities, `Money`/`UuidV7`/`OutboxEntry` patterns, package-info.java Modulith
-annotations), then generated V002/V003/V005/V006/V007/V007b/V008/V009 as real Flyway
-migrations (V004 explicitly skipped — still blocked) plus 55 matching JPA entities via a
-data-driven code generator (to keep 55 files consistent rather than hand-typing each one).
-**Discrepancy found and flagged:** `bmp-payment`, `bmp-review`, `bmp-rewards` package-info.java
-files had gone stale — they documented an earlier, simpler table set from the initial skeleton
-session, while this file's later Session 3 design is more detailed and explicitly locked.
-Implemented the fuller CONTEXT.md version and corrected the stale doc comments to match
-(flagged inline in each package-info.java and in the corresponding Module section above).
-**Delivered as:** a zip handed to Darshan (not pushed to GitHub — no push credentials available
-to the assistant, and it should not handle tokens/passwords even if given one; `git push`
-had already failed earlier in this session with a password-auth error that needs a PAT or SSH
-key fix on Darshan's machine before anyone can push).
-
-#### Turn 6 — Availability model unblocked (Darshan-only, flagged for review)
-**Darshan:** asked to go ahead and build the availability schema now rather than wait for the
-full pilot-salon data collection + 3-founder sign-off process this file originally called for.
-**Assistant pushed back once** on the risk (this is the one piece the repo's own docs single
-out as needing all-founder sign-off, tied directly to why prior competitors — Fabogo, Vyomo,
-Bulbul, Zoylee — failed on the calendar-truth problem), then offered 3 paths. Darshan chose to
-fast-track: draft concrete answers now rather than wait or guess blindly.
-**Q1-Q6 discussed and answered** — see the Availability Model section under Module 2: Salon
-above for the full answers. Q1 (slot granularity) was refined during discussion: original draft
-was a flat 15-minute grid; Darshan pointed out different salons have very different service
-durations; refined to a per-salon configurable `slot_granularity_minutes` column (default 15)
-rather than a hardcoded platform-wide value, after walking through the rounding-waste tradeoff
-for short vs. long services.
-**Result:** V004__availability_model.sql written (`stylist_availability`, `walk_in_block`),
-`slot_granularity_minutes` added to `salon_policy` (V003), matching entities generated.
-**FLAG for Shivam and Achyuth:** this design was NOT reviewed by you two. Please read the
-Q1-Q6 answers under Module 2: Salon above and either ratify or amend before treating the V004
-schema as final — nothing has been built against it yet (the actual `freeSlots()` /
-`blockWalkIn()` algorithm is still unimplemented), so changing the schema now is still cheap.
-
----
-
-## How to Add to This File
-
-When you complete a session, add a new turn entry under the current session in the Session Log. Format:
-
-```markdown
-#### Turn N — [Brief topic title]
-**Darshan asked/decided:** [What was asked or decided]
-**Answer/Decision:** [What was locked]
-**Tables/files affected:** [What changed]
-```
-
-If you are making a schema change, also update the relevant module section above.
-
-**Rules for this file:**
-- Never delete existing content — only add
-- Never change a locked decision without noting team discussion date
-- Keep the Schema Rules section exactly as written — these are enforced in code
-- When adding new tables, follow the format: table name → key fields → key design decisions
-
----
-
-*Last updated: July 15, 2026 — Session 4 complete. All 8 module schemas done (V002-V009,
-57 entities). Availability model (V004) unblocked via a Darshan-only paper design — NEEDS
-Shivam/Achyuth review before being treated as final. Backlog restructured CRUD-first; see the
-team tracker spreadsheet for the phased task list. Next: Phase 1 CRUD endpoints, then the
-availability algorithm, then Phase 3 auth/integrations. CONTEXT.md still not pushed to GitHub —
-push auth needs fixing first.*
+V004 availability BLOCK

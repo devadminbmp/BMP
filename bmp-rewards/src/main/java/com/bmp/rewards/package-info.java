@@ -9,9 +9,9 @@
  * <p>UPDATED: this comment previously listed a simpler 5-table version. CONTEXT.md's
  * later, more detailed Session-3 design specifies the 10 tables above instead —
  * corrected to match. See V007b__rewards_schema.sql.
+ *
+ * <p><b>Session 5:</b> this is now an independently-deployable Spring Boot
+ * service (see its own pom.xml/Application.java/application.yml), not a Modulith
+ * module of one shared deployable. Spring Modulith annotation removed accordingly.
  */
-@org.springframework.modulith.ApplicationModule(
-    displayName = "Rewards",
-    allowedDependencies = { "common" }
-)
 package com.bmp.rewards;

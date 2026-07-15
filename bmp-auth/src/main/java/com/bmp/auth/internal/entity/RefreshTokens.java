@@ -1,4 +1,4 @@
-package com.bmp.user.internal.entity;
+package com.bmp.auth.internal.entity;
 
 import com.bmp.common.ids.UuidV7;
 import jakarta.persistence.*;
@@ -23,6 +23,8 @@ public class RefreshTokens {
 
     @Column(name = "user_id", nullable = false)
     private UUID userId;
+    @Column(name = "selector", nullable = false, length = 32)
+    private String selector;
     @Column(name = "token_hash", nullable = false, length = 255)
     private String tokenHash;
     @Column(name = "device_fingerprint", length = 255)
@@ -36,9 +38,10 @@ public class RefreshTokens {
 
     protected RefreshTokens() {} // JPA
 
-    public RefreshTokens(UUID userId, String tokenHash, String deviceFingerprint, boolean revoked, Instant expiresAt) {
+    public RefreshTokens(UUID userId, String selector, String tokenHash, String deviceFingerprint, boolean revoked, Instant expiresAt) {
         this.id = UuidV7.generate();
         this.userId = userId;
+        this.selector = selector;
         this.tokenHash = tokenHash;
         this.deviceFingerprint = deviceFingerprint;
         this.revoked = revoked;
@@ -48,9 +51,17 @@ public class RefreshTokens {
 
     public UUID getId() { return id; }
     public UUID getUserId() { return userId; }
+    public String getSelector() { return selector; }
     public String getTokenHash() { return tokenHash; }
     public String getDeviceFingerprint() { return deviceFingerprint; }
     public boolean isRevoked() { return revoked; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getExpiresAt() { return expiresAt; }
+    public void setUserId(UUID userId) { this.userId = userId; }
+    public void setSelector(String selector) { this.selector = selector; }
+    public void setTokenHash(String tokenHash) { this.tokenHash = tokenHash; }
+    public void setDeviceFingerprint(String deviceFingerprint) { this.deviceFingerprint = deviceFingerprint; }
+    public void setRevoked(boolean revoked) { this.revoked = revoked; }
+    public void setExpiresAt(Instant expiresAt) { this.expiresAt = expiresAt; }
+
 }

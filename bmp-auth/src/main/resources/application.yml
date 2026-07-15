@@ -1,0 +1,37 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: bmp-auth-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bmp
+    username: bmp
+    password: ${BMP_DB_PASSWORD:devonly}
+  jpa:
+    hibernate:
+      ddl-auto: validate   # Flyway owns the schema, Hibernate only validates
+    open-in-view: false
+  flyway:
+    schemas: user_schema
+    create-schemas: true
+    # baseline-on-migrate lets this service's Flyway coexist with bmp-user-service's
+    # Flyway history in the same physical schema during local dev — confirm this is
+    # still correct once both services actually run against a shared Postgres.
+    baseline-on-migrate: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+  instance:
+    prefer-ip-address: true
+
+bmp:
+  auth:
+    jwt-secret: ${BMP_JWT_SECRET:dev-only-secret-change-in-real-environment-min-32-bytes-long}
+    access-token-ttl-seconds: 900        # 15 minutes
+    refresh-token-ttl-days: 30
+    otp-ttl-minutes: 5
+    otp-max-attempts: 3
+    otp-lockout-minutes: 10

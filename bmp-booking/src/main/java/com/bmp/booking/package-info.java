@@ -11,9 +11,9 @@
  *
  * <p><b>Owns tables in:</b> {@code booking_schema} — booking, booking_service_item,
  * booking_events, slot_lock. Cross-schema FKs to salon_schema/user_schema are real.
+ *
+ * <p><b>Session 5:</b> this is now an independently-deployable Spring Boot
+ * service (see its own pom.xml/Application.java/application.yml), not a Modulith
+ * module of one shared deployable. Spring Modulith annotation removed accordingly.
  */
-@org.springframework.modulith.ApplicationModule(
-    displayName = "Booking",
-    allowedDependencies = { "salon :: api", "user :: api", "common" }
-)
 package com.bmp.booking;
