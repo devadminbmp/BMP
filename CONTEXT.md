@@ -74,14 +74,17 @@ Every Indian salon marketplace before BMP (Fabogo, Vyomo, Bulbul, Zoylee) died b
 |---|---|
 | Product strategy and GTM | ✅ LOCKED |
 | UX/UI design (60+ screens) | ✅ COMPLETE |
-| All 6 core module schemas | ✅ COMPLETE |
+| All 8 core module schemas (incl. Admin, Notification) | ✅ COMPLETE — V002-V009 migrations + 57 JPA entities written |
 | Maven multi-module skeleton | ✅ CREATED |
-| Admin module schema | ⏳ NEXT |
-| Notification module schema | ⏳ NEXT |
-| Availability model implementation | ⏳ HIGHEST TECHNICAL PRIORITY |
-| LLD / API contracts | ⏳ PENDING |
+| Admin module schema | ✅ DONE — V008, 4 tables + entities |
+| Notification module schema | ✅ DONE — V009, 1 table + entity |
+| Availability model paper design (Q1-Q6) | ✅ DRAFTED — ⚠️ Darshan-only sign-off, Shivam/Achyuth must review/ratify |
+| Availability model schema | ✅ DONE — V004, stylist_availability + walk_in_block |
+| Availability model algorithm (freeSlots/blockWalkIn) | 🔜 NOT STARTED — next technical priority |
+| LLD / API contracts | ⏳ PENDING (per-module CRUD endpoint shapes drafted in tracker, not yet in this file) |
 | Razorpay Route confirmation | ⏳ PENDING (confirm directly with Razorpay) |
-| Backend development | 🔜 NOT STARTED |
+| Backend CRUD (per-service, no integrations) | 🔜 NOT STARTED — entities exist, controllers/services next |
+| Inter-service auth, OTP login, integrations | 🔜 NOT STARTED — deliberately deferred until CRUD is done |
 
 ---
 
@@ -149,13 +152,17 @@ This gives exactly-once semantics without Kafka operational overhead.
 | Module | Schema | Tables | Technology |
 |---|---|---|---|
 | User | user_schema | 5 | PostgreSQL |
-| Salon | salon_schema | 12 | PostgreSQL + PostGIS |
+| Salon | salon_schema | 13 (11 in V003 + 2 in V004 availability) | PostgreSQL + PostGIS |
 | Booking | booking_schema | 8 | PostgreSQL + Redis |
-| Payment | payment_schema | 9 | PostgreSQL |
+| Payment | payment_schema | 10 | PostgreSQL |
 | Review | review_schema + community_db | 6 PG + 5 Mongo | PostgreSQL + MongoDB |
 | Rewards | rewards_schema | 10 | PostgreSQL |
-| Admin | admin_schema | 4 (PENDING) | PostgreSQL |
-| Notification | stateless | 1 log table | PostgreSQL |
+| Admin | admin_schema | 4 — DONE (V008) | PostgreSQL |
+| Notification | notification_schema | 1 log table — DONE (V009) | PostgreSQL |
+
+**Note:** table counts above now match the actual migrations in `bmp-app/src/main/resources/db/migration/`.
+Payment and Salon counts were corrected from earlier approximations (9→10, 12→13) to match the
+locked column-level design once it was actually implemented as SQL.
 
 ---
 
@@ -211,9 +218,9 @@ Transient crash-recovery table. Stores in-progress onboarding so users can resum
 
 ## Module 2: Salon
 
-**Schema:** `salon_schema` | **Tables:** 12
+**Schema:** `salon_schema` | **Tables:** 13 (11 in V003, 2 in V004)
 
-### The Hardest Problem: Availability Model
+### The Hardest Problem: Availability Model — PAPER DESIGN DRAFTED (Session 4)
 
 The slot availability algorithm must intersect:
 1. `salon_hours` — is the salon open?
@@ -221,8 +228,37 @@ The slot availability algorithm must intersect:
 3. `stylist_salon.is_available_today` — quick kill switch
 4. Existing `booking_service_items` — is the slot already booked?
 5. `slot_lock` in Redis — is someone mid-checkout for this slot?
+6. `walk_in_block` — has a receptionist manually blocked this stylist for a walk-in?
 
 **This is the calendar-truth problem. Getting this wrong kills the product.**
+
+**Paper design answers (Session 4, drafted with Darshan — ⚠️ NOT yet reviewed by
+Shivam/Achyuth, treat as a strong draft, not final):**
+
+- **Q1 (slot granularity):** Fixed grid, not continuous duration-derived slots.
+  Default 15 minutes, but made a **per-salon setting** (`salon_policy.slot_granularity_minutes`)
+  rather than hardcoded — a salon with mostly quick services can run a tighter grid (5-10 min),
+  a bridal-heavy salon can run a looser one (30 min), without changing the algorithm.
+  Service durations round UP to the nearest grid boundary for blocking.
+- **Q2 (walk-in block <5s):** Tap stylist → tap "Block Now" → auto-fills current time
+  (rounded to the salon's grid) + a default duration → one confirm tap. `blockWalkIn()`
+  writes to the new `walk_in_block` table (see below), not into `booking`/`booking_service_item`
+  — a walk-in never goes through payment/checkout, so keeping it out of the booking tables
+  avoids forcing a NOT NULL `customer_id` / commission fields that don't apply to it.
+- **Q3 (breaks — template vs exceptions):** Both, layered, matching `stylist_availability.rule_type`
+  (`weekly_template` / `exception` / `leave`, already locked below). Effective availability for
+  a date = weekly_template rows MINUS any overlapping exception/leave rows for that date.
+- **Q4 (leave with existing bookings):** No new schema needed — already covered by the locked
+  `booking_disruption` design in Module 3. `specific_stylist` bookings trigger disruption
+  (notify, 2h salon deadline, 2 rejections → escalate). `any_available` bookings silently reassign.
+- **Q5 (salon hours vs stylist hours conflict):** Intersection always wins. A stylist is never
+  bookable outside `salon_hours`, even if their personal template says otherwise.
+- **Q6 (multi-service spanning slots):** Sequential by default — each `booking_service_item`'s
+  start equals the previous item's end for the same stylist. Items marked `requires_specialist`
+  may run in parallel if assigned to different stylists.
+
+See CONTEXT.md Session Log, Session 4, for the full discussion (including why a fixed grid
+was chosen over continuous slots, and the rounding-waste tradeoff for short services).
 
 ### Tables
 
@@ -232,7 +268,7 @@ Core salon profile. `location` stored as `GEOGRAPHY(POINT)` — NOT separate lat
 `stylist_assignment_strategy` ENUM: random / highest_rated / least_loaded. `least_loaded` = fewest bookings today (resets daily).
 
 #### `salon_policy`
-Cancellation/booking rules. SNAPSHOTTED into every booking at creation — future changes never affect existing bookings. `template` ENUM: strict/standard/flexible. `free_cancel_hours`, `late_grace_minutes`, `require_prepayment` (always true in Phase 1).
+Cancellation/booking rules. SNAPSHOTTED into every booking at creation — future changes never affect existing bookings. `template` ENUM: strict/standard/flexible. `free_cancel_hours`, `late_grace_minutes`, `require_prepayment` (always true in Phase 1). `slot_granularity_minutes` (added Session 4, default 15) — per-salon override for the availability grid, see Q1 above.
 
 #### `salon_hours`
 7 rows per salon (one per day). `day_of_week` 0-6. `close_time` means slots must END by this time, not start.
@@ -249,8 +285,11 @@ Junction linking stylist to salon for an employment period. `status`: active / a
 #### `stylist_service`
 Which services a stylist can perform at a specific salon. `actual_duration_minutes` = real speed (used for slot blocking). NEVER shown to customer — customer sees `salon_service.duration_minutes`. Allows per-stylist pricing via `override_price_paise`.
 
-#### `stylist_availability`
-The detailed availability model. `rule_type` ENUM: weekly_template / exception / leave. `slot_type` ENUM: working / break / leave. `blocks_booking` BOOLEAN. A stylist's schedule = weekly_template MINUS exceptions MINUS leave.
+#### `stylist_availability` — SCHEMA DONE (V004)
+The detailed availability model. `rule_type` ENUM: weekly_template / exception / leave. `slot_type` ENUM: working / break / leave. `blocks_booking` BOOLEAN. A stylist's schedule = weekly_template MINUS exceptions MINUS leave. `day_of_week` (0-6) used for weekly_template rows; `specific_date` used for exception/leave rows.
+
+#### `walk_in_block` — SCHEMA DONE (V004), new table (not in the original 12)
+The receptionist quick-block, per Q2 above. One row per walk-in block: `salon_id`, `stylist_id`, `block_date`, `start_time` (rounded to `salon_policy.slot_granularity_minutes`), `duration_minutes`, `created_by_staff_id`. Deliberately separate from `booking`/`booking_service_item` — a walk-in never goes through payment, so it doesn't need `customer_id`, commission fields, or a state machine.
 
 #### `salon_combo` and `salon_combo_item`
 Bundle services at a discounted price. Cross-category combos allowed (haircut + facial). `allows_addons` = customer can add services on top. `combo_item.requires_specialist` drives multi-stylist assignment. `sequence` determines order of services.
@@ -338,9 +377,9 @@ One per booking. Hard ceiling = `booking.final_amount_paise`. Prevents over-refu
 
 ---
 
-## Module 4: Payment
+## Module 4: Payment — SCHEMA DONE (V006)
 
-**Schema:** `payment_schema` | **Tables:** 9
+**Schema:** `payment_schema` | **Tables:** 10
 
 ### The Cardinal Rule
 
@@ -393,11 +432,16 @@ SaaS plan per salon. Collected via Razorpay Payment Links (not Route). `gst_pais
 - SaaS fee via Payment Links, commission via Route (different mechanisms)
 - Salon coupon = commission on PRE-DISCOUNT subtotal (BMP unaffected by salon promotions)
 
+**Session 4 note:** `bmp-payment/package-info.java` (written during the earlier skeleton
+session) had drifted — it documented a simpler 4-table version (payment, payout_record,
+payout_queue, bank_account). The 10-table design above is what's actually implemented in
+V006 and the JPA entities; the code comment has been corrected to match this file.
+
 ---
 
-## Module 5: Review
+## Module 5: Review — SCHEMA DONE (V007)
 
-**Schema:** `review_schema` (PostgreSQL) + `community_db` (MongoDB) | **11 total**
+**Schema:** `review_schema` (PostgreSQL) + `community_db` (MongoDB) | **11 total** (6 PG tables migrated in V007; 5 Mongo collections are a separate datastore, not Flyway)
 
 ### PostgreSQL Tables
 
@@ -423,6 +467,10 @@ Stylist snapshot has both `salon_rating` (per-salon, FROZEN on departure) and `o
 
 #### `salon_response`
 Owner's public reply to a review. Editable within 24h. Hidden by BMP moderation if abusive.
+
+**Session 4 note:** `bmp-review/package-info.java` had drifted — documented a simpler 3-table
+version (review, review_photo, salon_response). The 6-table design in this section (already
+correct in this file) is what's now actually implemented in V007 and the JPA entities.
 
 ### MongoDB Collections
 
@@ -467,7 +515,7 @@ Comments × 3 because they signal intent. Shares × 5 because they reach 50-200 
 
 ---
 
-## Module 6: Rewards
+## Module 6: Rewards — SCHEMA DONE (V007b)
 
 **Schema:** `rewards_schema` | **Tables:** 10
 
@@ -526,6 +574,72 @@ Schema-ready for Phase 2 — NOT active in Phase 1. Points system: ₹1 spent = 
 - Referral reward only on first completed visit (not signup — prevents fake account abuse)
 - Loyalty schema exists but feature flag = off for Phase 1
 
+**Session 4 note:** `bmp-rewards/package-info.java` had drifted the same way payment's did —
+documented a simpler 5-table version. The 10-table design above (already correct in this file)
+is what's now actually implemented in V007b and the JPA entities; the code comment corrected.
+
+---
+
+## Module 7: Admin — SCHEMA DONE (V008), added Session 4
+
+**Schema:** `admin_schema` | **Tables:** 4
+
+### Tables
+
+#### `bmp_staff`
+Internal employee login — support agents, ops, finance, super admin. **COMPLETELY SEPARATE
+from `user_schema.users`** — zero shared auth infrastructure (Schema Rule). `phone` UNIQUE,
+`password_hash` (bcrypt — staff log in with password, NOT OTP, a different channel from
+customers). `role` ENUM: super_admin/ops_admin/support_agent/finance_admin. `status` ENUM:
+active/suspended/deactivated.
+
+#### `support_ticket`
+One row per support case. `ticket_ref` human-readable (TCK-YYYY-NNNNN, same pattern as
+`booking.booking_ref`). `raised_by_type`/`raised_by_id` polymorphic (logical ref, not DB FK) to
+either a customer or staff. `category`, `status`, `priority` ENUMs. `assigned_staff_id` logical
+ref to `bmp_staff`.
+
+#### `support_message`
+Threaded replies within a ticket. Real FK to `support_ticket.id` (same schema). `sender_type`
+ENUM: customer/bmp_staff.
+
+#### `audit_log`
+**APPEND-ONLY** — `DELETE`/`UPDATE` REVOKED at DB level in the same migration, same pattern as
+`booking_events`. Records every sensitive admin/system action: `actor_type`, `actor_id`,
+`action` (e.g. `refund.approved`, `salon.suspended`, `staff.status_changed`), `entity_type`,
+`entity_id`, `metadata` JSONB (before/after values).
+
+### Key Decisions
+- `bmp_staff` has zero shared auth with `users` — no FK either direction, separate password
+  hashing, separate login endpoint (Phase 3)
+- `audit_log` DELETE/UPDATE revoked at the database level, not just application level
+- `support_message.ticket_id` is a real FK (same schema); `raised_by_id`/`assigned_staff_id`
+  are logical refs only (cross-schema, per architecture rule)
+
+---
+
+## Module 8: Notification — SCHEMA DONE (V009), added Session 4
+
+**Schema:** `notification_schema` | **Tables:** 1 (stateless, per the original design intent)
+
+### Tables
+
+#### `notification_log`
+The one table this module owns. One row per send attempt across all channels. `channel` ENUM:
+whatsapp/sms/push/email. `template_code` (e.g. `OTP_LOGIN`, `BOOKING_CONFIRMED`,
+`REVIEW_PROMPT`). `payload` JSONB — rendered template variables. `status` ENUM:
+queued/sent/delivered/failed. `provider_message_id` — MSG91/FCM's own message id, for tracing.
+`outbox_entry_id` — traces back to the `common_schema.outbox` row that triggered the send.
+
+### Key Decisions
+- "Stateless" means the module holds no business state of its own — it only logs what it sent,
+  all real state (bookings, users) lives in the owning module
+- `notification_schema` was not in V001's original trailing migration-plan comment (which
+  stopped at V008 admin_schema) — V009 is the proposed next free slot, confirm with team
+- `OutboxProcessor` (already implemented in `bmp-notification/internal/OutboxProcessor.java`
+  per the original skeleton) is the consumer that will actually drive traffic into this table —
+  building the real WhatsApp/push senders is a Phase 3 task, not done yet
+
 ---
 
 ## Locked Product Decisions
@@ -559,15 +673,42 @@ These were decided during the design session and must NOT be re-debated:
 
 ## What to Build Next
 
-**Priority order:**
+**Status as of Session 4:** all 8 module schemas exist as Flyway migrations (V002-V009) with
+matching JPA entities (57 total). The work sequencing was deliberately changed this session —
+CRUD/basic operations per service come BEFORE inter-service communication, auth, and third-party
+integrations (previously they were interleaved). See the team tracker spreadsheet for the full
+31-item backlog, phased and ordered easiest-to-hardest with per-task specs (endpoints, JSON
+shapes, table columns). Summary of the phase order:
 
-1. **Admin module schema** — bmp_staff, support_ticket, support_message, audit_log (REVOKE DELETE at DB level)
-2. **Notification module schema** — stateless processor, notification_log
-3. **Availability model implementation** — HIGHEST TECHNICAL PRIORITY. Design against 3 real pilot salons before coding. The slot generation algorithm must intersect salon_hours + stylist_availability rules + existing bookings + slot_locks.
-4. **LLD (API contracts)** — scope to monolith, availability model as first section
-5. **Confirm Razorpay Route structure** with Razorpay directly before payment code
-6. **Phase 0 kill criteria** — all 3 founders must agree before any interviews
-7. **Push this CONTEXT.md to GitHub** as the team shared brain
+**Phase 1 — CRUD & Basic Ops (in progress):**
+1. ~~Admin module schema~~ ✅ DONE (V008)
+2. ~~Notification module schema~~ ✅ DONE (V009)
+3. Basic CRUD REST endpoints per service (user, salon, stylist, booking, payment, review,
+   rewards, admin, notification) — controllers/services on top of the entities that now exist.
+   No third-party calls, no cross-module events, no auth yet.
+
+**Phase 2 — Availability Logic:**
+4. ~~Availability model paper design (Q1-Q6)~~ ✅ DRAFTED Session 4 — ⚠️ Darshan-only,
+   Shivam/Achyuth must review and ratify or amend
+5. ~~Availability model schema~~ ✅ DONE (V004: stylist_availability, walk_in_block)
+6. Availability model ALGORITHM — `AvailabilityApi.freeSlots()`, `freeSlotsAnyStylist()`,
+   `blockWalkIn()` — still NOT implemented, this is the next real engineering priority
+7. **LLD (API contracts)** — scope to monolith, availability model as first section
+
+**Phase 3 — Inter-Service, Auth & Integrations (deliberately deferred):**
+8. OTP authentication flow (bmp-user) — request/verify OTP, refresh tokens
+9. JWT authorization + role-based access control across every module's endpoints
+10. `OutboxProcessor` consumer wiring for real cross-module events (publisher + processor
+    skeleton already exist in code)
+11. Real Razorpay Route integration (payment_order currently has no live Razorpay call)
+12. Real MSG91 WhatsApp + FCM push integration (notification_log currently only records intent)
+13. **Confirm Razorpay Route structure** with Razorpay directly before payment code goes live
+
+**Ongoing / parallel (not gated on any phase):**
+14. **Phase 0 kill criteria** — all 3 founders must agree before any interviews
+15. **Push this CONTEXT.md to GitHub** as the team shared brain — still pending; the code in
+    this session lives in a zip handed to Darshan, not yet pushed (git push auth needs to be
+    fixed first — password auth is disabled on GitHub, a PAT or SSH key is needed)
 
 ---
 
@@ -620,6 +761,12 @@ The Maven multi-module skeleton is in the root of this repository. Key files:
 - `bmp-notification/src/main/java/com/bmp/notification/internal/OutboxProcessor.java` — relay worker
 - `bmp-app/src/test/java/com/bmp/ModularityTests.java` — ArchUnit boundary tests
 - `bmp-app/src/main/resources/db/migration/V001__baseline_schemas_and_outbox.sql` — Flyway baseline
+- `bmp-app/src/main/resources/db/migration/V002__user_schema.sql` through `V009__notification_schema.sql`
+  — Session 4: every module's schema (V004 availability was blocked, then unblocked this session
+  after the paper design; see Module sections above and Session 4 log below)
+- `bmp-*/src/main/java/com/bmp/*/internal/entity/*.java` — Session 4: 57 JPA entities, one per
+  table, matching the migrations above. Plain JPA (no Lombok), `Money`/`UuidV7` from bmp-common,
+  matching the conventions already established by `OutboxEntry.java`.
 
 ---
 
@@ -834,6 +981,81 @@ This is the file you are reading now.
 
 ---
 
+### Session 4 — July 15, 2026 (Cowork/Claude session — CRUD-first backlog + full schema build)
+
+**Context:** this session ran in a different AI tool (Cowork, not claude.ai) with Darshan only
+— Shivam and Achyuth were not present. Treat anything marked "Darshan-only" below as a strong
+draft, not a locked team decision, until the other two founders review it.
+
+#### Turn 1 — Scrum master / BA role assigned
+**Darshan:** asked the assistant to act as scrum master + BA for the 3-person team (Darshan,
+Shivam, Achyuth), tracking and assigning tasks like Jira.
+**Decision:** no Jira/Linear/ClickUp connected — built a spreadsheet-based tracker instead
+(BMP_Team_Tracker.xlsx: Dashboard, Tasks, Specs, Instructions sheets).
+
+#### Turn 2 — Initial backlog decided unilaterally, then corrected
+**Darshan:** "You decide everything."
+**What happened:** pulled this CONTEXT.md, AI_AGENT_PRIMER.md, and AvailabilityApi.java from
+the actual GitHub repo and built a 21-task backlog off the real "What to Build Next" priority
+order (Admin → Notification → Availability → LLD → Razorpay → kill criteria).
+
+#### Turn 3 — Tasks reordered easy-to-hard, specs made exhaustive
+**Darshan:** tasks felt too hard to start with, and descriptions needed full A-Z detail —
+exact endpoints, JSON shapes, data types, tables, not summaries.
+**Decision:** added a Difficulty column, resorted backlog easiest-first, added a dedicated
+Specs sheet with a full technical spec per task.
+
+#### Turn 4 — Major pivot: CRUD-first, integrations deferred
+**Darshan:** "let we start by CRUD and basic operations in service wise. Next we can go for
+inter service communication authentication authorization etc."
+**Decision:** backlog restructured into 3 phases — Phase 1 CRUD & Basic Ops (per-service,
+no third-party calls, no auth), Phase 2 Availability Logic (still no integrations, gated on
+paper design), Phase 3 Inter-Service/Auth/Integrations (OTP, JWT/RBAC, outbox wiring,
+Razorpay/MSG91/FCM). 9 new CRUD tickets added (one per service), 2 new Phase 3 tickets
+(OTP auth, authorization middleware). Real migration numbers confirmed by reading
+V001__baseline_schemas_and_outbox.sql's own trailing comment (V002 user → V003 salon static →
+V004 availability BLOCKED → V005 booking → V006 payment → V007 review+rewards → V008 admin).
+
+#### Turn 5 — Actual schema + entities built (not just tickets)
+**Darshan:** "create schema which and all not present then create entities in project and give
+me full project structure."
+**What happened:** cloned the real repo (read-only, public), inspected existing conventions
+(plain JPA entities, `Money`/`UuidV7`/`OutboxEntry` patterns, package-info.java Modulith
+annotations), then generated V002/V003/V005/V006/V007/V007b/V008/V009 as real Flyway
+migrations (V004 explicitly skipped — still blocked) plus 55 matching JPA entities via a
+data-driven code generator (to keep 55 files consistent rather than hand-typing each one).
+**Discrepancy found and flagged:** `bmp-payment`, `bmp-review`, `bmp-rewards` package-info.java
+files had gone stale — they documented an earlier, simpler table set from the initial skeleton
+session, while this file's later Session 3 design is more detailed and explicitly locked.
+Implemented the fuller CONTEXT.md version and corrected the stale doc comments to match
+(flagged inline in each package-info.java and in the corresponding Module section above).
+**Delivered as:** a zip handed to Darshan (not pushed to GitHub — no push credentials available
+to the assistant, and it should not handle tokens/passwords even if given one; `git push`
+had already failed earlier in this session with a password-auth error that needs a PAT or SSH
+key fix on Darshan's machine before anyone can push).
+
+#### Turn 6 — Availability model unblocked (Darshan-only, flagged for review)
+**Darshan:** asked to go ahead and build the availability schema now rather than wait for the
+full pilot-salon data collection + 3-founder sign-off process this file originally called for.
+**Assistant pushed back once** on the risk (this is the one piece the repo's own docs single
+out as needing all-founder sign-off, tied directly to why prior competitors — Fabogo, Vyomo,
+Bulbul, Zoylee — failed on the calendar-truth problem), then offered 3 paths. Darshan chose to
+fast-track: draft concrete answers now rather than wait or guess blindly.
+**Q1-Q6 discussed and answered** — see the Availability Model section under Module 2: Salon
+above for the full answers. Q1 (slot granularity) was refined during discussion: original draft
+was a flat 15-minute grid; Darshan pointed out different salons have very different service
+durations; refined to a per-salon configurable `slot_granularity_minutes` column (default 15)
+rather than a hardcoded platform-wide value, after walking through the rounding-waste tradeoff
+for short vs. long services.
+**Result:** V004__availability_model.sql written (`stylist_availability`, `walk_in_block`),
+`slot_granularity_minutes` added to `salon_policy` (V003), matching entities generated.
+**FLAG for Shivam and Achyuth:** this design was NOT reviewed by you two. Please read the
+Q1-Q6 answers under Module 2: Salon above and either ratify or amend before treating the V004
+schema as final — nothing has been built against it yet (the actual `freeSlots()` /
+`blockWalkIn()` algorithm is still unimplemented), so changing the schema now is still cheap.
+
+---
+
 ## How to Add to This File
 
 When you complete a session, add a new turn entry under the current session in the Session Log. Format:
@@ -855,4 +1077,9 @@ If you are making a schema change, also update the relevant module section above
 
 ---
 
-*Last updated: July 13, 2026 — Session 3 complete. All 6 core modules schema-locked. Starting Admin module next.*
+*Last updated: July 15, 2026 — Session 4 complete. All 8 module schemas done (V002-V009,
+57 entities). Availability model (V004) unblocked via a Darshan-only paper design — NEEDS
+Shivam/Achyuth review before being treated as final. Backlog restructured CRUD-first; see the
+team tracker spreadsheet for the phased task list. Next: Phase 1 CRUD endpoints, then the
+availability algorithm, then Phase 3 auth/integrations. CONTEXT.md still not pushed to GitHub —
+push auth needs fixing first.*
