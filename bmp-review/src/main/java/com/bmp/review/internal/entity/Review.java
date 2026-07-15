@@ -73,4 +73,29 @@ public class Review {
     public String getCommunityPostId() { return communityPostId; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    // Mutators used by service layer
+    public void setSalonRating(Integer salonRating) {
+        this.salonRating = salonRating != null ? salonRating : 0;
+    }
+
+    public void setStylistRating(Integer stylistRating) {
+        this.stylistRating = stylistRating != null ? stylistRating : 0;
+    }
+
+    public void setReviewText(String reviewText) {
+        this.reviewText = reviewText;
+    }
+
+    public void setNeedsRemoderation(boolean needsRemoderation) {
+        this.needsRemoderation = needsRemoderation;
+    }
+
+    /**
+     * Update the updatedAt timestamp from services that mutate the entity.
+     * Services are responsible for calling touch() inside @Transactional methods.
+     */
+    public void touch() {
+        this.updatedAt = Instant.now();
+    }
 }
