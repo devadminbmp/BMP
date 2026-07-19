@@ -49,4 +49,17 @@ public class SalonResponse {
     public String getResponseText() { return responseText; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    // Mutators used by service layer
+    public void setResponseText(String responseText) {
+        this.responseText = responseText;
+    }
+
+    /**
+     * Update the updatedAt timestamp from services that mutate the entity.
+     * Services are responsible for calling touch() inside @Transactional methods.
+     */
+    public void touch() {
+        this.updatedAt = Instant.now();
+    }
 }

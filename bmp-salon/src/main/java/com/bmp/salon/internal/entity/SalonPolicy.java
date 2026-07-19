@@ -61,4 +61,14 @@ public class SalonPolicy {
     public int getSlotGranularityMinutes() { return slotGranularityMinutes; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    // Setters for mutable fields
+    public void setTemplate(String template) { this.template = template; }
+    public void setFreeCancelHours(int freeCancelHours) { this.freeCancelHours = freeCancelHours; }
+    public void setLateGraceMinutes(int lateGraceMinutes) { this.lateGraceMinutes = lateGraceMinutes; }
+    public void setRequirePrepayment(boolean requirePrepayment) { this.requirePrepayment = requirePrepayment; }
+    public void setSlotGranularityMinutes(int slotGranularityMinutes) { this.slotGranularityMinutes = slotGranularityMinutes; }
+
+    // Update timestamp on mutation
+    public void touch() { this.updatedAt = Instant.now(); }
 }

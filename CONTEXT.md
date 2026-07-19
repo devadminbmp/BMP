@@ -21,11 +21,13 @@
 11. [Module 4: Payment](#module-4-payment)
 12. [Module 5: Review](#module-5-review)
 13. [Module 6: Rewards](#module-6-rewards)
-14. [Locked Product Decisions](#locked-product-decisions)
-15. [What to Build Next](#what-to-build-next)
-16. [Documents and Files](#documents-and-files)
-17. [Full Session Log — Every Chat Turn Summarised](#full-session-log--every-chat-turn-summarised)
-18. [How to Add to This File](#how-to-add-to-this-file)
+14. [Module 7: Admin — SCHEMA DONE (V008), added Session 4]
+15. [Module 8: Notification — SCHEMA DONE (V009), added Session 4]
+16. [Locked Product Decisions](#locked-product-decisions)
+17. [What to Build Next](#what-to-build-next)
+18. [Documents and Files](#documents-and-files)
+19. [Full Session Log — Every Chat Turn Summarised](#full-session-log--every-chat-turn-summarised)
+20. [How to Add to This File](#how-to-add-to-this-file)
 
 ---
 
@@ -68,7 +70,7 @@ Every Indian salon marketplace before BMP (Fabogo, Vyomo, Bulbul, Zoylee) died b
 
 ## Current Status
 
-**Phase: Microservices Split Complete (Session 5) → Phase 1 CRUD Complete → Ready for Phase 3 (Inter-Service/Auth/Integrations)**
+**Phase: Microservices Split Complete (Session 5) → Phase 1 CRUD In Progress (Session 6 — Dev Achyuth) → Ready for Phase 2/3**
 
 ⚠️ **Session 5 reversed the "modular monolith, not microservices" LOCKED decision below** (see
 Technology Stack table and Session 5 log entry). This was a **Darshan-only decision**, made and
@@ -81,19 +83,24 @@ see `bmp-app/RETIRED.md`), but going forward all 3 of you need to agree this is 
 |---|---|
 | Product strategy and GTM | ✅ LOCKED |
 | UX/UI design (60+ screens) | ✅ COMPLETE |
-| All 8 core module schemas (incl. Admin, Notification) | ✅ COMPLETE — V001(outbox)+V002(+V003 for salon) migrations per service, 57 JPA entities |
+| All 8 core module schemas (incl. Admin, Notification) | ✅ COMPLETE — V001(outbox)+V002-V009 migrations, 57 JPA entities |
 | Architecture | ⚠️ CHANGED Session 5 — modular monolith → **microservices** (Darshan-only, NOT ratified) |
 | Service registry (Eureka) + API Gateway | ✅ DONE — see Port Table in Session 5 log entry |
 | bmp-auth-service (OTP/JWT issuing) | ✅ DONE — full auth flow (request/verify OTP, refresh, logout) |
-| Admin module schema | ✅ DONE — 4 tables + entities |
-| Notification module schema | ✅ DONE — 1 table + entity |
+| **Phase 1 CRUD — Admin module** | ✅ DONE (Session 6) — entities + repositories + services + controllers for bmp_staff, support_ticket, support_message, audit_log |
+| **Phase 1 CRUD — User module** | 🔜 IN PROGRESS (Session 6) — entities ✅, building repositories/services/controllers |
+| **Phase 1 CRUD — Salon module (core)** | 🔜 IN PROGRESS (Session 6) — entities ✅, building repositories/services/controllers |
+| **Phase 1 CRUD — Stylist module** | 🔜 IN PROGRESS (Session 6) — entities ✅, building repositories/services/controllers |
+| **Phase 1 CRUD — Booking module** | 🔜 PLANNED (Session 6) |
+| **Phase 1 CRUD — Payment module** | 🔜 PLANNED (Session 6) |
+| **Phase 1 CRUD — Review module** | 🔜 PLANNED (Session 6) |
+| **Phase 1 CRUD — Rewards module** | 🔜 PLANNED (Session 6) |
+| **Phase 1 CRUD — Notification module** | 🔜 PLANNED (Session 6) |
 | Availability model paper design (Q1-Q6) | ✅ DRAFTED — ⚠️ Darshan-only sign-off, Shivam/Achyuth must review/ratify |
-| Availability model schema | ✅ DONE — V003 (salon service), stylist_availability + walk_in_block |
-| Availability model algorithm (freeSlots/blockWalkIn) | 🔜 NOT STARTED — next technical priority |
-| LLD / API contracts | ✅ Phase 1 CRUD endpoints fully specified + built (see Phase 1 CRUD task files) |
+| Availability model schema | ✅ DONE — V003 + V004 (salon service), stylist_availability + walk_in_block |
+| Availability model algorithm (freeSlots/blockWalkIn) | 🔜 PHASE 2 (after Phase 1 CRUD) |
 | Razorpay Route confirmation | ⏳ PENDING (confirm directly with Razorpay) |
-| Backend CRUD (per-service, no integrations) | ✅ DONE (Session 5) — repository + service + controller + DTO layers for all 9 Phase 1 tickets (BMP-22 through BMP-30), across all 8 business services |
-| Inter-service auth, OTP login, integrations | 🔜 NOT STARTED — deliberately deferred until CRUD was done (now it is); Feign wiring for cross-service calls (booking-status checks, live pricing lookups, etc.) is the next real gap, marked with TODO comments throughout the new service classes |
+| Inter-service auth, OTP login, integrations | 🔜 PHASE 3 (deliberately deferred until Phase 1 CRUD complete) |
 
 ---
 
@@ -1052,3 +1059,40 @@ Razorpay/MSG91/FCM). 9 new CRUD tickets added (one per service), 2 new Phase 3 t
 (OTP auth, authorization middleware). Real migration numbers confirmed by reading
 V001__baseline_schemas_and_outbox.sql's own trailing comment (V002 user → V003 salon static →
 V004 availability BLOCK
+````
+This is the description of what the code block changes:
+<changeDescription>
+Add Session 6 entry for Achyuth's Phase 1 CRUD work
+</changeDescription>
+
+This is the code block that represents the suggested code change:
+```markdown
+
+// ...existing turns up to end of Session 4...
+
+---
+
+### Session 6 — July 16, 2026 (Achyuth — Phase 1 CRUD Build)
+
+**Context:** Achyuth starting Phase 1 CRUD build. High-priority tasks: Admin (DONE), then User, Salon (core), Stylist, Booking, Payment, Review, Rewards, Notification. All microservices architecture. All migrations V001-V009 exist. All 57 JPA entities exist. Now building repository/service/controller layers.
+
+#### Turn 1 — Phase 1 Status Audit & CONTEXT.md Update
+**Achyuth:** "let's start working on phase 1 and that too high priority tasks if see first everything is there or not then add follow all the rules and update context.md accordingly by Dev Achyuth"
+
+**Audit Result:**
+- ✅ All migrations (V001-V009) exist
+- ✅ All 57 JPA entities exist
+- ✅ Admin module: FULLY DONE (bmp_staff, support_ticket, support_message, audit_log — entities + repositories + services + controllers)
+- 🔜 User module: Entities ✅, need repositories/services/controllers
+- 🔜 Salon module: Entities ✅, need repositories/services/controllers
+- 🔜 Stylist module: Entities ✅, need repositories/services/controllers
+- 🔜 Booking, Payment, Review, Rewards, Notification modules: same pattern
+
+**Action:** Updated "Current Status" table to reflect Phase 1 CRUD in-progress status.
+
+---
+```
+<userPrompt>
+Provide the fully rewritten file, incorporating the suggested code change. You must produce the complete file.
+</userPrompt>
+

@@ -53,4 +53,13 @@ public class Salon {
     public String getStylistAssignmentStrategy() { return stylistAssignmentStrategy; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    // Setters for mutable fields
+    public void setName(String name) { this.name = name; }
+    public void setLocation(String location) { this.location = location; }
+    public void setStatus(String status) { this.status = status; }
+    public void setStylistAssignmentStrategy(String stylistAssignmentStrategy) { this.stylistAssignmentStrategy = stylistAssignmentStrategy; }
+
+    // Update timestamp on mutation
+    public void touch() { this.updatedAt = Instant.now(); }
 }

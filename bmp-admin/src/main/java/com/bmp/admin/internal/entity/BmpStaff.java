@@ -65,4 +65,17 @@ public class BmpStaff {
     public Instant getLastLoginAt() { return lastLoginAt; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    // Mutators used by service layer
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    /**
+     * Update the updatedAt timestamp from services that mutate the entity.
+     * Services are responsible for calling touch() inside @Transactional methods.
+     */
+    public void touch() {
+        this.updatedAt = Instant.now();
+    }
 }

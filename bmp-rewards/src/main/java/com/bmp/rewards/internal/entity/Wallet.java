@@ -48,4 +48,17 @@ public class Wallet {
     public Money getBalancePaise() { return balancePaise; }
     public boolean isFrozen() { return isFrozen; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    // Mutators used by service layer
+    public void setBalancePaise(Money balancePaise) {
+        this.balancePaise = balancePaise;
+    }
+
+    /**
+     * Update the updatedAt timestamp from services that mutate the entity.
+     * Services are responsible for calling touch() inside @Transactional methods.
+     */
+    public void touch() {
+        this.updatedAt = Instant.now();
+    }
 }

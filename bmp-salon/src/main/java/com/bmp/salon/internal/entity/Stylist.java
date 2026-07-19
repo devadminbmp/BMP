@@ -2,7 +2,6 @@ package com.bmp.salon.internal.entity;
 
 import com.bmp.common.ids.UuidV7;
 import jakarta.persistence.*;
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -14,6 +13,8 @@ import java.util.UUID;
  * Getters only where a field is documented FROZEN/append-only in CONTEXT.md;
  * plain getters otherwise — add bespoke mutation methods per table as real
  * invariants surface (fast-moving pre-PMF team, not a final API).
+ * 
+ * Note: overall_rating stored as integer (hundredths): 4.71 -> 471. No BigDecimal per schema rule.
  */
 @Entity
 @Table(name = "stylist", schema = "salon_schema")
@@ -27,7 +28,7 @@ public class Stylist {
     @Column(name = "name", nullable = false, length = 120)
     private String name;
     @Column(name = "overall_rating")
-    private BigDecimal overallRating;
+    private Integer overallRating; // stored as hundredths (471 = 4.71)
     @Column(name = "total_reviews", nullable = false)
     private int totalReviews;
     @Column(name = "is_top_stylist", nullable = false)
@@ -37,11 +38,11 @@ public class Stylist {
 
     protected Stylist() {} // JPA
 
-    public Stylist(UUID userId, String name, BigDecimal overallRating, int totalReviews, boolean isTopStylist) {
+    public Stylist(UUID userId, String name, Integer overallRatingHundredths, int totalReviews, boolean isTopStylist) {
         this.id = UuidV7.generate();
         this.userId = userId;
         this.name = name;
-        this.overallRating = overallRating;
+        this.overallRating = overallRatingHundredths;
         this.totalReviews = totalReviews;
         this.isTopStylist = isTopStylist;
         this.createdAt = Instant.now();
@@ -50,8 +51,10 @@ public class Stylist {
     public UUID getId() { return id; }
     public UUID getUserId() { return userId; }
     public String getName() { return name; }
-    public BigDecimal getOverallRating() { return overallRating; }
+    public Integer getOverallRating() { return overallRating; } // in hundredths
     public int getTotalReviews() { return totalReviews; }
     public boolean isTopStylist() { return isTopStylist; }
     public Instant getCreatedAt() { return createdAt; }
 }
+
+
