@@ -41,7 +41,7 @@ public class NotificationLogService {
      */
     @Transactional
     public NotificationLog create(NotificationLogCreateRequest request) {
-        NotificationLog log = NotificationLog.builder()
+        NotificationLog logEntry = NotificationLog.builder()
                 .id(UuidV7.generate())
                 .channel(request.getChannel())
                 .templateCode(request.getTemplateCode())
@@ -51,10 +51,10 @@ public class NotificationLogService {
                 .outboxEntryId(request.getOutboxEntryId())
                 .build();
 
-        log = repository.save(log);
-        log("NotificationLog created: id={}, channel={}, template={}, recipient={}",
-                log.getId(), log.getChannel(), log.getTemplateCode(), log.getRecipientId());
-        return log;
+        logEntry = repository.save(logEntry);
+        log.info("NotificationLog created: id={}, channel={}, template={}, recipient={}",
+                logEntry.getId(), logEntry.getChannel(), logEntry.getTemplateCode(), logEntry.getRecipientId());
+        return logEntry;
     }
 
     /**
@@ -105,16 +105,16 @@ public class NotificationLogService {
      */
     @Transactional
     public NotificationLog markSent(UUID id, String providerMessageId) {
-        NotificationLog log = repository.findById(id)
+        NotificationLog logEntry = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("NotificationLog not found: " + id));
 
-        log.setStatus(NotificationLog.NotificationStatus.SENT);
-        log.setProviderMessageId(providerMessageId);
-        log.setSentAt(Instant.now());
-        log = repository.save(log);
+        logEntry.setStatus(NotificationLog.NotificationStatus.SENT);
+        logEntry.setProviderMessageId(providerMessageId);
+        logEntry.setSentAt(Instant.now());
+        logEntry = repository.save(logEntry);
         
-        log("NotificationLog marked SENT: id={}, provider_id={}", id, providerMessageId);
-        return log;
+        log.info("NotificationLog marked SENT: id={}, provider_id={}", id, providerMessageId);
+        return logEntry;
     }
 
     /**
@@ -122,15 +122,15 @@ public class NotificationLogService {
      */
     @Transactional
     public NotificationLog markDelivered(UUID id) {
-        NotificationLog log = repository.findById(id)
+        NotificationLog logEntry = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("NotificationLog not found: " + id));
 
-        log.setStatus(NotificationLog.NotificationStatus.DELIVERED);
-        log.setDeliveredAt(Instant.now());
-        log = repository.save(log);
+        logEntry.setStatus(NotificationLog.NotificationStatus.DELIVERED);
+        logEntry.setDeliveredAt(Instant.now());
+        logEntry = repository.save(logEntry);
         
-        log("NotificationLog marked DELIVERED: id={}", id);
-        return log;
+        log.info("NotificationLog marked DELIVERED: id={}", id);
+        return logEntry;
     }
 
     /**
@@ -138,15 +138,15 @@ public class NotificationLogService {
      */
     @Transactional
     public NotificationLog markFailed(UUID id, String errorMessage) {
-        NotificationLog log = repository.findById(id)
+        NotificationLog logEntry = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("NotificationLog not found: " + id));
 
-        log.setStatus(NotificationLog.NotificationStatus.FAILED);
-        log.setErrorMessage(errorMessage);
-        log = repository.save(log);
+        logEntry.setStatus(NotificationLog.NotificationStatus.FAILED);
+        logEntry.setErrorMessage(errorMessage);
+        logEntry = repository.save(logEntry);
         
-        log("NotificationLog marked FAILED: id={}, error={}", id, errorMessage);
-        return log;
+        log.warn("NotificationLog marked FAILED: id={}, error={}", id, errorMessage);
+        return logEntry;
     }
 
     /**
@@ -169,10 +169,6 @@ public class NotificationLogService {
                 .deliveredCount(repository.countByStatus(NotificationLog.NotificationStatus.DELIVERED))
                 .failedCount(repository.countByStatus(NotificationLog.NotificationStatus.FAILED))
                 .build();
-    }
-
-    private void log(String message, Object... args) {
-        logger.info(message, args);
     }
 
     // DTO helper methods for consistency
