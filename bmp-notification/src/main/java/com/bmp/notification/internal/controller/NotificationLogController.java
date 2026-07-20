@@ -35,7 +35,7 @@ public class NotificationLogController {
     public ResponseEntity<NotificationLogResponse> getNotification(@PathVariable UUID id) {
         return service.getById(id)
                 .map(log -> {
-                    log.getLogger().info("Retrieved notification: {}", id);
+                    NotificationLogController.log.info("Retrieved notification: {}", id);
                     return ResponseEntity.ok(mapToResponse(log));
                 })
                 .orElseGet(() -> ResponseEntity.notFound().build());
