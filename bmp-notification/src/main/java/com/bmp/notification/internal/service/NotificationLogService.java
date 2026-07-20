@@ -1,70 +1,216 @@
 package com.bmp.notification.internal.service;
 
-import com.bmp.notification.internal.dto.NotificationDtos.LogRequest;
-import com.bmp.notification.internal.dto.NotificationDtos.LogResponse;
+import com.bmp.common.ids.UuidV7;
 import com.bmp.notification.internal.entity.NotificationLog;
 import com.bmp.notification.internal.repository.NotificationLogRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.http.HttpStatus;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
- * BMP-30: notification_log CRUD. Intentionally minimal — this is a log/queue table only.
- * NOTHING here actually sends a WhatsApp/SMS/push message; status stays "queued" forever
- * until Phase 3 (BMP-7 OutboxProcessor / BMP-8 / BMP-9) drains it. That is expected.
+ * Service for NotificationLog business operations.
+ * Per CONTEXT.md: "OutboxProcessor (scheduled, SKIP LOCKED) reads outbox → Publishes domain event
+ * to consuming module → Consuming module processes and marks outbox entry done"
+ * 
+ * This service handles:
+ * - Creating notification log entries (from outbox events)
+ * - Tracking send attempts and delivery status
+ * - Retry logic for failed sends
+ * - Analytics queries
+ * 
+ * Phase 1: CRUD only — Phase 3 will add real WhatsApp/FCM/SMS providers
  */
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class NotificationLogService {
 
-    private final NotificationLogRepository repo;
-    private final ObjectMapper mapper = new ObjectMapper();
+    private final NotificationLogRepository repository;
 
-    public NotificationLogService(NotificationLogRepository repo) {
-        this.repo = repo;
+    /**
+     * Create a new notification log entry (QUEUED status).
+     * Called by OutboxProcessor when an outbox event triggers a send.
+     */
+    @Transactional
+    public NotificationLog create(NotificationLogCreateRequest request) {
+        NotificationLog log = NotificationLog.builder()
+                .id(UuidV7.generate())
+                .channel(request.getChannel())
+                .templateCode(request.getTemplateCode())
+                .recipientId(request.getRecipientId())
+                .payload(request.getPayload())
+                .status(NotificationLog.NotificationStatus.QUEUED)
+                .outboxEntryId(request.getOutboxEntryId())
+                .build();
+
+        log = repository.save(log);
+        log("NotificationLog created: id={}, channel={}, template={}, recipient={}",
+                log.getId(), log.getChannel(), log.getTemplateCode(), log.getRecipientId());
+        return log;
     }
 
-    public LogResponse log(LogRequest req) {
-        String payloadJson;
-        try {
-            payloadJson = mapper.writeValueAsString(req.payload() == null ? Map.of() : req.payload());
-        } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "INVALID_PAYLOAD_JSON");
+    /**
+     * Get notification log by ID.
+     */
+    @Transactional(readOnly = true)
+    public Optional<NotificationLog> getById(UUID id) {
+        return repository.findById(id);
+    }
+
+    /**
+     * Get notifications for a recipient (paginated).
+     */
+    @Transactional(readOnly = true)
+    public Page<NotificationLog> getByRecipient(UUID recipientId, Pageable pageable) {
+        return repository.findByRecipientId(recipientId, pageable);
+    }
+
+    /**
+     * Get pending notifications for a recipient.
+     */
+    @Transactional(readOnly = true)
+    public Page<NotificationLog> getPendingNotifications(UUID recipientId, Pageable pageable) {
+        return repository.findPendingNotificationsForRecipient(recipientId, pageable);
+    }
+
+    /**
+     * Get notifications by template code (for analytics).
+     */
+    @Transactional(readOnly = true)
+    public Page<NotificationLog> getByTemplate(String templateCode, Pageable pageable) {
+        return repository.findByTemplateCode(templateCode, pageable);
+    }
+
+    /**
+     * Get notifications by channel and status.
+     */
+    @Transactional(readOnly = true)
+    public Page<NotificationLog> getByChannelAndStatus(
+            NotificationLog.NotificationChannel channel,
+            NotificationLog.NotificationStatus status,
+            Pageable pageable) {
+        return repository.findByChannelAndStatus(channel, status, pageable);
+    }
+
+    /**
+     * Mark notification as sent (provider accepted it).
+     */
+    @Transactional
+    public NotificationLog markSent(UUID id, String providerMessageId) {
+        NotificationLog log = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("NotificationLog not found: " + id));
+
+        log.setStatus(NotificationLog.NotificationStatus.SENT);
+        log.setProviderMessageId(providerMessageId);
+        log.setSentAt(Instant.now());
+        log = repository.save(log);
+        
+        log("NotificationLog marked SENT: id={}, provider_id={}", id, providerMessageId);
+        return log;
+    }
+
+    /**
+     * Mark notification as delivered.
+     */
+    @Transactional
+    public NotificationLog markDelivered(UUID id) {
+        NotificationLog log = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("NotificationLog not found: " + id));
+
+        log.setStatus(NotificationLog.NotificationStatus.DELIVERED);
+        log.setDeliveredAt(Instant.now());
+        log = repository.save(log);
+        
+        log("NotificationLog marked DELIVERED: id={}", id);
+        return log;
+    }
+
+    /**
+     * Mark notification as failed with error message.
+     */
+    @Transactional
+    public NotificationLog markFailed(UUID id, String errorMessage) {
+        NotificationLog log = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("NotificationLog not found: " + id));
+
+        log.setStatus(NotificationLog.NotificationStatus.FAILED);
+        log.setErrorMessage(errorMessage);
+        log = repository.save(log);
+        
+        log("NotificationLog marked FAILED: id={}, error={}", id, errorMessage);
+        return log;
+    }
+
+    /**
+     * Find stalled notifications (queued too long) for retry.
+     */
+    @Transactional(readOnly = true)
+    public List<NotificationLog> findStalledNotifications(int maxAgeMinutes) {
+        Instant threshold = Instant.now().minusSeconds((long) maxAgeMinutes * 60);
+        return repository.findStalledQueuedNotifications(threshold);
+    }
+
+    /**
+     * Get statistics: count by status.
+     */
+    @Transactional(readOnly = true)
+    public NotificationStats getStats() {
+        return NotificationStats.builder()
+                .queuedCount(repository.countByStatus(NotificationLog.NotificationStatus.QUEUED))
+                .sentCount(repository.countByStatus(NotificationLog.NotificationStatus.SENT))
+                .deliveredCount(repository.countByStatus(NotificationLog.NotificationStatus.DELIVERED))
+                .failedCount(repository.countByStatus(NotificationLog.NotificationStatus.FAILED))
+                .build();
+    }
+
+    private void log(String message, Object... args) {
+        logger.info(message, args);
+    }
+
+    // DTO helper methods for consistency
+    public static class NotificationLogCreateRequest {
+        private NotificationLog.NotificationChannel channel;
+        private String templateCode;
+        private UUID recipientId;
+        private String payload;
+        private UUID outboxEntryId;
+
+        public NotificationLogCreateRequest(NotificationLog.NotificationChannel channel,
+                                           String templateCode, UUID recipientId,
+                                           String payload, UUID outboxEntryId) {
+            this.channel = channel;
+            this.templateCode = templateCode;
+            this.recipientId = recipientId;
+            this.payload = payload;
+            this.outboxEntryId = outboxEntryId;
         }
-        // status stays "queued" — no real send integration exists yet (Phase 3: BMP-7/8/9)
-        NotificationLog entity = new NotificationLog(
-                req.recipientUserId(), req.channel(), req.templateCode(), payloadJson,
-                "queued", null, null, null, null);
-        entity = repo.save(entity);
-        return toResponse(entity);
+
+        public NotificationLog.NotificationChannel getChannel() { return channel; }
+        public String getTemplateCode() { return templateCode; }
+        public UUID getRecipientId() { return recipientId; }
+        public String getPayload() { return payload; }
+        public UUID getOutboxEntryId() { return outboxEntryId; }
     }
 
-    public LogResponse get(UUID id) {
-        return repo.findById(id).map(this::toResponse)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "NOTIFICATION_LOG_NOT_FOUND"));
-    }
+    // Statistics DTO
+    @lombok.Data
+    @lombok.Builder
+    public static class NotificationStats {
+        private long queuedCount;
+        private long sentCount;
+        private long deliveredCount;
+        private long failedCount;
 
-    public List<LogResponse> list(UUID recipientUserId, String channel) {
-        List<NotificationLog> all = repo.findAll();
-        return all.stream()
-                .filter(n -> recipientUserId == null || recipientUserId.equals(n.getRecipientUserId()))
-                .filter(n -> channel == null || channel.equals(n.getChannel()))
-                .map(this::toResponse)
-                .toList();
-    }
-
-    private LogResponse toResponse(NotificationLog n) {
-        Map<String, Object> payload;
-        try {
-            payload = mapper.readValue(n.getPayload(), Map.class);
-        } catch (Exception e) {
-            payload = Map.of();
+        public long getTotalCount() {
+            return queuedCount + sentCount + deliveredCount + failedCount;
         }
-        return new LogResponse(n.getId(), n.getRecipientUserId(), n.getChannel(), n.getTemplateCode(),
-                payload, n.getStatus(), n.getProviderMessageId(), n.getErrorReason(), n.getCreatedAt(), n.getSentAt());
     }
 }
