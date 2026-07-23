@@ -324,6 +324,54 @@ and every controller endpoint got `@Tag`/`@Operation` descriptions.
 
 ---
 
+### Session 9 (Darshan/Cowork) — Availability algorithm (Phase 2): freeSlots()/blockWalkIn()
+
+**Darshan asked:** implement the availability algorithm — `AvailabilityApi.freeSlots()` /
+`blockWalkIn()` — the interface that had been an intentional stub since Session 4/5
+("must be designed on paper against 3 real salons before any table is created").
+
+**Delivered — `AvailabilityService` (bmp-salon), first real implementation of `AvailabilityApi`:**
+- Combines four local tables (`stylist_availability`, `walk_in_block`, `salon_hours`,
+  `salon_policy.slot_granularity_minutes`) with one live Feign call to a new endpoint on
+  bmp-booking-service (`GET /api/v1/bookings/internal/busy-windows`, ROLE_SERVICE-locked)
+  that reports a stylist's already-committed bookings (`booking_service_item`, joined to
+  `booking` to exclude CANCELLED) and unexpired checkout holds (`slot_lock`) for a date.
+- Interval math: working windows (weekly template, or an exception row overriding the
+  template for one specific date) minus breaks/leave minus walk-ins minus bmp-booking's
+  busy windows, intersected with salon operating hours, sliced into a grid
+  (`slot_granularity_minutes`) and kept only where a contiguous run of the requested
+  service duration fits.
+- `blockWalkIn` does one overlap check against the same busy-window computation, then a
+  single insert — deliberately skipped re-validating against declared working hours, to
+  stay the "&lt;5-second" front-desk operation the interface's own javadoc demands.
+- New shared constant: `com.bmp.common.time.BmpTimeZone.ZONE` (`Asia/Kolkata`, hardcoded —
+  BMP is Bengaluru-only right now, see Target Market) for converting bmp-booking's
+  Instant timestamps to the LocalTime values bmp-salon's tables use.
+- New `AvailabilityController` (`/api/v1/availability/slots`, `/slots/any`, `/walk-in`) —
+  api-gateway's salon-service route predicate updated to include it.
+
+**Design questions (Q1-Q6) answered this session — again Darshan-only, not ratified by
+Shivam/Achyuth, same flag as every other such decision in this file. Full reasoning for
+each is in `AvailabilityService`'s class javadoc, summarized here:**
+1. Slot granularity: per-salon grid (`slot_granularity_minutes`, default 15) for the
+   *start* time; the required *length* is whatever duration the caller asks for.
+2. Walk-in block speed: one overlap check, no working-hours re-validation.
+3. Breaks — template AND exception rows both apply and stack (exception can also fully
+   replace the day's working windows, not just add a break).
+4. Leave with existing bookings: **NOT handled** — marking leave doesn't touch already-
+   CONFIRMED bookings. Real gap, flagged not silently resolved (belongs to
+   `booking_disruption` / a reschedule-notification flow that doesn't exist yet).
+5. Salon hours vs. stylist hours conflict: salon hours are the outer bound, always.
+6. Multi-service bookings spanning slot boundaries: not this method's problem —
+   `durationMinutes` is the caller's total; splitting across stylists is booking's job.
+
+**Also unverified:** the day-of-week convention used (`date.getDayOfWeek().getValue() % 7`,
+i.e. 0=Sunday..6=Saturday) matches the column comments in the V003 migration but hasn't
+been checked against how `stylist_availability.day_of_week`/`salon_hours.day_of_week` rows
+are actually populated anywhere else in the codebase (no seed/admin UI writes them yet).
+
+---
+
 ## How to Add to This File
 
 When you finish a session:

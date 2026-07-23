@@ -38,7 +38,8 @@ spring:
         - id: salon-service
           uri: lb://bmp-salon-service
           predicates:
-            - Path=/api/v1/salons/**,/api/v1/stylists/**
+            # /api/v1/availability/** added Session 8 (availability algorithm)
+            - Path=/api/v1/salons/**,/api/v1/stylists/**,/api/v1/availability/**
 
         - id: booking-service
           uri: lb://bmp-booking-service

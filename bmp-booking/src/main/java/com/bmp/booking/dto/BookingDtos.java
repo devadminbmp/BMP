@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -47,4 +48,13 @@ public final class BookingDtos {
     public record EventResponse(String eventType, String actorType, UUID actorId, Instant createdAt) {}
 
     public record ErrorResponse(String error, String message) {}
+
+    /**
+     * Session 8 (availability algorithm) — a single busy window on a stylist's day, from
+     * either an active booking_service_item or an unexpired slot_lock. bmp-salon subtracts
+     * these from the stylist's working hours to compute free slots.
+     */
+    public record BusyWindow(LocalTime start, LocalTime end, String source) {}
+
+    public record BusyWindowsResponse(List<BusyWindow> windows) {}
 }
