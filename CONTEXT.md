@@ -372,6 +372,37 @@ are actually populated anywhere else in the codebase (no seed/admin UI writes th
 
 ---
 
+### Session 10 (Darshan/Cowork) — Wired the availability algorithm into booking creation
+
+**Darshan asked:** continue the booking flow — i.e. actually make `BookingService.create()`
+use the availability algorithm from Session 9, instead of trusting whatever stylist/time
+the client sends unchecked.
+
+**Delivered:**
+- New Feign client on bmp-booking (`SalonAvailabilityClient`) calling bmp-salon's
+  `/api/v1/availability/slots` and `/slots/any` — the reverse direction of the Feign call
+  bmp-salon already makes into bmp-booking for busy-windows (see docs/AVAILABILITY_ALGORITHM.md
+  for why this pair of services now calls each other bidirectionally, and why that's fine).
+- `BookingService.create()` now validates every requested item BEFORE writing anything:
+  - If the item names a specific stylist, it re-checks that exact `(stylist, start,
+    duration)` is still in bmp-salon's live free-slot list. A customer who viewed slots a
+    minute ago and lost the race to someone else now gets `409 SLOT_NOT_AVAILABLE`
+    instead of a silent double-booking.
+  - If the item has no stylist (`any_available`), one is auto-assigned from whichever
+    stylist's slot list still has that exact start time free.
+  - All items are validated first, then the booking + its items are written — no partial
+    writes if item 2 of 3 fails validation.
+- No change needed for `cancel()` — the availability algorithm's busy-window query already
+  joins to `booking.status` and excludes CANCELLED, so a cancelled booking frees its slot
+  automatically the moment `cancel()` flips the status. Verified this is correct by
+  construction rather than adding redundant code.
+- `slot_lock` (the ~5-minute checkout hold) is still unwired — there's no separate
+  "reserve, then pay" flow yet (Razorpay integration is Phase 3), so nothing currently
+  needs to write to that table. `bookingBusyWindows()`'s read side already supports it
+  the day that flow exists.
+
+---
+
 ## How to Add to This File
 
 When you finish a session:

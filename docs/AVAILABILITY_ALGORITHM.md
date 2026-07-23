@@ -467,3 +467,17 @@ not a schema decision, so any answer can change without a migration.
   the order `stylist_salon` returns them, not sorted chronologically across stylists. If
   the "any available" UI wants a single time-ordered list, that sort needs to happen at
   the caller (or be added here) — not done yet.
+
+## 8. Who actually calls this today (Session 10)
+
+`bmp-booking`'s `BookingService.create()` is the first real consumer, via a new
+`SalonAvailabilityClient` Feign client. Every item in a `CreateBookingRequest` is
+re-validated against a live `freeSlots`/`freeSlotsAnyStylist` call before the booking is
+written — this closes the loop where a customer could have viewed a slot list a while ago
+and lost a race to someone else, or where a client could simply lie about a slot being
+free. See CONTEXT.md's Session 10 log and `BookingService`'s own javadoc
+(`resolveAndValidateSlot`) for the exact mechanics. Note this creates a bidirectional
+Feign relationship between bmp-booking and bmp-salon: bmp-booking calls bmp-salon here,
+and bmp-salon calls back into bmp-booking (§2's busy-windows call) to answer it. Different
+endpoints, no recursion — but worth knowing when reasoning about this pair of services'
+runtime dependencies or debugging a startup-ordering issue between them.
