@@ -52,4 +52,9 @@ public class SalonCombo {
     public Money getPricePaise() { return pricePaise; }
     public boolean isAllowsAddons() { return allowsAddons; }
     public Instant getCreatedAt() { return createdAt; }
+
+    // Setters for mutable fields (Session 11: combo CRUD)
+    public void setName(String name) { this.name = name; }
+    public void setPricePaise(Money pricePaise) { this.pricePaise = pricePaise; }
+    public void setAllowsAddons(boolean allowsAddons) { this.allowsAddons = allowsAddons; }
 }

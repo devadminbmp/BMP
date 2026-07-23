@@ -403,6 +403,40 @@ the client sends unchecked.
 
 ---
 
+### Session 11 (Darshan/Cowork) — CRUD gap survey + salon_combo/salon_combo_item
+
+**Darshan asked:** what's actually left across the remaining CRUD modules now that the
+teammate branches are merged — every table has an entity+repository, but a survey found
+several with no service/controller touching them at all:
+
+| Module | Untouched tables |
+|---|---|
+| bmp-payment | `webhook_event`, `razorpay_linked_account`, `payout_queue_item`, `payout_batch`, `commission_ledger`, `refund_execution`, `bmp_account`, `saas_subscription`, `saas_invoice` — mostly blocked on real Razorpay integration (Phase 3), not a CRUD gap so much as a not-yet-relevant one |
+| bmp-booking | `booking_disruption`, `booking_modification`, `refund_ticket`, `refund_guard` — this is the mechanism that would close the "leave doesn't reschedule existing bookings" gap flagged in docs/AVAILABILITY_ALGORITHM.md §6 (Q4) |
+| bmp-rewards | `loyalty_account`, `loyalty_transaction`, `checkout_discount`, `win_back_job_log` |
+| bmp-review | `review_edit_history`, `review_prompt`, `salon_rating_snapshot`, `stylist_rating_snapshot` — these look like system-computed/audit tables rather than ones needing direct CRUD, worth confirming rather than assuming |
+| bmp-salon | `salon_combo`, `salon_combo_item` — **built this session, see below** |
+| bmp-user, bmp-admin | fully covered, no gaps |
+
+**Delivered — salon_combo / salon_combo_item CRUD (`SalonComboService` + `SalonComboController`):**
+- `POST /api/v1/salons/{salonId}/combos` — create a combo with its items in one call (a
+  combo with zero items isn't a meaningful bundle, so items are required at creation).
+- `GET .../combos`, `GET .../combos/{comboId}` — list / get.
+- `PUT .../combos/{comboId}` — update name/price/allowsAddons only, never touches items.
+- `DELETE .../combos/{comboId}` — deletes the combo and all its items.
+- `POST .../combos/{comboId}/items`, `DELETE .../combos/{comboId}/items/{itemId}` — add/
+  remove individual items without touching the combo header.
+- Same "open pending a follow-up authorization ticket" status as most of `SalonController`'s
+  own endpoints — not restricted to the owning salon's OWNER/MANAGER yet.
+- A combo id that exists but belongs to a DIFFERENT salon returns 404 (same as "doesn't
+  exist"), not 403 — deliberately avoids leaking existence of another salon's combo id to
+  an unauthorized caller.
+
+The other gaps above (booking disruption/refunds, rewards loyalty, payment infrastructure)
+remain open — flagged for prioritization, not attempted this session.
+
+---
+
 ## How to Add to This File
 
 When you finish a session:

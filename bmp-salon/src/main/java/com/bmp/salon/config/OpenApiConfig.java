@@ -23,8 +23,11 @@ public class OpenApiConfig {
                 .description("""
                     salon / salon_policy / salon_hours / salon_service (BMP-23), stylist / \
                     stylist_salon / stylist_service (BMP-24, portable stylist identity — \
-                    NO delete endpoints, status moves to 'alumni' instead), and \
-                    salon_staff / staff_invites (owner + manager onboarding).
+                    NO delete endpoints, status moves to 'alumni' instead), \
+                    salon_staff / staff_invites (owner + manager onboarding), \
+                    stylist_availability / walk_in_block (Session 9 availability algorithm — \
+                    see docs/AVAILABILITY_ALGORITHM.md), and salon_combo / salon_combo_item \
+                    (Session 11 — bundled-service packages, e.g. a "Bridal Package").
 
                     Creating a salon requires a SALON_OWNER token — the creator \
                     automatically becomes that salon's OWNER. Manager invites are \
