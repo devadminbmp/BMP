@@ -1,7 +1,7 @@
 /**
  * Salon MODULE — salons, stylists, services, policy, availability model.
  *
- * <p>Public surface: com.bmp.salon.api only. internal/ is invisible to other modules.
+ * <p>Public surface: com.bmp.salon.api. Session 5: this module is now its own independently-deployable service (see CONTEXT.md) — entities/repositories/services/controllers/dto/advices/config/exceptions are flat packages under com.bmp.salon, no longer nested under an internal/ package (that was the Spring Modulith convention, retired when the microservices split happened).
  * <p>Owns tables in: salon_schema —
  * V003: salon, salon_policy, salon_hours, salon_service, stylist, stylist_salon,
  * stylist_service, salon_combo, salon_combo_item, salon_staff, staff_invites.

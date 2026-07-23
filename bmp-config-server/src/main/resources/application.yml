@@ -1,0 +1,59 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: bmp-config-server
+  cloud:
+    config:
+      server:
+        git:
+          uri: ${BMP_CONFIG_GIT_URI:https://github.com/devadminbmp/BMP.git}
+          # Only config-repo/ is served — the rest of this monorepo (Java source, etc.)
+          # is irrelevant to Spring Cloud Config and just adds noise to what it scans.
+          search-paths: config-repo
+          # CONFIRM this matches the repo's actual default branch before relying on it —
+          # inherited as a reasonable guess, not verified against the real GitHub repo.
+          default-label: ${BMP_CONFIG_GIT_BRANCH:main}
+          clone-on-start: true
+          # Only needed if devadminbmp/BMP is private — a GitHub Personal Access Token
+          # (fine-grained, read-only on this one repo) works as the password. Blank is
+          # fine for a public repo.
+          username: ${BMP_CONFIG_GIT_USERNAME:}
+          password: ${BMP_CONFIG_GIT_PASSWORD:}
+      # GitHub webhook target: Settings -> Webhooks -> Add webhook -> Payload URL
+      # http://<this-host>:8888/monitor, content type application/json, secret below.
+      monitor:
+        github:
+          secret: ${BMP_CONFIG_WEBHOOK_SECRET:}
+    bus:
+      enabled: true
+    stream:
+      kafka:
+        binder:
+          brokers: ${BMP_KAFKA_BOOTSTRAP:localhost:9092}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${BMP_EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+bmp:
+  config-server:
+    username: ${BMP_CONFIG_USERNAME:bmp-config}
+    password: ${BMP_CONFIG_PASSWORD:dev-only-config-password-change-in-real-environment}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,busrefresh
+  endpoint:
+    health:
+      show-details: when-authorized
+
+info:
+  app:
+    name: ${spring.application.name}

@@ -1,0 +1,6 @@
+# PROD profile — not yet provisioned as of Session 5; skeleton only.
+# Activate with: SPRING_PROFILES_ACTIVE=prod
+eureka:
+  client:
+    service-url:
+      defaultZone: ${BMP_EUREKA_URL}

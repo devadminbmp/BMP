@@ -1,0 +1,20 @@
+# STAGING profile — separate Neon project + separate Atlas cluster from dev (not a branch of
+# dev — a fully separate project). Not yet provisioned as of Session 5; this file is the
+# skeleton so the shape exists before the actual staging instance is set up.
+# Activate with: SPRING_PROFILES_ACTIVE=staging
+# All values must come from the deployment platform's env vars / secrets manager — nothing here
+# has a fallback default, and nothing here should ever be a real credential committed to git.
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${BMP_DB_HOST}:${BMP_DB_PORT:5432}/${BMP_DB_NAME}${BMP_DB_PARAMS:?sslmode=require}
+    username: ${BMP_DB_USER}
+    password: ${BMP_DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${BMP_DB_POOL_SIZE:5}
+      minimum-idle: 1
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${BMP_EUREKA_URL}

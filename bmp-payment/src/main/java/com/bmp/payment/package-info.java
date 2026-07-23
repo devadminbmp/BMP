@@ -1,7 +1,7 @@
 /**
  * Payment MODULE — Razorpay Route, webhook source-of-truth, payouts, commission.
  *
- * <p>Public surface: com.bmp.payment.api only. internal/ is invisible to other modules.
+ * <p>Public surface: com.bmp.payment.api. Session 5: this module is now its own independently-deployable service (see CONTEXT.md) — entities/repositories/services/controllers/dto/advices/config/exceptions are flat packages under com.bmp.payment, no longer nested under an internal/ package (that was the Spring Modulith convention, retired when the microservices split happened).
  * <p>Owns tables in: payment_schema — payment_order, webhook_event, razorpay_linked_account,
  * payout_queue_item, payout_batch, commission_ledger, refund_execution, bmp_account,
  * saas_subscription, saas_invoice.

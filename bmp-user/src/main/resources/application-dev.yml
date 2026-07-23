@@ -1,0 +1,20 @@
+# DEV profile — shared Neon Postgres branch (one per founder) + shared Atlas Mongo.
+# Activate with: SPRING_PROFILES_ACTIVE=dev
+# No local fallback on purpose — if you forget to export the BMP_DB_* env vars, this profile
+# fails to start loudly instead of silently connecting to local Docker Postgres.
+# Setup walkthrough: docs/project-management/DATABASE_SETUP.md
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${BMP_DB_HOST}:${BMP_DB_PORT:5432}/${BMP_DB_NAME:bmp}${BMP_DB_PARAMS:?sslmode=require}
+    username: ${BMP_DB_USER}
+    password: ${BMP_DB_PASSWORD}
+    hikari:
+      # Free-tier cloud Postgres caps total connections — keep this small.
+      maximum-pool-size: ${BMP_DB_POOL_SIZE:3}
+      minimum-idle: 1
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${BMP_EUREKA_URL:http://localhost:8761/eureka/}

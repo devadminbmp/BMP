@@ -21,7 +21,20 @@
       <groupId>org.springframework.cloud</groupId>
       <artifactId>spring-cloud-starter-netflix-eureka-server</artifactId>
     </dependency>
-  </dependencies>
+      <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Session 7: health/metrics for bmp-monitoring. No config-server/bus deps here on
+         purpose — the registry has no business config to hot-reload, and it's the one
+         service everything else depends on at startup, so it stays dependency-light and
+         doesn't need Kafka to be up first. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+</dependencies>
 
   <build>
     <plugins>

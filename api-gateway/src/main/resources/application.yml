@@ -4,7 +4,22 @@ server:
 spring:
   application:
     name: api-gateway
+  # Session 7: hot-reloadable route table from bmp-config-server — a route change (new
+  # service, new path prefix) can go out via a bus refresh instead of a redeploy.
+  config:
+    import: optional:configserver:${BMP_CONFIG_SERVER_URL:http://localhost:8888}
   cloud:
+    bus:
+      enabled: true
+    config:
+      # Session 7: HTTP Basic credentials for bmp-config-server (see its own
+      # SecurityConfig) — must match BMP_CONFIG_USERNAME/BMP_CONFIG_PASSWORD there.
+      username: ${BMP_CONFIG_USERNAME:bmp-config}
+      password: ${BMP_CONFIG_PASSWORD:dev-only-config-password-change-in-real-environment}
+    stream:
+      kafka:
+        binder:
+          brokers: ${BMP_KAFKA_BOOTSTRAP:localhost:9092}
     gateway:
       # discovery.locator would auto-route by service name alone; explicit routes below
       # instead, so the public URL path prefixes stay stable and readable regardless of
@@ -23,7 +38,8 @@ spring:
         - id: salon-service
           uri: lb://bmp-salon-service
           predicates:
-            - Path=/api/v1/salons/**,/api/v1/stylists/**
+            # /api/v1/availability/** added Session 8 (availability algorithm)
+            - Path=/api/v1/salons/**,/api/v1/stylists/**,/api/v1/availability/**
 
         - id: booking-service
           uri: lb://bmp-booking-service
@@ -46,18 +62,4 @@ spring:
             - Path=/api/v1/coupons/**,/api/v1/wallet/**,/api/v1/referrals/**
 
         - id: admin-service
-          uri: lb://bmp-admin-service
-          predicates:
-            - Path=/api/v1/staff/**,/api/v1/support-tickets/**,/api/v1/audit-log/**
-
-        - id: notification-service
-          uri: lb://bmp-notification-service
-          predicates:
-            - Path=/api/v1/notifications/**
-
-eureka:
-  client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka/
-  instance:
-    prefer-ip-address: true
+          uri: lb://bmp-adm

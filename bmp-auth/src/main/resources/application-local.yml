@@ -1,0 +1,18 @@
+# LOCAL profile — fully offline, docker-compose Postgres (see docker-compose.yml at repo root).
+# Activate with: SPRING_PROFILES_ACTIVE=local
+# This is also what application.yml defaults to with no profile set, spelled out explicitly here
+# so "what does local look like" has one obvious file to open.
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/bmp
+    username: bmp
+    password: devonly
+    hikari:
+      maximum-pool-size: 3
+      minimum-idle: 1
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/

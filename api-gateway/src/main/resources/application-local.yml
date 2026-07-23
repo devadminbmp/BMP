@@ -1,0 +1,6 @@
+# LOCAL profile — points at the local eureka-server started via docker-compose/plain `mvn spring-boot:run`.
+# Activate with: SPRING_PROFILES_ACTIVE=local
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/

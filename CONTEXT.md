@@ -218,6 +218,160 @@ see `bmp-app/RETIRED.md`), but going forward all 3 of you need to agree this is 
 
 ---
 
+### Session 8 (Darshan/Cowork) — Auth+OTP, Kafka, Swagger, Actuator/Config Server/Monitoring, and reconciliation with the Phase 1 CRUD branch
+
+**Darshan's requests this session:** full role-based auth (customer/salon-owner/manager/
+stylist signup+login, dual-channel OTP email+phone, Google sign-in), switch the outbox
+relay from in-process to Kafka, Swagger/OpenAPI on every service, then Actuator + a
+GitHub-backed Config Server + Spring Cloud Bus + a Spring Boot Admin monitoring service —
+followed by `git pull` once Shivam/Achyuth's Phase 1 CRUD branch had merged.
+
+**Auth/OTP/Kafka (bmp-auth, bmp-notification, bmp-common):**
+- Role-based signup/login for customer, salon owner, manager, stylist, all through
+  bmp-auth's OTP flow (request/verify), reusing existing-but-unwired schema
+  (`salon_staff`, `staff_invites`, `stylist_salon`) instead of duplicating it.
+- OTP sent via both email and phone for every role. Customer signup can optionally use
+  Google Sign-In (server-side ID token verification against Google's `tokeninfo`
+  endpoint) — since Google gives no phone number and `users.phone` is NOT NULL (locked),
+  a Google-authenticated user without a phone gets `linked=false` back and completes a
+  normal phone-OTP signup, passing `googleSubject` through to link the two.
+- Email + SMS/OTP delivery is console-log-only for now (`LoggingEmailSender`,
+  `LoggingSmsSender`) — real SMTP/SMS wiring exists (`SmtpEmailSender`) but isn't active,
+  by explicit request, for easy local testing.
+- Kafka (KRaft mode, single-node, `apache/kafka:3.8.0`) replaces the in-process outbox
+  relay — this REVERSES the "Kafka replaced by outbox" locked decision in the Technology
+  Stack table above (still shown struck through, not deleted, for the historical record).
+  The write side is unchanged (`OutboxPublisher` still writes transactionally); only the
+  RELAY changed, from in-process consumer invocation to `OutboxKafkaRelay` publishing to
+  `bmp.events`. `NotificationDispatcher` (`@KafkaListener`) is the consumer — the first
+  real "queued → sent/failed" transition `notification_log.status` has ever had.
+- Dual-credential security model, shared via `com.bmp.common.security`: end-user JWT
+  bearer tokens (role + salonId claims) via `JwtAuthFilter`, and a static
+  `X-Internal-Service-Key` header (`ROLE_SERVICE`) for service-to-service calls — used
+  consistently by bmp-auth's Feign clients, bmp-salon's internal endpoints, and (see
+  below) bmp-monitoring's actuator polling.
+
+**Swagger/OpenAPI:** every business/auth service got `springdoc-openapi-starter-webmvc-ui`
+plus its own `OpenApiConfig` with a real, service-specific description (not boilerplate),
+and every controller endpoint got `@Tag`/`@Operation` descriptions.
+
+**Actuator, Config Server, Cloud Bus, Monitoring:**
+- Actuator on all 11 services. bmp-auth (the one service with a real authorization pass)
+  only exposes health/info publicly — everything else (env, beans, refresh, busrefresh,
+  threaddump, heapdump) needs a credential. The other 8 business services expose the
+  same endpoint set but aren't path-gated yet, same as their existing "no authorization
+  pass" status.
+- **bmp-config-server** (new, port 8888): Spring Cloud Config Server reading
+  `config-repo/` from this same GitHub repo. `/monitor` + `spring-cloud-config-monitor`
+  is the GitHub-webhook endpoint (HMAC-validated) that auto-fires a Cloud Bus refresh on
+  push — this is what "configure directly from GitHub" means concretely. HTTP Basic
+  protected (not JWT — this is a service-identity concern, not an end-user one).
+  Explicitly NOT for secrets (DB passwords, JWT secret, internal-service-key, SMTP/SMS
+  creds stay as env vars — `config-repo/README.md` states this rule).
+- **bmp-monitoring** (new, port 8090): Spring Boot Admin, Eureka-discovery based (every
+  registered service shows up automatically, no client dependency needed per service),
+  HTTP Basic protected, authenticates to each instance's actuator endpoints via the same
+  internal-service-key header used elsewhere.
+- Spring Cloud Bus runs over the same Kafka broker bmp-notification already needed.
+  `AuthService` (OTP-lockout tuning) and `PaymentOrderService` (manual-status flag) are
+  the two concrete `@RefreshScope` examples proving the refresh chain actually works
+  end-to-end — the other 7 business services have the config-import/bus plumbing in
+  their yml but no `@RefreshScope` bean yet (extensible pattern, not fully retrofitted).
+- **Known gaps, unverified:** `spring-boot-admin-starter-server:3.4.1`'s compatibility
+  with Spring Boot 3.4.1 was chosen by convention, not confirmed via a real
+  `mvn dependency:tree`. `bmp-config-server`'s `default-label: main` and whether
+  `devadminbmp/BMP` is public/private are unconfirmed guesses. The GitHub webhook itself
+  (Settings → Webhooks → payload URL `http://<host>:8888/monitor`, content type
+  `application/json`, secret = `BMP_CONFIG_WEBHOOK_SECRET`) still needs to be added by
+  hand in GitHub's UI — not something any AI session can do.
+
+**Reconciliation with the Phase 1 CRUD branch (this session's `git pull`):**
+- This session had already flattened every module's package structure (dropped the
+  `internal/` wrapper — e.g. `com.bmp.notification.internal.service.X` →
+  `com.bmp.notification.services.X`) as uncommitted local changes, while Shivam's
+  Session 7 notification-module CRUD commit (and the earlier Phase 1 CRUD branch merge)
+  landed upstream still using the old `internal/`-wrapped layout.
+- `git pull` fast-forwarded cleanly (no merge conflicts — the upstream diff only touched
+  entity field additions and the notification module, nothing that collided with the
+  flattening at the git level). Diffed every entity the pull touched (BmpStaff,
+  SupportTicket, Booking, PaymentOrder, Review, SalonResponse, Wallet, Salon, SalonHours,
+  SalonPolicy, Stylist, StylistSalon, Users) against the already-flattened versions:
+  the flat versions were confirmed strict supersets (they already had the mutator/
+  `touch()` methods the internal/ versions had), so nothing was lost there.
+- The notification module's `internal/`-package CRUD (NotificationLogController/Service/
+  Repository) was real new work — a fuller REST API (pagination, `/stats`, a pending-
+  queue query, a delivered-status transition) than what existed on the flat side. It was
+  rebuilt (not copied) against the flat `NotificationLog` entity, because the original
+  was written against column names that don't match the actual V002 migration
+  (`recipient_id`/`error_message`/`delivered_at`/`updated_at` vs. the real
+  `recipient_user_id`/`error_reason`, and `delivered_at`/`updated_at` didn't exist at
+  all). Added **V003__notification_log_delivered_and_updated.sql** for the two genuinely
+  new columns; the rebuilt API lives at `GET /api/v1/notifications/recipient/{id}`,
+  `GET .../recipient/{id}/pending`, `GET .../stats`, `PUT .../log/{id}/delivered`.
+- All stale `internal/` package directories were then deleted (not just git-removed —
+  they were still physically present on disk after the pull, which would have meant
+  duplicate/conflicting entity classes at build time).
+- Also added while root `pom.xml` was briefly writable again (see below):
+  `<module>bmp-config-server</module>` and `<module>bmp-monitoring</module>` to the
+  `<modules>` list, and restored the `kafka` service to `docker-compose.yml`.
+- ⚠️ **A 5-file OneDrive sync issue** (`pom.xml`, `CONTEXT.md`, `README.md`,
+  `AI_AGENT_PRIMER.md`, `docker-compose.yml` — every read/write/delete on them failed
+  with "No such file or directory" despite `stat` showing correct metadata) persisted for
+  the entire session until this `git pull`/`git checkout --` sequence incidentally fixed
+  it. Flagging in case it recurs — the fix that worked was `git checkout -- <file>` after
+  confirming `git fetch`/`git pull` could still write through where direct
+  Read/Write/bash could not.
+
+---
+
+### Session 9 (Darshan/Cowork) — Availability algorithm (Phase 2): freeSlots()/blockWalkIn()
+
+**Darshan asked:** implement the availability algorithm — `AvailabilityApi.freeSlots()` /
+`blockWalkIn()` — the interface that had been an intentional stub since Session 4/5
+("must be designed on paper against 3 real salons before any table is created").
+
+**Delivered — `AvailabilityService` (bmp-salon), first real implementation of `AvailabilityApi`:**
+- Combines four local tables (`stylist_availability`, `walk_in_block`, `salon_hours`,
+  `salon_policy.slot_granularity_minutes`) with one live Feign call to a new endpoint on
+  bmp-booking-service (`GET /api/v1/bookings/internal/busy-windows`, ROLE_SERVICE-locked)
+  that reports a stylist's already-committed bookings (`booking_service_item`, joined to
+  `booking` to exclude CANCELLED) and unexpired checkout holds (`slot_lock`) for a date.
+- Interval math: working windows (weekly template, or an exception row overriding the
+  template for one specific date) minus breaks/leave minus walk-ins minus bmp-booking's
+  busy windows, intersected with salon operating hours, sliced into a grid
+  (`slot_granularity_minutes`) and kept only where a contiguous run of the requested
+  service duration fits.
+- `blockWalkIn` does one overlap check against the same busy-window computation, then a
+  single insert — deliberately skipped re-validating against declared working hours, to
+  stay the "&lt;5-second" front-desk operation the interface's own javadoc demands.
+- New shared constant: `com.bmp.common.time.BmpTimeZone.ZONE` (`Asia/Kolkata`, hardcoded —
+  BMP is Bengaluru-only right now, see Target Market) for converting bmp-booking's
+  Instant timestamps to the LocalTime values bmp-salon's tables use.
+- New `AvailabilityController` (`/api/v1/availability/slots`, `/slots/any`, `/walk-in`) —
+  api-gateway's salon-service route predicate updated to include it.
+
+**Design questions (Q1-Q6) answered this session — again Darshan-only, not ratified by
+Shivam/Achyuth, same flag as every other such decision in this file. Full reasoning for
+each is in `AvailabilityService`'s class javadoc, summarized here:**
+1. Slot granularity: per-salon grid (`slot_granularity_minutes`, default 15) for the
+   *start* time; the required *length* is whatever duration the caller asks for.
+2. Walk-in block speed: one overlap check, no working-hours re-validation.
+3. Breaks — template AND exception rows both apply and stack (exception can also fully
+   replace the day's working windows, not just add a break).
+4. Leave with existing bookings: **NOT handled** — marking leave doesn't touch already-
+   CONFIRMED bookings. Real gap, flagged not silently resolved (belongs to
+   `booking_disruption` / a reschedule-notification flow that doesn't exist yet).
+5. Salon hours vs. stylist hours conflict: salon hours are the outer bound, always.
+6. Multi-service bookings spanning slot boundaries: not this method's problem —
+   `durationMinutes` is the caller's total; splitting across stylists is booking's job.
+
+**Also unverified:** the day-of-week convention used (`date.getDayOfWeek().getValue() % 7`,
+i.e. 0=Sunday..6=Saturday) matches the column comments in the V003 migration but hasn't
+been checked against how `stylist_availability.day_of_week`/`salon_hours.day_of_week` rows
+are actually populated anywhere else in the codebase (no seed/admin UI writes them yet).
+
+---
+
 ## How to Add to This File
 
 When you finish a session:

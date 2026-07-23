@@ -1,0 +1,18 @@
+# Build output
+target/
+*.class
+
+# Environment / secrets — Neon, Atlas, staging, prod connection strings never get committed.
+# See docs/project-management/DATABASE_SETUP.md for how env vars are used instead.
+.env
+.env.*
+*.env
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
