@@ -1,7 +1,7 @@
 /**
  * Review MODULE — verified reviews (booking_id required), dual rating, moderation.
  *
- * <p>Public surface: com.bmp.review.api only. internal/ is invisible to other modules.
+ * <p>Public surface: com.bmp.review.api. Session 5: this module is now its own independently-deployable service (see CONTEXT.md) — entities/repositories/services/controllers/dto/advices/config/exceptions are flat packages under com.bmp.review, no longer nested under an internal/ package (that was the Spring Modulith convention, retired when the microservices split happened).
  * <p>Owns tables in: review_schema — review, review_edit_history, review_prompt,
  * salon_rating_snapshot, stylist_rating_snapshot, salon_response. (The community
  * feed bridge — community_posts, post_likes, post_comments, stylist_follows,

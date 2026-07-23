@@ -1,0 +1,6 @@
+# DEV profile — points at whichever eureka-server instance the 3 founders are sharing for dev.
+# Activate with: SPRING_PROFILES_ACTIVE=dev
+eureka:
+  client:
+    service-url:
+      defaultZone: ${BMP_EUREKA_URL:http://localhost:8761/eureka/}

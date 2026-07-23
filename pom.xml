@@ -48,6 +48,8 @@
     <module>bmp-auth</module>
     <module>eureka-server</module>
     <module>api-gateway</module>
+    <module>bmp-config-server</module>
+    <module>bmp-monitoring</module>
     <!-- bmp-app REMOVED from active build — Session 5 pivot to microservices means
          there is no longer "one deployable"; each bmp-* module below is now its own
          independently-buildable, independently-runnable Spring Boot service. The old

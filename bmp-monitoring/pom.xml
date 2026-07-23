@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>in.bemyprofessional</groupId>
+    <artifactId>bmp-platform</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+  <artifactId>bmp-monitoring</artifactId>
+  <name>BMP :: bmp-monitoring (health + logs dashboard)</name>
+  <description>
+    Session 7. Spring Boot Admin server — auto-discovers every Eureka-registered BMP
+    service (no separate client dependency needed on each one; discovery reads the
+    registry directly) and shows health, metrics, env, loggers (view/change log levels
+    live), and thread/heap dumps for each in one dashboard. This IS the "monitoring
+    service" — deliberately NOT a Prometheus/Grafana/Loki stack, which would mean
+    standing up and paying for infrastructure this pre-PMF team doesn't need yet; Spring
+    Boot Admin needs nothing beyond this one Spring Boot app plus the actuator endpoints
+    every service already exposes.
+
+    de.codecentric:spring-boot-admin-starter-server version pinned directly on the
+    dependency below (not resolved via the root pom's dependencyManagement, since it
+    isn't part of the spring-cloud-dependencies BOM already imported there) — chosen to
+    match Spring Boot 3.4.1's line, NOT verified against a live `mvn dependency:tree`
+    (no `mvn` binary available in the sandbox this was built in). Confirm the version
+    resolves cleanly on first real build; bump if codecentric has since released a patch
+    specifically validated against 3.4.1.
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>de.codecentric</groupId>
+      <artifactId>spring-boot-admin-starter-server</artifactId>
+      <version>3.4.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <!-- HTTP Basic on the dashboard — ops tool, not a customer-facing API. Same reasoning
+         as bmp-config-server; deliberately not bmp-common's JWT filter (browser UI, no
+         end-user identity, and bmp-common pulls in JPA this service doesn't need). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

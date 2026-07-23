@@ -1,0 +1,12 @@
+# Session 7: shared defaults served to EVERY client of bmp-config-server, regardless of
+# spring.application.name — Spring Cloud Config always layers this file underneath the
+# per-service one (bmp-auth-service.yml etc.), same as Spring Boot's own application.yml
+# vs application-{profile}.yml layering.
+#
+# Keep this file to things genuinely safe/sensible for every service at once. Nothing
+# service-specific belongs here — put that in <spring.application.name>.yml instead.
+
+logging:
+  level:
+    root: INFO
+    com.bmp: INFO

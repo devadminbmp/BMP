@@ -17,3 +17,15 @@ eureka:
   server:
     # Local dev only — in production, tune eviction timing properly before relying on it
     enable-self-preservation: false
+
+# Session 7: actuator for bmp-monitoring's own visibility into the registry's health.
+# No config-server/bus wiring here — the registry has no business config to hot-reload.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+info:
+  app:
+    name: ${spring.application.name}

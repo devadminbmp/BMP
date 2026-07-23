@@ -1,0 +1,8 @@
+# Session 7: hot-reloadable overrides for bmp-notification-service.
+#
+# Example: bump logging to DEBUG for NotificationDispatcher while chasing a delivery
+# issue, without a redeploy. Uncomment, push, refresh; comment out again once done.
+#
+# logging:
+#   level:
+#     com.bmp.notification: DEBUG

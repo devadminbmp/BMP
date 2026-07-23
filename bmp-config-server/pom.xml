@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>in.bemyprofessional</groupId>
+    <artifactId>bmp-platform</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+  <artifactId>bmp-config-server</artifactId>
+  <name>BMP :: bmp-config-server (runtime configuration)</name>
+  <description>
+    Session 7. Spring Cloud Config Server — serves each service's hot-reloadable
+    properties from config-repo/ in THIS SAME GitHub repo (not a separate one; simplest
+    thing that works for a 3-person team). A GitHub webhook hits /monitor here on every
+    push; spring-cloud-config-monitor figures out which services' config files changed
+    and publishes a RefreshRemoteApplicationEvent on Spring Cloud Bus (Kafka transport,
+    reusing the same broker bmp-notification already needs), which every service picks
+    up automatically — no redeploy, no manual /actuator/busrefresh call needed once the
+    webhook is wired.
+
+    NOT in scope here: secrets (DB passwords, JWT signing key, API keys). Those stay as
+    environment variables set outside git, per DATABASE_SETUP.md's existing rule — this
+    server is for things safe to see in a public-ish diff (feature flags, timeouts, log
+    levels, OTP TTLs), not credentials.
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-config-server</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-config-monitor</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-bus-kafka</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+    <!-- HTTP Basic on the whole server — this is an ops tool, not a customer-facing API,
+         same reasoning as bmp-monitoring. Not bmp-common's JWT filter (wrong tool: no
+         end-user identity involved here, and bmp-common pulls in JPA this service doesn't
+         need). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

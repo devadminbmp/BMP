@@ -1,0 +1,11 @@
+# Session 7: hot-reloadable overrides for bmp-payment-service.
+#
+# The one property that actually matters here right now: the dev-only manual
+# payment-status endpoint. It's already ON by default in bmp-payment's own
+# application.yml (bmp.payment.allow-manual-status: true) so local dev keeps working
+# without touching this file. Uncomment below and push to turn it OFF everywhere —
+# PaymentOrderService is @RefreshScope, so a bus refresh applies it without a redeploy.
+#
+# bmp:
+#   payment:
+#     allow-manual-status: false

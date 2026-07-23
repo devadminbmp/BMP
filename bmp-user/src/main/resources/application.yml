@@ -4,10 +4,35 @@ server:
 spring:
   application:
     name: bmp-user-service
+  # Session 7: pulls hot-reloadable properties from bmp-config-server (config-repo/ in
+  # this same GitHub repo). "optional:" means this service still starts fine if the
+  # config server isn't running (falls back to this file's own defaults).
+  config:
+    import: optional:configserver:${BMP_CONFIG_SERVER_URL:http://localhost:8888}
+  cloud:
+    bus:
+      enabled: true
+    config:
+      # Session 7: HTTP Basic credentials for bmp-config-server (see its own
+      # SecurityConfig) — must match BMP_CONFIG_USERNAME/BMP_CONFIG_PASSWORD there.
+      username: ${BMP_CONFIG_USERNAME:bmp-config}
+      password: ${BMP_CONFIG_PASSWORD:dev-only-config-password-change-in-real-environment}
+    stream:
+      kafka:
+        binder:
+          brokers: ${BMP_KAFKA_BOOTSTRAP:localhost:9092}
   datasource:
-    url: jdbc:postgresql://localhost:5432/bmp
-    username: bmp
+    # Local default (docker-compose) unless overridden — set these 4 env vars to point
+    # at a shared cloud instance instead (e.g. your Neon dev branch) without editing this file.
+    # See docs/project-management/DATABASE_SETUP.md.
+    url: jdbc:postgresql://${BMP_DB_HOST:localhost}:${BMP_DB_PORT:5432}/${BMP_DB_NAME:bmp}${BMP_DB_PARAMS:}
+    username: ${BMP_DB_USER:bmp}
     password: ${BMP_DB_PASSWORD:devonly}
+    hikari:
+      # Kept small on purpose — free-tier cloud Postgres (Neon/Supabase) caps total
+      # connections, and 3 devs x 11 services adds up fast if each pool defaults to 10.
+      maximum-pool-size: ${BMP_DB_POOL_SIZE:3}
+      minimum-idle: 1
   jpa:
     hibernate:
       ddl-auto: validate   # Flyway owns the schema, Hibernate only validates
@@ -20,6 +45,38 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: http://localhost:8761/eureka/
+      defaultZone: ${BMP_EUREKA_URL:http://localhost:8761/eureka/}
   instance:
     prefer-ip-address: true
+
+bmp:
+  # Session 6: shared JWT validation (com.bmp.common.security.CommonSecurityConfig).
+  # public-paths defaults to /** in code (CommonSecurityConfig) for services that haven't
+  # had their own authorization pass yet — endpoints that DO need a real role check use
+  # @PreAuthorize directly (see bmp-salon's SalonController/StaffController for the pattern).
+  auth:
+    jwt-secret: ${BMP_JWT_SECRET:dev-only-secret-change-in-real-environment-min-32-bytes-long}
+  security:
+    internal-service-key: ${BMP_INTERNAL_SERVICE_KEY:dev-only-internal-key-change-in-real-environment}
+
+# Session 7: actuator surface — health/info are public (see bmp.security.public-paths
+# default of /** for this service; tighten alongside that service's own authorization
+# pass). env/beans/heapdump are powerful; not yet gated per-path here since this service
+# hasn't had its Session 6-style authorization pass — flagged, not silently left open.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,loggers,env,beans,refresh,busrefresh,threaddump,heapdump
+  endpoint:
+    health:
+      show-details: when-authorized
+    loggers:
+      enabled: true
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}

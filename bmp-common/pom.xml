@@ -20,5 +20,36 @@
       <groupId>com.fasterxml.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
     </dependency>
+    <!-- Session 6: shared JWT validation filter, used by every service to enforce
+         authentication/authorization consistently (see security/ package). -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-api</artifactId>
+      <version>${jjwt.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-impl</artifactId>
+      <version>${jjwt.version}</version>
+      <scope>runtime</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.jsonwebtoken</groupId>
+      <artifactId>jjwt-jackson</artifactId>
+      <version>${jjwt.version}</version>
+      <scope>runtime</scope>
+    </dependency>
+    <!-- Session 6: outbox rows are now relayed to Kafka instead of being polled
+         in-process by each consumer — see kafka/OutboxKafkaRelay. This REVERSES the
+         earlier "LOCKED DECISION" in DomainEvent.java that dropped Kafka in favor of
+         pure DB polling; see CONTEXT.md Session 6 log for the explicit re-flag. -->
+    <dependency>
+      <groupId>org.springframework.kafka</groupId>
+      <artifactId>spring-kafka</artifactId>
+    </dependency>
   </dependencies>
 </project>

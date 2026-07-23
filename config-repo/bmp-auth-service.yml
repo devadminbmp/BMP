@@ -1,0 +1,14 @@
+# Session 7: hot-reloadable overrides for bmp-auth-service, served by bmp-config-server.
+# These layer OVER (take priority over) the defaults baked into bmp-auth's own
+# application.yml — this file only needs to list what you actually want to CHANGE from
+# those defaults, not repeat everything.
+#
+# To apply a change: edit + push this file, then either wait for the GitHub webhook (once
+# wired, see bmp-config-server's application.yml) or POST /actuator/busrefresh to any one
+# BMP service — Spring Cloud Bus relays it to all of them. bmp-auth's AuthService is
+# @RefreshScope, so these specific values take effect without a restart.
+#
+# Example: shorten the OTP lockout during an incident, without redeploying anything.
+# bmp:
+#   auth:
+#     otp-lockout-minutes: 30

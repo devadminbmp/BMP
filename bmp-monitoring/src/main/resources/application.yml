@@ -1,0 +1,39 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: bmp-monitoring
+  boot:
+    admin:
+      discovery:
+        # Eureka-based discovery — every registered service is picked up automatically,
+        # no per-service client dependency needed. Only services whose registered name
+        # matches one of these patterns get shown (currently: everything, "bmp-*" and the
+        # gateway/eureka names) — narrow this if noise ever becomes a problem.
+        ignored-services: []
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${BMP_EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+bmp:
+  security:
+    internal-service-key: ${BMP_INTERNAL_SERVICE_KEY:dev-only-internal-key-change-in-real-environment}
+  monitoring:
+    username: ${BMP_MONITORING_USERNAME:bmp-admin}
+    password: ${BMP_MONITORING_PASSWORD:dev-only-monitoring-password-change-in-real-environment}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+info:
+  app:
+    name: ${spring.application.name}
+    description: Health/logs/metrics dashboard for every BMP service (Spring Boot Admin, Eureka-discovery based).
