@@ -23,6 +23,11 @@ import org.springframework.context.annotation.ComponentScan;
 @SpringBootApplication
 @EnableDiscoveryClient
 @EnableFeignClients
+// Session 16: @EnableScheduling is REQUIRED for OutboxKafkaRelay's @Scheduled poll to run —
+// without it (and bmp.outbox.relay.enabled=true in yml) OTP/registration events written to
+// the outbox NEVER reach Kafka/bmp-notification, and no email/SMS ever goes out. Found live:
+// first end-to-end frontend login attempt produced an outbox row and silence.
+@org.springframework.scheduling.annotation.EnableScheduling
 @ComponentScan(basePackages = {"com.bmp.auth", "com.bmp.common"})
 @EntityScan(basePackages = {"com.bmp.auth", "com.bmp.common"})
 public class BmpAuthApplication {

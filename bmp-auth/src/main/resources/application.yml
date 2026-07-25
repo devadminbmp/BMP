@@ -54,6 +54,14 @@ eureka:
     prefer-ip-address: true
 
 bmp:
+  # Session 16: the outbox->Kafka relay must be EXPLICITLY enabled per publishing service
+  # (OutboxKafkaRelay is @ConditionalOnProperty on this key). bmp-auth publishes
+  # OtpRequested/UserRegistered, so without this the events rot in the outbox table and
+  # bmp-notification never sends the OTP email. Requires Kafka up (docker compose) and
+  # @EnableScheduling on the application class (also added Session 16).
+  outbox:
+    relay:
+      enabled: ${BMP_OUTBOX_RELAY_ENABLED:true}
   auth:
     jwt-secret: ${BMP_JWT_SECRET:dev-only-secret-change-in-real-environment-min-32-bytes-long}
     access-token-ttl-seconds: ${BMP_ACCESS_TOKEN_TTL_SECONDS:900}
