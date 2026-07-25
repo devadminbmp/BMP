@@ -2,6 +2,8 @@ package com.bmp.user.entities;
 
 import com.bmp.common.ids.UuidV7;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -23,6 +25,7 @@ public class OnboardingState {
 
     @Column(name = "user_id", nullable = false)
     private UUID userId;
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "state_json", nullable = false, columnDefinition = "jsonb")
     private String stateJson;
     @Column(name = "created_at", nullable = false)
@@ -45,4 +48,11 @@ public class OnboardingState {
     public String getStateJson() { return stateJson; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    /** Session 13: upsert path — the client re-saves the whole blob on every onboarding
+     * step, so replacement (not merge) is the intended semantics. */
+    public void replaceState(String stateJson) {
+        this.stateJson = stateJson;
+        this.updatedAt = Instant.now();
+    }
 }

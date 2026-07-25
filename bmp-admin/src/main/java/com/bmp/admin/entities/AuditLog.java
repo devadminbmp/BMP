@@ -2,6 +2,8 @@ package com.bmp.admin.entities;
 
 import com.bmp.common.ids.UuidV7;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -31,6 +33,7 @@ public class AuditLog {
     private String entityType;
     @Column(name = "entity_id", nullable = false)
     private UUID entityId;
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "metadata", columnDefinition = "jsonb")
     private String metadata;
     @Column(name = "ip_address", length = 45)

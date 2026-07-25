@@ -2,6 +2,8 @@ package com.bmp.booking.entities;
 
 import com.bmp.common.ids.UuidV7;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -29,6 +31,7 @@ public class BookingEvents {
     private String actorType;
     @Column(name = "actor_id")
     private UUID actorId;
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "metadata", columnDefinition = "jsonb")
     private String metadata;
     @Column(name = "created_at", nullable = false)

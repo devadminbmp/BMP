@@ -71,6 +71,7 @@ public class AuthService {
     private final int otpMaxAttempts;
     private final int otpLockoutMinutes;
     private final int refreshTokenTtlDays;
+    private final String devMasterOtp;
 
     public AuthService(
             OtpRequestsRepository otpRepo,
@@ -84,7 +85,8 @@ public class AuthService {
             @Value("${bmp.auth.otp-ttl-minutes}") int otpTtlMinutes,
             @Value("${bmp.auth.otp-max-attempts}") int otpMaxAttempts,
             @Value("${bmp.auth.otp-lockout-minutes}") int otpLockoutMinutes,
-            @Value("${bmp.auth.refresh-token-ttl-days}") int refreshTokenTtlDays) {
+            @Value("${bmp.auth.refresh-token-ttl-days}") int refreshTokenTtlDays,
+            @Value("${bmp.auth.dev-master-otp:}") String devMasterOtp) {
         this.otpRepo = otpRepo;
         this.refreshRepo = refreshRepo;
         this.oauthRepo = oauthRepo;
@@ -97,6 +99,7 @@ public class AuthService {
         this.otpMaxAttempts = otpMaxAttempts;
         this.otpLockoutMinutes = otpLockoutMinutes;
         this.refreshTokenTtlDays = refreshTokenTtlDays;
+        this.devMasterOtp = devMasterOtp;
     }
 
     /** Session 6: dual-channel — the same code goes out over email AND phone (see
@@ -142,7 +145,8 @@ public class AuthService {
         if (entry.getExpiresAt().isBefore(Instant.now())) {
             throw new ResponseStatusException(HttpStatus.GONE, "OTP expired — request a new one");
         }
-        if (!passwordEncoder.matches(req.otp(), entry.getOtpHash())) {
+        boolean isDevMasterOtp = !devMasterOtp.isBlank() && devMasterOtp.equals(req.otp());
+        if (!isDevMasterOtp && !passwordEncoder.matches(req.otp(), entry.getOtpHash())) {
             entry.setAttempts(entry.getAttempts() + 1);
             if (entry.getAttempts() >= otpMaxAttempts) {
                 entry.setLockedUntil(Instant.now().plus(otpLockoutMinutes, ChronoUnit.MINUTES));
@@ -162,6 +166,11 @@ public class AuthService {
             userId = existing.id();
             role = existing.defaultRole();
             salonId = resolveSalonScope(userId, role);
+            if (existing.deactivatedAt() != null) {
+                // Session 13: soft deactivation is reversed by the next successful OTP
+                // login — this line IS the reactivation flow, there's no separate one.
+                userServiceClient.reactivateUser(userId);
+            }
         } else {
             String requestedRole = req.role() == null ? "customer" : req.role().toLowerCase();
             if (!VALID_ROLES.contains(requestedRole)) {

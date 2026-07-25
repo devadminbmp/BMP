@@ -2,6 +2,8 @@ package com.bmp.admin.entities;
 
 import com.bmp.common.ids.UuidV7;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -11,11 +13,12 @@ import java.util.UUID;
  * created_at/updated_at are set automatically at construction time (matching
  * the convention already used by com.bmp.common.outbox.OutboxEntry in this repo).
  * Getters only where a field is documented FROZEN/append-only in CONTEXT.md;
- * plain getters otherwise — add bespoke mutation methods per table as real
+ * @Setter otherwise — add bespoke mutation methods per table as real
  * invariants surface (fast-moving pre-PMF team, not a final API).
  */
 @Entity
 @Table(name = "support_ticket", schema = "admin_schema")
+@Getter
 public class SupportTicket {
 
     @Id
@@ -33,16 +36,20 @@ public class SupportTicket {
     private String category;
     @Column(name = "subject", nullable = false, length = 200)
     private String subject;
+    @Setter
     @Column(name = "status", nullable = false, length = 20)
     private String status;
+    @Setter
     @Column(name = "priority", nullable = false, length = 10)
     private String priority;
+    @Setter
     @Column(name = "assigned_staff_id")
     private UUID assignedStaffId;
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+    @Setter
     @Column(name = "resolved_at")
     private Instant resolvedAt;
 
@@ -64,17 +71,5 @@ public class SupportTicket {
         this.updatedAt = Instant.now();
     }
 
-    public UUID getId() { return id; }
-    public String getTicketRef() { return ticketRef; }
-    public String getRaisedByType() { return raisedByType; }
-    public UUID getRaisedById() { return raisedById; }
-    public UUID getBookingId() { return bookingId; }
-    public String getCategory() { return category; }
-    public String getSubject() { return subject; }
-    public String getStatus() { return status; }
-    public String getPriority() { return priority; }
-    public UUID getAssignedStaffId() { return assignedStaffId; }
-    public Instant getCreatedAt() { return createdAt; }
-    public Instant getUpdatedAt() { return updatedAt; }
-    public Instant getResolvedAt() { return resolvedAt; }
+    public void touch() { this.updatedAt = Instant.now(); }
 }

@@ -2,6 +2,8 @@ package com.bmp.admin.entities;
 
 import com.bmp.common.ids.UuidV7;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -11,28 +13,36 @@ import java.util.UUID;
  * created_at/updated_at are set automatically at construction time (matching
  * the convention already used by com.bmp.common.outbox.OutboxEntry in this repo).
  * Getters only where a field is documented FROZEN/append-only in CONTEXT.md;
- * plain getters otherwise — add bespoke mutation methods per table as real
+ * @Setter otherwise — add bespoke mutation methods per table as real
  * invariants surface (fast-moving pre-PMF team, not a final API).
  */
 @Entity
 @Table(name = "bmp_staff", schema = "admin_schema")
+@Getter
 public class BmpStaff {
 
     @Id
     private UUID id;
 
+    @Setter
     @Column(name = "name", nullable = false, length = 120)
     private String name;
+    @Setter
     @Column(name = "phone", nullable = false, length = 20)
     private String phone;
+    @Setter
     @Column(name = "email", length = 160)
     private String email;
+    @Setter
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
+    @Setter
     @Column(name = "role", nullable = false, length = 20)
     private String role;
+    @Setter
     @Column(name = "status", nullable = false, length = 20)
     private String status;
+    @Setter
     @Column(name = "last_login_at")
     private Instant lastLoginAt;
     @Column(name = "created_at", nullable = false)
@@ -55,14 +65,5 @@ public class BmpStaff {
         this.updatedAt = Instant.now();
     }
 
-    public UUID getId() { return id; }
-    public String getName() { return name; }
-    public String getPhone() { return phone; }
-    public String getEmail() { return email; }
-    public String getPasswordHash() { return passwordHash; }
-    public String getRole() { return role; }
-    public String getStatus() { return status; }
-    public Instant getLastLoginAt() { return lastLoginAt; }
-    public Instant getCreatedAt() { return createdAt; }
-    public Instant getUpdatedAt() { return updatedAt; }
+    public void touch() { this.updatedAt = Instant.now(); }
 }

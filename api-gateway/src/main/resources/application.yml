@@ -62,4 +62,31 @@ spring:
             - Path=/api/v1/coupons/**,/api/v1/wallet/**,/api/v1/referrals/**
 
         - id: admin-service
-          uri: lb://bmp-adm
+          uri: lb://bmp-admin-service
+          predicates:
+            - Path=/api/v1/audit-log/**,/api/v1/staff/**,/api/v1/support-tickets/**
+
+        - id: notification-service
+          uri: lb://bmp-notification-service
+          predicates:
+            - Path=/api/v1/notifications/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${BMP_EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,gateway,busrefresh
+  endpoint:
+    health:
+      show-details: when-authorized
+
+info:
+  app:
+    name: ${spring.application.name}

@@ -2,6 +2,8 @@ package com.bmp.salon.entities;
 
 import com.bmp.common.ids.UuidV7;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -11,11 +13,12 @@ import java.util.UUID;
  * created_at/updated_at are set automatically at construction time (matching
  * the convention already used by com.bmp.common.outbox.OutboxEntry in this repo).
  * Getters only where a field is documented FROZEN/append-only in CONTEXT.md;
- * plain getters otherwise — add bespoke mutation methods per table as real
+ * @Setter otherwise — add bespoke mutation methods per table as real
  * invariants surface (fast-moving pre-PMF team, not a final API).
  */
 @Entity
 @Table(name = "salon_policy", schema = "salon_schema")
+@Getter
 public class SalonPolicy {
 
     @Id
@@ -23,14 +26,19 @@ public class SalonPolicy {
 
     @Column(name = "salon_id", nullable = false)
     private UUID salonId;
+    @Setter
     @Column(name = "template", nullable = false, length = 20)
     private String template;
+    @Setter
     @Column(name = "free_cancel_hours", nullable = false)
     private int freeCancelHours;
+    @Setter
     @Column(name = "late_grace_minutes", nullable = false)
     private int lateGraceMinutes;
+    @Setter
     @Column(name = "require_prepayment", nullable = false)
     private boolean requirePrepayment;
+    @Setter
     @Column(name = "slot_granularity_minutes", nullable = false)
     private int slotGranularityMinutes;
     @Column(name = "created_at", nullable = false)
@@ -52,13 +60,5 @@ public class SalonPolicy {
         this.updatedAt = Instant.now();
     }
 
-    public UUID getId() { return id; }
-    public UUID getSalonId() { return salonId; }
-    public String getTemplate() { return template; }
-    public int getFreeCancelHours() { return freeCancelHours; }
-    public int getLateGraceMinutes() { return lateGraceMinutes; }
-    public boolean isRequirePrepayment() { return requirePrepayment; }
-    public int getSlotGranularityMinutes() { return slotGranularityMinutes; }
-    public Instant getCreatedAt() { return createdAt; }
-    public Instant getUpdatedAt() { return updatedAt; }
+    public void touch() { this.updatedAt = Instant.now(); }
 }

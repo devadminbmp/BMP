@@ -2,6 +2,8 @@ package com.bmp.notification.entities;
 
 import com.bmp.common.ids.UuidV7;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -27,6 +29,7 @@ public class NotificationLog {
     private String channel;
     @Column(name = "template_code", nullable = false, length = 60)
     private String templateCode;
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "payload", nullable = false, columnDefinition = "jsonb")
     private String payload;
     @Column(name = "status", nullable = false, length = 10)

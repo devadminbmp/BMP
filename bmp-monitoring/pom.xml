@@ -35,6 +35,13 @@
       <artifactId>spring-boot-admin-starter-server</artifactId>
       <version>3.4.1</version>
     </dependency>
+    <!-- Session 7 note assumed spring-boot-admin-starter-server pulls this in transitively;
+         it doesn't — without it there's no servlet container, so Spring Security never
+         auto-configures an HttpSecurity bean for SecurityConfig to inject. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.springframework.cloud</groupId>
       <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>

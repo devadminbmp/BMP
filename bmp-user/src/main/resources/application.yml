@@ -38,6 +38,7 @@ spring:
       ddl-auto: validate   # Flyway owns the schema, Hibernate only validates
     open-in-view: false
   flyway:
+    table: flyway_schema_history_user
     schemas: common_schema,user_schema
     create-schemas: true
     baseline-on-migrate: true
@@ -51,13 +52,15 @@ eureka:
 
 bmp:
   # Session 6: shared JWT validation (com.bmp.common.security.CommonSecurityConfig).
-  # public-paths defaults to /** in code (CommonSecurityConfig) for services that haven't
-  # had their own authorization pass yet — endpoints that DO need a real role check use
-  # @PreAuthorize directly (see bmp-salon's SalonController/StaffController for the pattern).
+  # Session 13: this service got its real authorization pass — public-paths is now
+  # tightened (was the /** default). Everything under /api/v1/users/** requires SOME
+  # credential (user JWT or internal service key); per-endpoint rules are @PreAuthorize
+  # on UserController (self-or-service model — see its class javadoc).
   auth:
     jwt-secret: ${BMP_JWT_SECRET:dev-only-secret-change-in-real-environment-min-32-bytes-long}
   security:
     internal-service-key: ${BMP_INTERNAL_SERVICE_KEY:dev-only-internal-key-change-in-real-environment}
+    public-paths: /actuator/health,/actuator/info,/swagger-ui/**,/swagger-ui.html,/v3/api-docs/**
 
 # Session 7: actuator surface — health/info are public (see bmp.security.public-paths
 # default of /** for this service; tighten alongside that service's own authorization

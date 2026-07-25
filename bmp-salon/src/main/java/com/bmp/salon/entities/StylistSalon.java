@@ -2,6 +2,8 @@ package com.bmp.salon.entities;
 
 import com.bmp.common.ids.UuidV7;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
@@ -12,11 +14,12 @@ import java.util.UUID;
  * created_at/updated_at are set automatically at construction time (matching
  * the convention already used by com.bmp.common.outbox.OutboxEntry in this repo).
  * Getters only where a field is documented FROZEN/append-only in CONTEXT.md;
- * plain getters otherwise — add bespoke mutation methods per table as real
+ * @Setter otherwise — add bespoke mutation methods per table as real
  * invariants surface (fast-moving pre-PMF team, not a final API).
  */
 @Entity
 @Table(name = "stylist_salon", schema = "salon_schema")
+@Getter
 public class StylistSalon {
 
     @Id
@@ -26,8 +29,10 @@ public class StylistSalon {
     private UUID stylistId;
     @Column(name = "salon_id", nullable = false)
     private UUID salonId;
+    @Setter
     @Column(name = "status", nullable = false, length = 10)
     private String status;
+    @Setter
     @Column(name = "salon_rating")
     private BigDecimal salonRating;
     @Column(name = "salon_review_count", nullable = false)
@@ -36,6 +41,7 @@ public class StylistSalon {
     private boolean isAvailableToday;
     @Column(name = "joined_at", nullable = false)
     private Instant joinedAt;
+    @Setter
     @Column(name = "left_at")
     private Instant leftAt;
 
@@ -54,13 +60,5 @@ public class StylistSalon {
 
     }
 
-    public UUID getId() { return id; }
-    public UUID getStylistId() { return stylistId; }
-    public UUID getSalonId() { return salonId; }
-    public String getStatus() { return status; }
-    public BigDecimal getSalonRating() { return salonRating; }
-    public int getSalonReviewCount() { return salonReviewCount; }
-    public boolean isAvailableToday() { return isAvailableToday; }
-    public Instant getJoinedAt() { return joinedAt; }
-    public Instant getLeftAt() { return leftAt; }
+    public void setIsAvailableToday(boolean isAvailableToday) { this.isAvailableToday = isAvailableToday; }
 }

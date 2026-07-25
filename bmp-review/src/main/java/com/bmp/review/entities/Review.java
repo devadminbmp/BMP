@@ -2,6 +2,8 @@ package com.bmp.review.entities;
 
 import com.bmp.common.ids.UuidV7;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -11,11 +13,12 @@ import java.util.UUID;
  * created_at/updated_at are set automatically at construction time (matching
  * the convention already used by com.bmp.common.outbox.OutboxEntry in this repo).
  * Getters only where a field is documented FROZEN/append-only in CONTEXT.md;
- * plain getters otherwise — add bespoke mutation methods per table as real
+ * @Setter otherwise — add bespoke mutation methods per table as real
  * invariants surface (fast-moving pre-PMF team, not a final API).
  */
 @Entity
 @Table(name = "review", schema = "review_schema")
+@Getter
 public class Review {
 
     @Id
@@ -27,14 +30,18 @@ public class Review {
     private UUID salonId;
     @Column(name = "stylist_id")
     private UUID stylistId;
+    @Setter
     @Column(name = "salon_rating", nullable = false)
     private int salonRating;
+    @Setter
     @Column(name = "stylist_rating")
     private int stylistRating;
+    @Setter
     @Column(name = "review_text")
     private String reviewText;
     @Column(name = "edit_locked_at", nullable = false)
     private Instant editLockedAt;
+    @Setter
     @Column(name = "needs_remoderation", nullable = false)
     private boolean needsRemoderation;
     @Column(name = "community_post_id", length = 36)
@@ -61,16 +68,5 @@ public class Review {
         this.updatedAt = Instant.now();
     }
 
-    public UUID getId() { return id; }
-    public UUID getBookingId() { return bookingId; }
-    public UUID getSalonId() { return salonId; }
-    public UUID getStylistId() { return stylistId; }
-    public int getSalonRating() { return salonRating; }
-    public int getStylistRating() { return stylistRating; }
-    public String getReviewText() { return reviewText; }
-    public Instant getEditLockedAt() { return editLockedAt; }
-    public boolean isNeedsRemoderation() { return needsRemoderation; }
-    public String getCommunityPostId() { return communityPostId; }
-    public Instant getCreatedAt() { return createdAt; }
-    public Instant getUpdatedAt() { return updatedAt; }
+    public void touch() { this.updatedAt = Instant.now(); }
 }

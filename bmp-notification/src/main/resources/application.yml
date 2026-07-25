@@ -24,6 +24,15 @@ spring:
           # own consumer) — Cloud Bus and the notification Kafka consumer share one Kafka,
           # different topics (bus uses its own internal topic, bmp.events is ours).
           brokers: ${BMP_KAFKA_BOOTSTRAP:localhost:9092}
+  # Session 6 added spring-boot-starter-mail for SmtpEmailSender, but Boot's
+  # MailSenderAutoConfiguration only registers a JavaMailSender bean when spring.mail.host
+  # is actually set — leaving a dev placeholder here so the service boots; real SMTP
+  # creds (and Razorpay/WhatsApp, tracked separately) are a later, service-by-service pass.
+  mail:
+    host: ${BMP_SMTP_HOST:localhost}
+    port: ${BMP_SMTP_PORT:1025}
+    username: ${BMP_SMTP_USERNAME:}
+    password: ${BMP_SMTP_PASSWORD:}
   datasource:
     # Local default (docker-compose) unless overridden — set these 4 env vars to point
     # at a shared cloud instance instead (e.g. your Neon dev branch) without editing this file.
@@ -41,6 +50,41 @@ spring:
       ddl-auto: validate   # Flyway owns the schema, Hibernate only validates
     open-in-view: false
   flyway:
+    table: flyway_schema_history_notification
     schemas: common_schema,notification_schema
     create-schemas: true
-    baseline-on-m
+    baseline-on-migrate: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${BMP_EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+bmp:
+  security:
+    internal-service-key: ${BMP_INTERNAL_SERVICE_KEY:dev-only-internal-key-change-in-real-environment}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,loggers,env,beans,refresh,busrefresh,threaddump,heapdump
+  endpoint:
+    health:
+      show-details: when-authorized
+    loggers:
+      enabled: true
+  health:
+    # No local SMTP server in dev (real creds are a later, service-by-service pass —
+    # see spring.mail above) — don't let actuator health flip to DOWN over it.
+    mail:
+      enabled: false
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}

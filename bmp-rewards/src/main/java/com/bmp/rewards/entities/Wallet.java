@@ -4,6 +4,8 @@ import com.bmp.common.ids.UuidV7;
 import com.bmp.common.money.Money;
 import com.bmp.common.money.MoneyAttributeConverter;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -13,11 +15,12 @@ import java.util.UUID;
  * created_at/updated_at are set automatically at construction time (matching
  * the convention already used by com.bmp.common.outbox.OutboxEntry in this repo).
  * Getters only where a field is documented FROZEN/append-only in CONTEXT.md;
- * plain getters otherwise — add bespoke mutation methods per table as real
+ * @Setter otherwise — add bespoke mutation methods per table as real
  * invariants surface (fast-moving pre-PMF team, not a final API).
  */
 @Entity
 @Table(name = "wallet", schema = "rewards_schema")
+@Getter
 public class Wallet {
 
     @Id
@@ -25,9 +28,11 @@ public class Wallet {
 
     @Column(name = "user_id", nullable = false)
     private UUID userId;
+    @Setter
     @Convert(converter = MoneyAttributeConverter.class)
     @Column(name = "balance_paise", nullable = false)
     private Money balancePaise;
+    @Setter
     @Column(name = "is_frozen", nullable = false)
     private boolean isFrozen;
     @Column(name = "updated_at", nullable = false)
@@ -43,9 +48,5 @@ public class Wallet {
         this.updatedAt = Instant.now();
     }
 
-    public UUID getId() { return id; }
-    public UUID getUserId() { return userId; }
-    public Money getBalancePaise() { return balancePaise; }
-    public boolean isFrozen() { return isFrozen; }
-    public Instant getUpdatedAt() { return updatedAt; }
+    public void touch() { this.updatedAt = Instant.now(); }
 }

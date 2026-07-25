@@ -38,8 +38,53 @@ spring:
       ddl-auto: validate   # Flyway owns the schema, Hibernate only validates
     open-in-view: false
   flyway:
+    table: flyway_schema_history_auth
     schemas: user_schema
     create-schemas: true
     # baseline-on-migrate lets this service's Flyway coexist with bmp-user-service's
     # Flyway history in the same physical schema during local dev — confirm this is
-    # still correct onc
+    # still correct once each service gets its own physical database.
+    baseline-on-migrate: true
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${BMP_EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+bmp:
+  auth:
+    jwt-secret: ${BMP_JWT_SECRET:dev-only-secret-change-in-real-environment-min-32-bytes-long}
+    access-token-ttl-seconds: ${BMP_ACCESS_TOKEN_TTL_SECONDS:900}
+    refresh-token-ttl-days: ${BMP_REFRESH_TOKEN_TTL_DAYS:30}
+    otp-ttl-minutes: ${BMP_OTP_TTL_MINUTES:5}
+    otp-max-attempts: ${BMP_OTP_MAX_ATTEMPTS:5}
+    otp-lockout-minutes: ${BMP_OTP_LOCKOUT_MINUTES:15}
+    # Dev convenience ONLY — this profile is what runs with no SPRING_PROFILES_ACTIVE
+    # set, i.e. every local dev machine. Lets any dev log in as any phone number with
+    # this fixed code instead of digging the real OTP out of bmp-notification's console
+    # log every time. Deliberately absent from application-staging.yml/application-prod.yml
+    # — @Value("${bmp.auth.dev-master-otp:}") in AuthService defaults to blank (disabled)
+    # when this key isn't set at all, so it never activates outside local dev.
+    dev-master-otp: ${BMP_DEV_MASTER_OTP:000000}
+  security:
+    internal-service-key: ${BMP_INTERNAL_SERVICE_KEY:dev-only-internal-key-change-in-real-environment}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,loggers,env,beans,refresh,busrefresh,threaddump,heapdump
+  endpoint:
+    health:
+      show-details: when-authorized
+    loggers:
+      enabled: true
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: ${spring.application.name}

@@ -24,7 +24,7 @@ public class BookingController {
         this.service = service;
     }
 
-    @Operation(summary = "Create a booking")
+    @Operation(summary = "Create a booking", description = "Session 10: every item's requested slot is validated against bmp-salon-service's availability algorithm before anything is written — a stale slot (someone else booked it first) returns 409 SLOT_NOT_AVAILABLE rather than silently double-booking. An item with no stylistId (any_available) gets one auto-assigned from whoever still has that exact slot free.")
     @PostMapping
     public ResponseEntity<BookingResponse> create(@Valid @RequestBody CreateBookingRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(req));
