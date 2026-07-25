@@ -23,6 +23,17 @@ public class LoggingEmailSender implements EmailSender {
 
     private static final Logger log = LoggerFactory.getLogger(LoggingEmailSender.class);
 
+    /**
+     * Session 16: shout at startup which mode we're in. Silent log-only mode cost real
+     * debugging time once (OTP "not arriving" that was actually never being sent) — this
+     * line makes the cause obvious the moment the service boots.
+     */
+    public LoggingEmailSender() {
+        log.warn("EMAIL IS IN LOG-ONLY MODE — no real emails will be sent. "
+                + "To send for real: set BMP_EMAIL_PROVIDER=smtp (+ BMP_SMTP_USERNAME/PASSWORD) "
+                + "BEFORE starting this service, e.g. run '. .\\local-secrets.ps1' in this terminal first.");
+    }
+
     @Override
     public void send(String toEmail, String subject, String body) {
         log.info("[EMAIL STUB — no SMTP provider configured] to={} subject=\"{}\" body=\"{}\"",
