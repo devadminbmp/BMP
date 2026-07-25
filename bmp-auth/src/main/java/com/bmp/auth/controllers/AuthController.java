@@ -2,6 +2,7 @@ package com.bmp.auth.controllers;
 
 import com.bmp.auth.dto.*;
 import com.bmp.auth.services.AuthService;
+import com.bmp.common.security.AuthenticatedUser;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.security.SecurityRequirements;
@@ -9,6 +10,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -102,5 +104,30 @@ public class AuthController {
     public ResponseEntity<Void> logout(@Valid @RequestBody LogoutRequest req) {
         authService.logout(req.refreshToken());
         return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+    }
+
+    /**
+     * The ONE authenticated endpoint on this controller — it requires a valid Bearer access
+     * token (unlike every method above, which ISSUE tokens and are public). The frontend
+     * calls this on app startup when it has a stored token, to restore the session and learn
+     * which role's UI to render, in a single round-trip.
+     *
+     * <p>{@code @AuthenticationPrincipal AuthenticatedUser} is populated by
+     * {@code com.bmp.common.security.JwtAuthFilter} from the JWT. A missing/expired/invalid
+     * token leaves the principal null and the request never reaches here — the shared
+     * SecurityFilterChain returns 401/403 first (this path is deliberately NOT in
+     * {@code bmp.security.public-paths}, unlike the endpoints above).
+     */
+    @Operation(
+        summary = "Who am I — restore session from a stored access token",
+        description = """
+            Requires a Bearer access token. Returns the current user's identity, role and \
+            salon scope (role/salonId straight from the token) plus a small profile subset \
+            (phone, name, email, isVerified) fetched live. Call this on app launch to route \
+            the user to the right home screen without decoding the JWT yourself. For the \
+            full profile (gender, age, photo, hair type/length) call GET /api/v1/users/{userId}.""")
+    @GetMapping("/me")
+    public MeResponse me(@AuthenticationPrincipal AuthenticatedUser principal) {
+        return authService.me(principal);
     }
 }

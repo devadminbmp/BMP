@@ -14,10 +14,28 @@ import java.util.UUID;
  * flow, passing {@code email} (pre-filled from here) and {@code googleSubject} through on
  * {@code /otp/verify} so AuthService links the two in the same transaction that creates the
  * user — see OtpVerifyRequest.googleSubject.
+ *
+ * <p>Session 14: {@code role} and {@code salonId} added to the {@code linked=true} case, so
+ * a Google login gives the frontend the same routing info an OTP login does (both null when
+ * {@code linked=false}, since no user/role exists yet). Google sign-in is customers-only
+ * today, so {@code role} will practically always be {@code customer} here — but it's
+ * populated from the real user record, not hardcoded, in case that ever changes.
+ *
+ * @param linked       true = existing linked account (tokens populated); false = first-seen (only email/googleSubject populated)
+ * @param userId       the user's id (null when linked=false)
+ * @param role         customer / salon_owner / manager / stylist (null when linked=false)
+ * @param salonId      salon scope for owner/manager (null otherwise, and when linked=false)
+ * @param refreshToken opaque refresh token (null when linked=false)
+ * @param accessToken  JWT bearer token (null when linked=false)
+ * @param expiresIn    access-token lifetime in seconds (0 when linked=false)
+ * @param email        Google account email (always populated — pre-fill the signup form with it)
+ * @param googleSubject Google's stable subject id (always populated — pass back on /otp/verify to link)
  */
 public record GoogleAuthResponse(
     boolean linked,
     UUID userId,
+    String role,
+    UUID salonId,
     String refreshToken,
     String accessToken,
     long expiresIn,

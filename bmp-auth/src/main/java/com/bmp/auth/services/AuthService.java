@@ -12,6 +12,9 @@ import com.bmp.auth.repositories.RefreshTokensRepository;
 import com.bmp.common.events.OtpRequested;
 import com.bmp.common.events.UserRegistered;
 import com.bmp.common.outbox.OutboxPublisher;
+import com.bmp.common.security.AuthenticatedUser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.context.config.annotation.RefreshScope;
 import org.springframework.http.HttpStatus;
@@ -54,7 +57,15 @@ import java.util.UUID;
 @RefreshScope
 public class AuthService {
 
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+
     private static final Set<String> VALID_ROLES = Set.of("customer", "salon_owner", "manager", "stylist");
+
+    /** Minimum gap between two {@code /otp/request} calls for the same phone. Surfaced to the
+     * client as {@code OtpRequestResponse.resendAvailableAt} so it can show a resend timer;
+     * enforced below with a 429. Kept as a constant (not a config value) because it's a UX
+     * contract the frontend hardcodes a countdown against — changing it means changing both. */
+    public static final int OTP_RESEND_COOLDOWN_SECONDS = 55;
 
     private final OtpRequestsRepository otpRepo;
     private final RefreshTokensRepository refreshRepo;
@@ -106,13 +117,19 @@ public class AuthService {
      * OtpRequested/bmp-notification), not one-or-the-other. */
     @Transactional
     public OtpRequestResponse requestOtp(OtpRequestRequest req) {
+        // Cooldown: reject a second request for the same phone inside the resend window.
+        // The frontend already knows when resend is allowed (previous response's
+        // resendAvailableAt), so hitting this 429 means either a retry storm or abuse.
         otpRepo.findTopByPhoneOrderByCreatedAtDesc(req.phone()).ifPresent(existing -> {
-            if (existing.getCreatedAt().isAfter(Instant.now().minusSeconds(55))) {
+            if (existing.getCreatedAt().isAfter(Instant.now().minusSeconds(OTP_RESEND_COOLDOWN_SECONDS))) {
+                log.warn("OTP resend rejected (cooldown) for phone={}", maskPhone(req.phone()));
                 throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
                         "An OTP was already sent recently — wait before requesting another.");
             }
         });
 
+        // First-time signup needs an email (nothing on file to reuse); an existing user's
+        // stored email always wins over whatever the request carries.
         UserDto existingUser = lookupUserByPhone(req.phone());
         String resolvedEmail = existingUser != null && existingUser.email() != null
                 ? existingUser.email() : req.email();
@@ -122,15 +139,22 @@ public class AuthService {
         }
 
         String code = String.format("%06d", random.nextInt(1_000_000));
-        String hash = passwordEncoder.encode(code);
-        Instant expiresAt = Instant.now().plus(otpTtlMinutes, ChronoUnit.MINUTES);
+        String hash = passwordEncoder.encode(code); // NEVER store or log the plaintext code
+        Instant now = Instant.now();
+        Instant expiresAt = now.plus(otpTtlMinutes, ChronoUnit.MINUTES);
+        Instant resendAvailableAt = now.plusSeconds(OTP_RESEND_COOLDOWN_SECONDS);
 
         OtpRequests entry = new OtpRequests(req.phone(), resolvedEmail, hash, 0, null, expiresAt);
         otpRepo.save(entry);
 
+        // Dual-channel delivery happens asynchronously: the code goes onto the outbox and
+        // bmp-notification sends it over both SMS and email (see OutboxKafkaRelay ->
+        // NotificationDispatcher). We log that a code was issued, but NOT the code itself.
         outbox.publish(new OtpRequested(entry.getId(), req.phone(), resolvedEmail, code, expiresAt));
+        log.info("OTP issued for phone={} (existingUser={}), expires in {}m",
+                maskPhone(req.phone()), existingUser != null, otpTtlMinutes);
 
-        return new OtpRequestResponse(entry.getId(), expiresAt);
+        return new OtpRequestResponse(entry.getId(), expiresAt, resendAvailableAt);
     }
 
     @Transactional
@@ -148,30 +172,44 @@ public class AuthService {
         boolean isDevMasterOtp = !devMasterOtp.isBlank() && devMasterOtp.equals(req.otp());
         if (!isDevMasterOtp && !passwordEncoder.matches(req.otp(), entry.getOtpHash())) {
             entry.setAttempts(entry.getAttempts() + 1);
-            if (entry.getAttempts() >= otpMaxAttempts) {
+            boolean nowLocked = entry.getAttempts() >= otpMaxAttempts;
+            if (nowLocked) {
                 entry.setLockedUntil(Instant.now().plus(otpLockoutMinutes, ChronoUnit.MINUTES));
             }
             otpRepo.save(entry);
             int remaining = Math.max(0, otpMaxAttempts - entry.getAttempts());
+            log.warn("OTP verify failed for phone={} (attempt {}/{}{})", maskPhone(req.phone()),
+                    entry.getAttempts(), otpMaxAttempts, nowLocked ? ", NOW LOCKED" : "");
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Incorrect OTP — " + remaining + " attempt(s) remaining before lockout");
+        }
+        if (isDevMasterOtp) {
+            log.warn("DEV MASTER OTP used for phone={} — must never appear in a real environment",
+                    maskPhone(req.phone()));
         }
 
         UUID userId;
         String role;
         UUID salonId;
+        // isNewUser distinguishes signup (account created just now) from login (existing
+        // account) — returned to the frontend so it can route to onboarding vs home.
+        boolean isNewUser;
 
         UserDto existing = lookupUserByPhone(req.phone());
         if (existing != null) {
+            isNewUser = false;
             userId = existing.id();
             role = existing.defaultRole();
             salonId = resolveSalonScope(userId, role);
             if (existing.deactivatedAt() != null) {
                 // Session 13: soft deactivation is reversed by the next successful OTP
                 // login — this line IS the reactivation flow, there's no separate one.
+                log.info("Reactivating soft-deactivated user {} on login", userId);
                 userServiceClient.reactivateUser(userId);
             }
+            log.info("Login OK: user={} role={} salonId={}", userId, role, salonId);
         } else {
+            isNewUser = true;
             String requestedRole = req.role() == null ? "customer" : req.role().toLowerCase();
             if (!VALID_ROLES.contains(requestedRole)) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "unknown role: " + req.role());
@@ -186,8 +224,13 @@ public class AuthService {
             role = requestedRole;
             salonId = null;
 
+            // Role-specific signup side effects. Each non-customer role has to be wired to
+            // the salon side here, in the SAME transaction as the user creation, so we never
+            // end up with a half-onboarded staff member.
             switch (requestedRole) {
                 case "manager" -> {
+                    // A manager can't self-serve — they must present a token the salon owner
+                    // generated for their phone (POST /api/v1/salons/{salonId}/invites).
                     if (req.inviteToken() == null || req.inviteToken().isBlank()) {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                                 "inviteToken is required to sign up as MANAGER — ask the salon owner for one");
@@ -195,6 +238,7 @@ public class AuthService {
                     ConsumeInviteResponse consumed = salonServiceClient.consumeInvite(
                             new ConsumeInviteRequest(req.inviteToken(), req.phone(), userId.toString()));
                     salonId = consumed.salonId();
+                    log.info("MANAGER signup: user={} attached to salon={} via invite", userId, salonId);
                 }
                 case "stylist" -> {
                     String name = (req.name() == null || req.name().isBlank()) ? "New stylist" : req.name();
@@ -202,13 +246,22 @@ public class AuthService {
                     // salonId stays null on purpose — stylist_salon links are the portable-
                     // identity join, a stylist isn't scoped to one salon the way owner/manager
                     // are. See StylistCrudService's own javadoc for why.
+                    log.info("STYLIST signup: user={} portable stylist profile created (name='{}')", userId, name);
                 }
-                case "salon_owner", "customer" -> { /* nothing extra at signup time */ }
+                case "salon_owner" -> {
+                    // Nothing to attach yet — the owner creates their salon afterward as an
+                    // authenticated call (POST /api/v1/salons) and becomes its OWNER there.
+                    // salonId stays null until their next /refresh picks up the new seat.
+                    log.info("SALON_OWNER signup: user={} (salon created separately, post-signup)", userId);
+                }
+                case "customer" -> log.info("CUSTOMER signup: user={}", userId);
             }
 
+            // Optional Google linkage carried through from an unlinked /oauth2/google response.
             if (req.googleSubject() != null && !req.googleSubject().isBlank()
                     && oauthRepo.findByProviderAndProviderSubject("google", req.googleSubject()).isEmpty()) {
                 oauthRepo.save(new OAuthIdentity(userId, "google", req.googleSubject(), email));
+                log.info("Linked Google identity to new user {}", userId);
             }
 
             outbox.publish(new UserRegistered(userId, req.phone(), email, requestedRole, salonId));
@@ -226,7 +279,10 @@ public class AuthService {
         String opaqueRefreshToken = selector + "." + verifier;
         String accessToken = jwtService.generateAccessToken(userId, role, salonId);
 
-        return new OtpVerifyResponse(userId, opaqueRefreshToken, accessToken, jwtService.getAccessTokenTtlSeconds());
+        // Session 14: role/salonId/isNewUser now returned so the frontend can route without
+        // decoding the JWT — see OtpVerifyResponse.
+        return new OtpVerifyResponse(userId, role, salonId, isNewUser,
+                opaqueRefreshToken, accessToken, jwtService.getAccessTokenTtlSeconds());
     }
 
     /** Session 6: Google sign-in for customers. See GoogleAuthResponse for why an unlinked
@@ -252,10 +308,19 @@ public class AuthService {
                     refreshRepo.save(tokenRow);
 
                     String accessToken = jwtService.generateAccessToken(user.id(), user.defaultRole(), salonId);
-                    return new GoogleAuthResponse(true, user.id(), selector + "." + verifier, accessToken,
+                    log.info("Google login OK (linked): user={} role={}", user.id(), user.defaultRole());
+                    // Session 14: role/salonId added for frontend routing parity with /otp/verify.
+                    return new GoogleAuthResponse(true, user.id(), user.defaultRole(), salonId,
+                            selector + "." + verifier, accessToken,
                             jwtService.getAccessTokenTtlSeconds(), user.email(), g.subject());
                 })
-                .orElseGet(() -> new GoogleAuthResponse(false, null, null, null, 0, g.email(), g.subject()));
+                .orElseGet(() -> {
+                    // First time we've seen this Google account — no phone, so no user yet.
+                    // Frontend collects a phone and finishes via /otp/request + /otp/verify,
+                    // passing googleSubject through to link. role/salonId null here.
+                    log.info("Google login: first-seen account (subject={}), returning linked=false", g.subject());
+                    return new GoogleAuthResponse(false, null, null, null, null, null, 0, g.email(), g.subject());
+                });
     }
 
     @Transactional
@@ -265,6 +330,8 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token expired");
         }
 
+        // Re-resolve role + salon scope LIVE (not from the old token) — this is what lets a
+        // stale session self-correct, e.g. a SALON_OWNER who created their salon after login.
         ResponseEntity<UserDto> resp = userServiceClient.getUserById(row.getUserId());
         UserDto user = resp.getBody();
         if (user == null) {
@@ -272,13 +339,33 @@ public class AuthService {
         }
         UUID salonId = resolveSalonScope(user.id(), user.defaultRole());
         String accessToken = jwtService.generateAccessToken(user.id(), user.defaultRole(), salonId);
-        return new RefreshResponse(accessToken, jwtService.getAccessTokenTtlSeconds());
+        log.debug("Refreshed access token for user={} role={} salonId={}", user.id(), user.defaultRole(), salonId);
+        // Session 14: role/salonId returned so the frontend re-syncs them after every refresh.
+        return new RefreshResponse(accessToken, jwtService.getAccessTokenTtlSeconds(), user.defaultRole(), salonId);
     }
 
     public void logout(String opaqueToken) {
         RefreshTokens row = lookupBySplitToken(opaqueToken);
         row.setRevoked(true);
         refreshRepo.save(row);
+        log.info("Logout: refresh token revoked for user={}", row.getUserId());
+    }
+
+    /**
+     * Session 14: the "who am I" call ({@code GET /api/v1/auth/me}). {@code role}/{@code salonId}
+     * come from the presented JWT (authoritative for this session); the profile subset is
+     * fetched live from bmp-user. Used by the frontend on app startup with a stored token, to
+     * restore the session and pick which UI to show in one round-trip.
+     */
+    public MeResponse me(AuthenticatedUser principal) {
+        ResponseEntity<UserDto> resp = userServiceClient.getUserById(principal.userId());
+        UserDto user = resp.getBody();
+        if (user == null) {
+            // Token is valid but the user was hard-deleted out from under it — treat as unauth.
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "user no longer exists");
+        }
+        return new MeResponse(user.id(), user.phone(), user.name(), user.email(),
+                principal.role(), principal.salonId(), user.isVerified());
     }
 
     /** SALON_OWNER/MANAGER only — resolves their CURRENT salon_staff seat fresh on every
@@ -321,6 +408,16 @@ public class AuthService {
         byte[] buf = new byte[numBytes];
         random.nextBytes(buf);
         return Base64.getUrlEncoder().withoutPadding().encodeToString(buf);
+    }
+
+    /** Masks a phone number for logs — keeps the country code and last 2 digits, hides the
+     * rest (e.g. +919876543210 -> +91******10). We log auth activity for debugging, but a
+     * full phone number is PII that shouldn't sit in plaintext log files. */
+    private String maskPhone(String phone) {
+        if (phone == null || phone.length() < 5) {
+            return "***";
+        }
+        return phone.substring(0, 3) + "*".repeat(phone.length() - 5) + phone.substring(phone.length() - 2);
     }
 
     private UserDto lookupUserByPhone(String phone) {

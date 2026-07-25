@@ -70,6 +70,20 @@ bmp:
     dev-master-otp: ${BMP_DEV_MASTER_OTP:000000}
   security:
     internal-service-key: ${BMP_INTERNAL_SERVICE_KEY:dev-only-internal-key-change-in-real-environment}
+    # Session 14: the token-ISSUING endpoints are public (they can't require a token you
+    # don't have yet); everything else — notably GET /api/v1/auth/me — requires a valid
+    # Bearer token. Listed explicitly rather than the /** default so /me is actually gated.
+    public-paths: >-
+      /api/v1/auth/otp/request,
+      /api/v1/auth/otp/verify,
+      /api/v1/auth/oauth2/**,
+      /api/v1/auth/refresh,
+      /api/v1/auth/logout,
+      /actuator/health,
+      /actuator/info,
+      /swagger-ui/**,
+      /swagger-ui.html,
+      /v3/api-docs/**
 
 management:
   endpoints:

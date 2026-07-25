@@ -696,6 +696,44 @@ ticket before public launch); profile photo upload still just stores a URL strin
 
 ---
 
+### Session 14 (Darshan/Cowork) — Auth made frontend-ready (all 4 roles)
+
+**Darshan asked:** make login/signup solid for every role (customer, salon owner, manager,
+stylist) so frontend work can start against a stable contract. WhatsApp/email/Razorpay stay
+stubbed. Also: from here on, thorough dev-facing comments AND real logging on everything.
+
+**Audit result:** all four role flows already worked functionally, but the API contract had
+gaps that would have forced the frontend to decode JWTs and guess. Fixed:
+
+- **Login/refresh/google responses now carry routing info.** `OtpVerifyResponse` gained
+  `role`, `salonId`, and `isNewUser` (signup vs login); `GoogleAuthResponse` and
+  `RefreshResponse` gained `role`/`salonId`. The frontend can now route to the right home
+  screen and decide onboarding-vs-home straight from the response body.
+- **New `GET /api/v1/auth/me`** — the whoami/session-restore call. Bearer token in, identity
+  + role + salon + profile subset out, one round-trip. It's the ONLY authenticated endpoint
+  on AuthController; `bmp.security.public-paths` was tightened (was the `/**` default) so the
+  token-issuing endpoints stay public but `/me` requires a valid token.
+- **Resend timer:** `OtpRequestResponse` gained `resendAvailableAt`; the 55s cooldown is now
+  the named constant `AuthService.OTP_RESEND_COOLDOWN_SECONDS`, so the frontend shows an
+  accurate countdown instead of hardcoding it.
+- **Real SLF4J logging** across AuthService at every meaningful point (OTP issued, verify
+  ok/fail/lockout, each role's signup path, google linked/unlinked, refresh, logout,
+  reactivation, dev-master-OTP usage as a WARN) — phone numbers masked in logs
+  (`+91******10`), OTP codes and tokens never logged.
+- **Deliverable: `docs/AUTH_API.md`** — the frontend's single reference: every endpoint with
+  exact request/response JSON, the full per-role signup+login journey, error codes, and the
+  dev-OTP note.
+
+**Clarified in code, not a gap:** there is no "forgot password" endpoint because there is no
+password — OTP re-login IS recovery (documented in AuthService's javadoc and AUTH_API.md).
+
+**Reminder still standing from Session 13:** the `hasRole` case fix (JwtAuthFilter uppercases
+the authority) is what makes SALON_OWNER-gated endpoints — including the salon-creation and
+manager-invite steps in the owner/manager journeys above — actually work. Verify that flow
+on the next real local build.
+
+---
+
 ## How to Add to This File
 
 When you finish a session:
