@@ -2,6 +2,8 @@ package com.bmp.user.entities;
 
 import com.bmp.common.ids.UuidV7;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -11,11 +13,12 @@ import java.util.UUID;
  * created_at/updated_at are set automatically at construction time (matching
  * the convention already used by com.bmp.common.outbox.OutboxEntry in this repo).
  * Getters only where a field is documented FROZEN/append-only in CONTEXT.md;
- * plain getters otherwise — add bespoke mutation methods per table as real
+ * @Setter otherwise — add bespoke mutation methods per table as real
  * invariants surface (fast-moving pre-PMF team, not a final API).
  */
 @Entity
 @Table(name = "users", schema = "user_schema")
+@Getter
 public class Users {
 
     @Id
@@ -23,18 +26,25 @@ public class Users {
 
     @Column(name = "phone", nullable = false, length = 20)
     private String phone;
+    @Setter
     @Column(name = "name", length = 120)
     private String name;
+    @Setter
     @Column(name = "gender", length = 10)
     private String gender;
+    @Setter
     @Column(name = "age")
     private int age;
+    @Setter
     @Column(name = "email", length = 160)
     private String email;
+    @Setter
     @Column(name = "profile_photo_url", length = 500)
     private String profilePhotoUrl;
+    @Setter
     @Column(name = "hair_type", length = 30)
     private String hairType;
+    @Setter
     @Column(name = "hair_length", length = 30)
     private String hairLength;
     @Column(name = "default_role", nullable = false, length = 20)
@@ -64,17 +74,5 @@ public class Users {
         this.updatedAt = Instant.now();
     }
 
-    public UUID getId() { return id; }
-    public String getPhone() { return phone; }
-    public String getName() { return name; }
-    public String getGender() { return gender; }
-    public int getAge() { return age; }
-    public String getEmail() { return email; }
-    public String getProfilePhotoUrl() { return profilePhotoUrl; }
-    public String getHairType() { return hairType; }
-    public String getHairLength() { return hairLength; }
-    public String getDefaultRole() { return defaultRole; }
-    public boolean isVerified() { return isVerified; }
-    public Instant getCreatedAt() { return createdAt; }
-    public Instant getUpdatedAt() { return updatedAt; }
+    public void touch() { this.updatedAt = Instant.now(); }
 }

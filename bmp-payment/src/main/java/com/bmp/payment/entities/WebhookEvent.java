@@ -2,6 +2,8 @@ package com.bmp.payment.entities;
 
 import com.bmp.common.ids.UuidV7;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -25,6 +27,7 @@ public class WebhookEvent {
     private String razorpayEventId;
     @Column(name = "event_type", nullable = false, length = 60)
     private String eventType;
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "raw_payload", nullable = false, columnDefinition = "jsonb")
     private String rawPayload;
     @Column(name = "processed", nullable = false)

@@ -1,7 +1,6 @@
 package com.bmp.common.security;
 
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -89,7 +88,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
                 var auth = new UsernamePasswordAuthenticationToken(principal, null, authorities);
                 SecurityContextHolder.getContext().setAuthentication(auth);
-            } catch (ExpiredJwtException | JwtException | IllegalArgumentException ignored) {
+            } catch (JwtException | IllegalArgumentException ignored) {
                 // Leave the SecurityContext empty — CommonSecurityConfig decides whether
                 // the requested path requires authentication at all.
             }

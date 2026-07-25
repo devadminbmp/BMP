@@ -4,6 +4,10 @@ import com.bmp.common.ids.UuidV7;
 import com.bmp.common.money.Money;
 import com.bmp.common.money.MoneyAttributeConverter;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -13,11 +17,12 @@ import java.util.UUID;
  * created_at/updated_at are set automatically at construction time (matching
  * the convention already used by com.bmp.common.outbox.OutboxEntry in this repo).
  * Getters only where a field is documented FROZEN/append-only in CONTEXT.md;
- * plain getters otherwise — add bespoke mutation methods per table as real
+ * @Setter otherwise — add bespoke mutation methods per table as real
  * invariants surface (fast-moving pre-PMF team, not a final API).
  */
 @Entity
 @Table(name = "payment_order", schema = "payment_schema")
+@Getter
 public class PaymentOrder {
 
     @Id
@@ -38,10 +43,14 @@ public class PaymentOrder {
     @Convert(converter = MoneyAttributeConverter.class)
     @Column(name = "salon_share_paise", nullable = false)
     private Money salonSharePaise;
+    @Setter
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "razorpay_raw_webhook", columnDefinition = "jsonb")
     private String razorpayRawWebhook;
+    @Setter
     @Column(name = "payment_captured_at")
     private Instant paymentCapturedAt;
+    @Setter
     @Column(name = "status", nullable = false, length = 20)
     private String status;
     @Column(name = "created_at", nullable = false)
@@ -62,16 +71,4 @@ public class PaymentOrder {
         this.status = status;
         this.createdAt = Instant.now();
     }
-
-    public UUID getId() { return id; }
-    public UUID getBookingId() { return bookingId; }
-    public String getRazorpayOrderId() { return razorpayOrderId; }
-    public String getIdempotencyKey() { return idempotencyKey; }
-    public Money getAmountPaise() { return amountPaise; }
-    public Money getCommissionPaise() { return commissionPaise; }
-    public Money getSalonSharePaise() { return salonSharePaise; }
-    public String getRazorpayRawWebhook() { return razorpayRawWebhook; }
-    public Instant getPaymentCapturedAt() { return paymentCapturedAt; }
-    public String getStatus() { return status; }
-    public Instant getCreatedAt() { return createdAt; }
 }

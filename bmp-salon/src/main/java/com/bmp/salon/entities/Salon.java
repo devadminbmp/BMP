@@ -2,6 +2,8 @@ package com.bmp.salon.entities;
 
 import com.bmp.common.ids.UuidV7;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -11,22 +13,27 @@ import java.util.UUID;
  * created_at/updated_at are set automatically at construction time (matching
  * the convention already used by com.bmp.common.outbox.OutboxEntry in this repo).
  * Getters only where a field is documented FROZEN/append-only in CONTEXT.md;
- * plain getters otherwise — add bespoke mutation methods per table as real
+ * @Setter otherwise — add bespoke mutation methods per table as real
  * invariants surface (fast-moving pre-PMF team, not a final API).
  */
 @Entity
 @Table(name = "salon", schema = "salon_schema")
+@Getter
 public class Salon {
 
     @Id
     private UUID id;
 
+    @Setter
     @Column(name = "name", nullable = false, length = 160)
     private String name;
+    @Setter
     @Column(name = "location")
     private String location;
+    @Setter
     @Column(name = "status", nullable = false, length = 20)
     private String status;
+    @Setter
     @Column(name = "stylist_assignment_strategy", nullable = false, length = 20)
     private String stylistAssignmentStrategy;
     @Column(name = "created_at", nullable = false)
@@ -46,11 +53,5 @@ public class Salon {
         this.updatedAt = Instant.now();
     }
 
-    public UUID getId() { return id; }
-    public String getName() { return name; }
-    public String getLocation() { return location; }
-    public String getStatus() { return status; }
-    public String getStylistAssignmentStrategy() { return stylistAssignmentStrategy; }
-    public Instant getCreatedAt() { return createdAt; }
-    public Instant getUpdatedAt() { return updatedAt; }
+    public void touch() { this.updatedAt = Instant.now(); }
 }

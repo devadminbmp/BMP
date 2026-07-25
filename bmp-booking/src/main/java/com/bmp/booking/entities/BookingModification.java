@@ -2,6 +2,8 @@ package com.bmp.booking.entities;
 
 import com.bmp.common.ids.UuidV7;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -23,8 +25,10 @@ public class BookingModification {
 
     @Column(name = "booking_id", nullable = false)
     private UUID bookingId;
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "before_snapshot", nullable = false, columnDefinition = "jsonb")
     private String beforeSnapshot;
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "after_snapshot", nullable = false, columnDefinition = "jsonb")
     private String afterSnapshot;
     @Column(name = "created_at", nullable = false)

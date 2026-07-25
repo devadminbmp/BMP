@@ -2,6 +2,8 @@ package com.bmp.common.outbox;
 
 import com.bmp.common.ids.UuidV7;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -31,7 +33,11 @@ public class OutboxEntry {
     @Column(name = "aggregate_id", nullable = false)
     private UUID aggregateId;
 
-    /** Event serialized as JSON. Schema owned by the emitting module's api package. */
+    /** Event serialized as JSON. Schema owned by the emitting module's api package.
+     * {@code @JdbcTypeCode(SqlTypes.JSON)} is required alongside columnDefinition="jsonb" —
+     * Hibernate 6 doesn't infer the JDBC binding type from columnDefinition alone, so
+     * without it the driver sends this as varchar and Postgres rejects the insert. */
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "payload", nullable = false, columnDefinition = "jsonb")
     private String payload;
 

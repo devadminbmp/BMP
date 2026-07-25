@@ -5,6 +5,10 @@ import com.bmp.common.ids.UuidV7;
 import com.bmp.common.money.Money;
 import com.bmp.common.money.MoneyAttributeConverter;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.Instant;
 import java.util.UUID;
 
@@ -14,11 +18,13 @@ import java.util.UUID;
  * created_at/updated_at are set automatically at construction time (matching
  * the convention already used by com.bmp.common.outbox.OutboxEntry in this repo).
  * Getters only where a field is documented FROZEN/append-only in CONTEXT.md;
- * plain getters otherwise — add bespoke mutation methods per table as real
+ * @Setter otherwise — add bespoke mutation methods per table as real
  * invariants surface (fast-moving pre-PMF team, not a final API).
+ * Status changes only via BookingStatus.assertTransition — see BookingService.
  */
 @Entity
 @Table(name = "booking", schema = "booking_schema")
+@Getter
 public class Booking {
 
     @Id
@@ -30,22 +36,29 @@ public class Booking {
     private UUID salonId;
     @Column(name = "customer_id", nullable = false)
     private UUID customerId;
+    @Setter
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private BookingStatus status;
+    @Setter
     @Convert(converter = MoneyAttributeConverter.class)
     @Column(name = "final_amount_paise", nullable = false)
     private Money finalAmountPaise;
+    @Setter
     @Convert(converter = MoneyAttributeConverter.class)
     @Column(name = "total_refunded_paise", nullable = false)
     private Money totalRefundedPaise;
+    @Setter
     @Convert(converter = MoneyAttributeConverter.class)
     @Column(name = "commission_paise", nullable = false)
     private Money commissionPaise;
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "policy_snapshot", nullable = false, columnDefinition = "jsonb")
     private String policySnapshot;
+    @Setter
     @Column(name = "refund_window_open", nullable = false)
     private boolean refundWindowOpen;
+    @Setter
     @Column(name = "confirmed_at")
     private Instant confirmedAt;
     @Column(name = "created_at", nullable = false)
@@ -71,17 +84,5 @@ public class Booking {
         this.updatedAt = Instant.now();
     }
 
-    public UUID getId() { return id; }
-    public String getBookingRef() { return bookingRef; }
-    public UUID getSalonId() { return salonId; }
-    public UUID getCustomerId() { return customerId; }
-    public BookingStatus getStatus() { return status; }
-    public Money getFinalAmountPaise() { return finalAmountPaise; }
-    public Money getTotalRefundedPaise() { return totalRefundedPaise; }
-    public Money getCommissionPaise() { return commissionPaise; }
-    public String getPolicySnapshot() { return policySnapshot; }
-    public boolean isRefundWindowOpen() { return refundWindowOpen; }
-    public Instant getConfirmedAt() { return confirmedAt; }
-    public Instant getCreatedAt() { return createdAt; }
-    public Instant getUpdatedAt() { return updatedAt; }
+    public void touch() { this.updatedAt = Instant.now(); }
 }

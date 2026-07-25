@@ -26,6 +26,15 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-security</artifactId>
     </dependency>
+    <!-- JwtAuthFilter implements jakarta.servlet.Filter; spring-security-web only
+         depends on the servlet API as "provided", so it doesn't propagate here.
+         Every consuming service already brings the real servlet container via
+         spring-boot-starter-web. -->
+    <dependency>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
+      <scope>provided</scope>
+    </dependency>
     <dependency>
       <groupId>io.jsonwebtoken</groupId>
       <artifactId>jjwt-api</artifactId>

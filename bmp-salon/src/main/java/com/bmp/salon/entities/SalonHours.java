@@ -2,6 +2,8 @@ package com.bmp.salon.entities;
 
 import com.bmp.common.ids.UuidV7;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 import java.util.UUID;
 
 /**
@@ -10,11 +12,12 @@ import java.util.UUID;
  * created_at/updated_at are set automatically at construction time (matching
  * the convention already used by com.bmp.common.outbox.OutboxEntry in this repo).
  * Getters only where a field is documented FROZEN/append-only in CONTEXT.md;
- * plain getters otherwise — add bespoke mutation methods per table as real
+ * @Setter otherwise — add bespoke mutation methods per table as real
  * invariants surface (fast-moving pre-PMF team, not a final API).
  */
 @Entity
 @Table(name = "salon_hours", schema = "salon_schema")
+@Getter
 public class SalonHours {
 
     @Id
@@ -24,8 +27,10 @@ public class SalonHours {
     private UUID salonId;
     @Column(name = "day_of_week", nullable = false)
     private int dayOfWeek;
+    @Setter
     @Column(name = "open_time", nullable = false)
     private String openTime;
+    @Setter
     @Column(name = "close_time", nullable = false)
     private String closeTime;
 
@@ -39,10 +44,4 @@ public class SalonHours {
         this.closeTime = closeTime;
 
     }
-
-    public UUID getId() { return id; }
-    public UUID getSalonId() { return salonId; }
-    public int getDayOfWeek() { return dayOfWeek; }
-    public String getOpenTime() { return openTime; }
-    public String getCloseTime() { return closeTime; }
 }

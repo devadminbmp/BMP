@@ -38,6 +38,7 @@ spring:
       ddl-auto: validate   # Flyway owns the schema, Hibernate only validates
     open-in-view: false
   flyway:
+    table: flyway_schema_history_review
     schemas: common_schema,review_schema
     create-schemas: true
     baseline-on-migrate: true

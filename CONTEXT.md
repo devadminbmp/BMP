@@ -70,7 +70,15 @@ Every Indian salon marketplace before BMP (Fabogo, Vyomo, Bulbul, Zoylee) died b
 
 ## Current Status
 
-**Phase: Microservices Split Complete (Session 5) → Phase 1 CRUD In Progress (Session 6 — Dev Achyuth) → Session 7 (BMP-6 & BMP-30 Complete) → Ready for Phase 2**
+**Phase: Microservices Split Complete (Session 5) → Phase 1 CRUD In Progress (Session 6 — Dev Achyuth) → Session 7 (BMP-6 & BMP-30 Complete) → Phase 2 Availability Algorithm Done (Session 9-10) → Session 12: full local build+run actually verified working end-to-end for the first time, ~20 real bugs found & fixed in the process**
+
+⚠️ **As of Session 12, none of that session's fixes are committed yet** — they're all
+still local working-tree changes on `feature/booking-availability-wiring` (`git status`
+shows ~63 modified/untracked files). If you're an AI agent picking this project up,
+run `git status`/`git diff` before assuming the state described in the Session 12 log
+entry is actually on the branch you're looking at — someone needs to commit and push
+it first. See the Session 12 log entry for the full list and **`RUN_LOCALLY.md`** (repo
+root) for the actual step-by-step build/run guide.
 
 ⚠️ **Session 5 reversed the "modular monolith, not microservices" LOCKED decision below** (see
 Technology Stack table and Session 5 log entry). This was a **Darshan-only decision**, made and
@@ -434,6 +442,196 @@ several with no service/controller touching them at all:
 
 The other gaps above (booking disruption/refunds, rewards loyalty, payment infrastructure)
 remain open — flagged for prioritization, not attempted this session.
+
+---
+
+### Session 12 (Darshan/Claude Code) — First real end-to-end local build+run; ~20 latent bugs found and fixed
+
+**Darshan asked:** run every service and build it. Nobody had actually done a clean
+build-from-scratch + run-every-service pass since the Session 5 microservices pivot —
+every prior session added code against a partially-running dev environment. This
+session was the first time anyone tried to go from a fresh clone to all 13 services
+actually serving traffic, and it surfaced a long chain of latent bugs that had never
+been exercised before. **Full step-by-step for teammates is `RUN_LOCALLY.md`** (new,
+repo root) — this log entry is the "what was actually broken and why" record.
+
+**Environment (one-time, per machine, not a code change):** JDK 21 wasn't installed
+(only JDK 17) despite the pom requiring it — installed Eclipse Temurin 21 via winget.
+Docker Desktop was installed but not running.
+
+**Compile-time bugs (nothing here would have built at all):**
+1. `bmp-common`'s `JwtAuthFilter` uses `jakarta.servlet.*` classes but the module never
+   declared the servlet API dependency (Spring Security's own servlet dependency is
+   `provided` scope, so it doesn't propagate transitively) — added
+   `jakarta.servlet:jakarta.servlet-api` (provided) to `bmp-common/pom.xml`.
+2. `JwtAuthFilter`'s multi-catch (`ExpiredJwtException | JwtException`) doesn't compile
+   — `ExpiredJwtException` is a subtype of `JwtException`. Simplified to just `JwtException`.
+3. **Every "Getters only... add bespoke mutation methods per table as real invariants
+   surface" entity that a service actually mutated was missing those mutation methods** —
+   the doc-comment pattern across every entity class explicitly anticipated this, but the
+   services calling `.setX()`/`.touch()` on them were apparently never compiled against
+   the entities as they currently stand. Affected: `Users`, `Salon`, `SalonPolicy`,
+   `SalonHours`, `StylistSalon`, `Booking`, `PaymentOrder`, `Review`, `SalonResponse`,
+   `Wallet`, `BmpStaff`, `SupportTicket`. Fixed by adding the missing setters/`touch()`.
+4. **Adopted Lombok** (Darshan's explicit call mid-session: "use Lombok simply for
+   everything") — added `org.projectlombok:lombok` (provided) to the root `pom.xml`'s
+   shared `<dependencies>` (applies to every module), then rewrote the entities from #3
+   to use `@Getter`/`@Setter` instead of hand-written boilerplate. One caveat worth
+   knowing: Lombok's boolean-getter/setter naming strips a leading `is` from the field
+   name (`isAvailableToday` → `setAvailableToday`, not `setIsAvailableToday`) — where a
+   caller already expected the un-stripped name (`StylistSalon.setIsAvailableToday`),
+   a manual setter was kept instead of `@Setter` for that one field. Going forward, new
+   entities should default to Lombok, not hand-written getters/setters.
+
+**Config files silently truncated mid-file (found by trying to actually boot each
+service — these produced confusing runtime errors, not compile errors):**
+`bmp-auth/application.yml`, `bmp-notification/application.yml`, and
+`api-gateway/application.yml` all cut off mid-line/mid-comment, missing everything
+after that point — `baseline-on-migrate`, the entire `eureka:`/`bmp:`/`management:`/
+`info:` blocks, and (api-gateway specifically) half the route table including the
+entire `notification-service` route. Reconstructed all three against the pattern used
+by sibling services. **Worth double-checking other `application*.yml` files for the
+same silent truncation** — these three were only found because their absence caused a
+hard failure; a file that happens to truncate right at a harmless spot wouldn't announce
+itself the same way.
+
+**Missing config values (no default anywhere, `@Value` with no fallback):**
+`bmp-auth`'s `AuthService`/`JwtService` require `bmp.auth.access-token-ttl-seconds`,
+`bmp.auth.refresh-token-ttl-days`, `bmp.auth.otp-ttl-minutes`, `bmp.auth.otp-max-attempts`,
+`bmp.auth.otp-lockout-minutes` — none were set anywhere. Added dev defaults (900s / 30d /
+5m / 5 / 15m respectively, all env-var overridable) to `application.yml`.
+
+**Schema ↔ entity type mismatches (Hibernate `ddl-auto: validate` caught these at
+boot — Flyway migrations and JPA entities had drifted apart, never previously
+exercised together):**
+- `SMALLINT` in the migration vs. Java `int` in the entity (Hibernate wants `INTEGER`):
+  `bmp-auth.otp_requests.attempts`, `bmp-user.users.age`, `bmp-salon.salon_hours.day_of_week`,
+  `bmp-salon.salon_combo_item.sequence`, `bmp-salon.stylist_availability.day_of_week`,
+  `bmp-booking.booking_disruption.rejection_count`, `bmp-payment.payout_batch.retry_count`,
+  `bmp-review.review.salon_rating/stylist_rating`,
+  `bmp-review.review_edit_history.salon_rating/stylist_rating`.
+- `salon.location` was `GEOGRAPHY(POINT)` (real PostGIS) in the migration, but
+  `SalonService`'s own javadoc confirms hibernate-spatial was never wired in — location
+  is actually stored as a plain `"lat,lng"` string with in-memory Haversine proximity
+  search, not `ST_DWithin`. Migration widened to `VARCHAR(255)`.
+- `TIME` in the migration vs. Java `String` ("HH:mm") in the entity: `salon_hours.open_time`/
+  `close_time`, `stylist_availability.start_time`/`end_time`, `walk_in_block.start_time`,
+  `booking_schema.slot_lock.start_time`/`end_time`. All widened to `VARCHAR(255)`.
+
+  Fixed via new additive Flyway migrations (never edit an already-applied migration
+  file in place — Flyway checksums it): `bmp-auth/V004`, `bmp-user/V003`,
+  `bmp-salon/V004`+`V005`+`V006`+`V007`, `bmp-booking/V003`+`V004`, `bmp-payment/V003`,
+  `bmp-review/V003`.
+
+**Structural Flyway bug — every business service's migration history collided in the
+same physical table:** every service's `spring.flyway.schemas` lists `common_schema`
+**first**, and Flyway puts its history table in the first-listed schema unless told
+otherwise — so all 9 services were writing their own independently-numbered V001/V002/...
+migration history into the SAME `common_schema.flyway_schema_history` table. The very
+first two services to actually run against a shared fresh DB in the same session (`bmp-user`
+then `bmp-salon`) immediately collided on version numbers with different checksums. This
+directly contradicts the intent already documented in every `V001__common_outbox.sql`'s
+own comment ("each service's Flyway history is tracked independently and doesn't know
+about the others") — the code just never matched that comment. **Fixed by adding
+`spring.flyway.table: flyway_schema_history_<service>` to all 9 business services +
+bmp-auth**, giving each its own uniquely-named history table regardless of which schema
+it physically lives in. Required a `docker compose down -v` reset to clear the already-
+poisoned history (that data was only ever this session's own testing, nothing real lost).
+
+**Silent security bug affecting every single business service — the most significant
+finding this session:** `com.bmp.common.security.CommonSecurityConfig` (the shared JWT
+filter chain, documented as defaulting `public-paths` to `/**`) was **never actually
+registered as a Spring bean in any of the 9 business services**. `@EntityScan` (already
+present on every service's main class, to pull in `com.bmp.common`'s JPA entities) does
+**not** cover `@Configuration`/`@Component` classes — only `@ComponentScan` does, and
+none of the main classes had one pointed at `com.bmp.common`. With no custom
+`SecurityFilterChain` bean present, Spring Boot silently fell back to its own default
+security auto-configuration: HTTP Basic auth behind a **freshly random-generated
+password printed to the console on every restart**, blocking literally every endpoint
+on every service — Swagger UI, actuator, everything — regardless of what
+`bmp.security.public-paths` said. This had been true since whenever these main classes
+were first written; it was only discovered now because this was the first session to
+actually hit Swagger UI and get a 401 instead of assuming it was working. Fixed by
+adding `@ComponentScan(basePackages = {"com.bmp.<service>", "com.bmp.common"})`
+alongside the existing `@EntityScan` on all 9 main `*Application.java` classes
+(bmp-auth was fixed first/separately — its `AuthService` directly `@Autowired`s
+`OutboxPublisher`, another `com.bmp.common` bean, so it failed loudly at boot instead
+of silently; that's what led to finding the broader pattern).
+
+**JSONB write bug, also invisible until the security fix above made `OutboxPublisher`
+actually reachable for the first time:** `OutboxEntry.payload` (and every other
+`@Column(columnDefinition = "jsonb")` `String` field across the codebase) threw
+`column "payload" is of type jsonb but expression is of type character varying` on the
+very first real insert. Hibernate 6 does not infer the JDBC parameter binding type from
+`columnDefinition` alone — it needs `@JdbcTypeCode(SqlTypes.JSON)` (from
+`org.hibernate.annotations`/`org.hibernate.type`) alongside it. Fixed on
+`OutboxEntry.payload` plus 8 more fields that had the exact same latent bug and simply
+hadn't been written to yet: `AuditLog.metadata`, `Booking.policySnapshot`,
+`BookingEvents.metadata`, `BookingModification.beforeSnapshot`/`afterSnapshot`,
+`NotificationLog.payload`, `PaymentOrder.razorpayRawWebhook`, `WebhookEvent.rawPayload`,
+`OnboardingState.stateJson`. **Any future entity with a jsonb column needs this
+annotation too — it's not obvious from the compiler or from Hibernate's schema
+validation, only from an actual failed write.**
+
+**Dependency version bug:** `springdoc-openapi-starter-webmvc-ui:2.6.0` (pinned
+identically across all 9 services) throws
+`NoSuchMethodError: ControllerAdviceBean.<init>(Object)` on `/v3/api-docs` under Spring
+Boot 3.4.1/Spring Framework 6.2.1 — 2.6.0 predates Boot 3.4 support. Bumped to `2.7.0`
+across all 9 `pom.xml`s.
+
+**`bmp-monitoring` missing `spring-boot-starter-web`:** its pom assumed
+`spring-boot-admin-starter-server` would transitively bring in a servlet container; it
+doesn't. Without one, Spring Security's `HttpSecurity` bean auto-configuration never
+fires, so `SecurityConfig.securityFilterChain(HttpSecurity http)` failed to wire at
+boot. Added `spring-boot-starter-web` explicitly.
+
+**bmp-notification's `SmtpEmailSender` needs a `JavaMailSender` bean, which Spring only
+auto-configures when `spring.mail.host` is actually set** (dependency alone isn't
+enough) — added a dev placeholder (`localhost:1025`, nothing runs there) so the service
+boots, and set `management.health.mail.enabled: false` so actuator health doesn't flip
+to DOWN over a deliberately-absent local SMTP server.
+
+**Dev-only convenience added (Darshan's explicit request — "as i am not using any otp
+whats app etc as per now static credentials for dev"):** `bmp-auth`'s `AuthService`
+now accepts a fixed master OTP (`bmp.auth.dev-master-otp`, defaults to `000000`,
+env-var override `BMP_DEV_MASTER_OTP`) on `/otp/verify`, for **any** phone number, in
+addition to the real bcrypt-checked code. Only set on the default profile (what runs
+with no `SPRING_PROFILES_ACTIVE`, i.e. every local dev machine) — deliberately absent
+from `application-staging.yml`/`application-prod.yml`, so it's disabled there by the
+`@Value("${bmp.auth.dev-master-otp:}")` default of blank. You still need to call
+`/otp/request` first (an OTP record has to exist) — this bypasses the *code check*, not
+the whole flow. Documented in `RUN_LOCALLY.md` §7.
+
+**End-to-end verification actually performed** (not just "it compiled"): `docker
+compose up -d` → all 13 services started clean from the fixed code → `POST
+/api/v1/auth/otp/request` → `POST /api/v1/auth/otp/verify` with `otp: "000000"` → real
+JWT returned → `GET /api/v1/users/{id}` with that token as a Bearer header → 200 with
+the created user's data. This is the first time this specific chain (build → boot all
+13 → login → authenticated call) is known to have actually been run successfully.
+
+**Deliverable — `RUN_LOCALLY.md` (new, repo root):** the actual onboarding doc for
+teammates pulling this repo — required tool versions, `git clone`/`pull`, one-time
+build, Docker Desktop setup (with a per-container Postgres/Redis/Kafka breakdown and an
+explicit explanation of why `docker-compose.yml` alone doesn't start the 13 app
+services — that file only ever defined infra, and its own top-of-file comment claiming
+otherwise is stale, left over from the pre-Session-5 `bmp-app` monolith), start order
+for all 13 services with copy-pasteable commands (plus a one-terminal
+`Start-Job`-based alternative), a health-check script, the full Swagger UI / OpenAPI
+JSON URL table, the login flow (including the dev-master-otp), and a troubleshooting
+table built directly from the bugs hit this session.
+
+**Not done / still open, flagged not silently skipped:**
+- None of this session's ~63 changed/new files are committed — see the Current Status
+  warning at the top of this file.
+- Real Razorpay/WhatsApp/SMS/email provider integration remains untouched (Phase 3, as
+  already planned) — Darshan explicitly confirmed leaving these as-is this session.
+- Didn't audit every remaining `application*.yml` (dev/local/staging/prod variants) for
+  the same silent-truncation pattern found in 3 files — only the ones that actually
+  failed to boot were checked and fixed.
+- Didn't check whether the JSONB/`@JdbcTypeCode` bug affects any entity outside the 9
+  fixed here that simply hasn't been written to yet by any currently-existing code path
+  — worth a proactive `grep -rn 'columnDefinition = "jsonb"'` sweep again after future
+  entities are added.
 
 ---
 
