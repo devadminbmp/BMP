@@ -61,6 +61,13 @@ bmp:
     otp-ttl-minutes: ${BMP_OTP_TTL_MINUTES:5}
     otp-max-attempts: ${BMP_OTP_MAX_ATTEMPTS:5}
     otp-lockout-minutes: ${BMP_OTP_LOCKOUT_MINUTES:15}
+    # Google Sign-In OAuth 2.0 Client ID (Google Cloud project "BMP2026", Web client).
+    # NOT a secret — a client id is sent to browsers/apps by design, so it's safe to keep
+    # in the repo. GoogleTokenVerifier checks that a submitted Google ID token's `aud`
+    # claim equals this value (see /oauth2/google). Env-var overridable per environment;
+    # when Android/iOS clients are added they each get their OWN client id (different
+    # `aud`) and the verifier will need to accept a LIST — flagged in AuthService/CONTEXT.
+    google-client-id: ${BMP_GOOGLE_CLIENT_ID:379818619052-ns0mpj0hf4uucc48d21f9us7uqsr6gvb.apps.googleusercontent.com}
     # Dev convenience ONLY — this profile is what runs with no SPRING_PROFILES_ACTIVE
     # set, i.e. every local dev machine. Lets any dev log in as any phone number with
     # this fixed code instead of digging the real OTP out of bmp-notification's console

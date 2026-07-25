@@ -172,8 +172,13 @@ it server-side. Two outcomes:
   Collect a phone, run the normal `/otp/request` + `/otp/verify` signup, and pass the
   returned `email` and `googleSubject` through on `/otp/verify` to link the two.
 
-> ⚠️ Returns **501 Not Implemented** until `BMP_GOOGLE_CLIENT_ID` is configured (no Google
-> Cloud OAuth client exists yet). Safe to defer Google in the frontend for now.
+> **Configured (Session 14):** a Google Cloud OAuth Web client exists (project `BMP2026`)
+> and its Client ID is the default in `bmp-auth`'s `application.yml`, so `/oauth2/google`
+> is live in local dev. The frontend must use the **same** Client ID
+> (`379818619052-…apps.googleusercontent.com`) in its Google Sign-In SDK, and the signing-in
+> Google account must be listed as a **test user** on the consent screen while it's in
+> Testing mode. (Still returns 501 in any environment where `BMP_GOOGLE_CLIENT_ID` is
+> explicitly unset.)
 
 ---
 
