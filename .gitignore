@@ -19,3 +19,8 @@ Thumbs.db
 
 # Claude Code local session settings
 .claude/
+
+# Local secrets — real SMTP/API credentials for local dev. NEVER committed; each dev
+# keeps their own copy. See local-secrets.example.ps1 for the template.
+local-secrets.ps1
+*.local.ps1
