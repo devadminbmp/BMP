@@ -21,6 +21,30 @@ spring:
         binder:
           brokers: ${BMP_KAFKA_BOOTSTRAP:localhost:9092}
     gateway:
+      # CORS (Session 15, frontend kickoff): the React Native WEB build runs in a browser,
+      # which enforces CORS — without this block every fetch from the Expo web app is
+      # blocked before it even reaches a service. Configured ONCE here at the gateway (the
+      # only origin browsers talk to), NOT per-service: services behind the gateway never
+      # see browser traffic directly, and one config can't drift into nine.
+      # - allowedOriginPatterns (not allowedOrigins) so a port wildcard works: Expo's dev
+      #   server picks its own port (8081 default, but it moves when that's busy — and
+      #   bmp-auth already owns 8081 on a dev machine), so pin to "any localhost port".
+      # - allowCredentials stays false: auth is a Bearer header, not cookies, so we don't
+      #   need credentialed CORS (and browsers forbid combining it with wildcards anyway).
+      # - Native Android/iOS apps don't enforce CORS; this is purely for web.
+      # - Production: replace the localhost pattern with the real web app origin(s).
+      globalcors:
+        add-to-simple-url-handler-mapping: true   # answers preflights on unmatched paths too
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns:
+              - "http://localhost:[*]"
+              - "http://127.0.0.1:[*]"
+            allowedMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+            allowedHeaders: "*"
+            exposedHeaders: [Authorization]
+            allowCredentials: false
+            maxAge: 3600
       # discovery.locator would auto-route by service name alone; explicit routes below
       # instead, so the public URL path prefixes stay stable and readable regardless of
       # what each service internally calls itself.
