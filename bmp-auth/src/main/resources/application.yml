@@ -21,6 +21,16 @@ spring:
       kafka:
         binder:
           brokers: ${BMP_KAFKA_BOOTSTRAP:localhost:9092}
+  # Session 16: Spring Cloud Bus's Kafka binder (KafkaBinderEnvironmentPostProcessor)
+  # silently DEFAULTS spring.kafka serializers to ByteArraySerializer when nothing sets
+  # them — which broke OutboxKafkaRelay's KafkaTemplate<String,String> ("Can't convert key
+  # of class java.lang.String..."). Explicit String serializers here override the binder's
+  # defaults; the Bus's own channels are unaffected (it configures its bindings separately).
+  kafka:
+    bootstrap-servers: ${BMP_KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
   datasource:
     # Local default (docker-compose) unless overridden — set these 4 env vars to point
     # at a shared cloud instance instead (e.g. your Neon dev branch) without editing this file.

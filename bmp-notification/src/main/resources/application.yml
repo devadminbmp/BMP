@@ -24,6 +24,15 @@ spring:
           # own consumer) — Cloud Bus and the notification Kafka consumer share one Kafka,
           # different topics (bus uses its own internal topic, bmp.events is ours).
           brokers: ${BMP_KAFKA_BOOTSTRAP:localhost:9092}
+  # Session 16: same binder-default problem as bmp-auth (see its yml comment) but on the
+  # CONSUMER side — the Bus binder defaults deserializers to ByteArray, which would break
+  # NotificationDispatcher's @KafkaListener(String payload). Explicit String deserializers.
+  kafka:
+    bootstrap-servers: ${BMP_KAFKA_BOOTSTRAP:localhost:9092}
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
   # Session 6 added spring-boot-starter-mail for SmtpEmailSender; Session 14 wired it for
   # real. Boot's MailSenderAutoConfiguration registers a JavaMailSender bean whenever
   # spring.mail.host is set, so the placeholder below keeps the service booting even in
