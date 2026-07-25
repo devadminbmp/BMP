@@ -24,15 +24,26 @@ spring:
           # own consumer) — Cloud Bus and the notification Kafka consumer share one Kafka,
           # different topics (bus uses its own internal topic, bmp.events is ours).
           brokers: ${BMP_KAFKA_BOOTSTRAP:localhost:9092}
-  # Session 6 added spring-boot-starter-mail for SmtpEmailSender, but Boot's
-  # MailSenderAutoConfiguration only registers a JavaMailSender bean when spring.mail.host
-  # is actually set — leaving a dev placeholder here so the service boots; real SMTP
-  # creds (and Razorpay/WhatsApp, tracked separately) are a later, service-by-service pass.
+  # Session 6 added spring-boot-starter-mail for SmtpEmailSender; Session 14 wired it for
+  # real. Boot's MailSenderAutoConfiguration registers a JavaMailSender bean whenever
+  # spring.mail.host is set, so the placeholder below keeps the service booting even in
+  # log-only mode. To send REAL email, set BMP_EMAIL_PROVIDER=smtp AND the BMP_SMTP_* env
+  # vars (see docs/AUTH_API.md / this file's comments). Password is env-var only — never
+  # commit it. Defaults target Gmail's SMTP (587/STARTTLS); override host/port for Brevo/SES.
   mail:
-    host: ${BMP_SMTP_HOST:localhost}
-    port: ${BMP_SMTP_PORT:1025}
+    host: ${BMP_SMTP_HOST:smtp.gmail.com}
+    port: ${BMP_SMTP_PORT:587}
     username: ${BMP_SMTP_USERNAME:}
     password: ${BMP_SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true          # STARTTLS on 587 — required by Gmail/Brevo/SES/Outlook
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
   datasource:
     # Local default (docker-compose) unless overridden — set these 4 env vars to point
     # at a shared cloud instance instead (e.g. your Neon dev branch) without editing this file.
@@ -65,6 +76,18 @@ eureka:
 bmp:
   security:
     internal-service-key: ${BMP_INTERNAL_SERVICE_KEY:dev-only-internal-key-change-in-real-environment}
+  notification:
+    # Which EmailSender bean is active (Session 14):
+    #   log  (default) -> LoggingEmailSender: prints the email to the console. Zero setup,
+    #                     what every dev without SMTP creds uses. OTP is still fully testable.
+    #   smtp           -> SmtpEmailSender: real delivery via JavaMailSender. Requires the
+    #                     spring.mail.* creds above (BMP_SMTP_USERNAME/PASSWORD at minimum).
+    # SMS is unaffected — it stays the console-log stub (LoggingSmsSender) until a gateway
+    # + DLT are set up (tracked separately).
+    email-provider: ${BMP_EMAIL_PROVIDER:log}
+    # The "From" address on outgoing mail. For Gmail this MUST equal BMP_SMTP_USERNAME or
+    # Gmail rejects the send; for Brevo/SES it must be a verified sender.
+    email-from: ${BMP_EMAIL_FROM:no-reply@bemyprofessional.in}
 
 management:
   endpoints:

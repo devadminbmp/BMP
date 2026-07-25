@@ -727,6 +727,21 @@ gaps that would have forced the frontend to decode JWTs and guess. Fixed:
 **Clarified in code, not a gap:** there is no "forgot password" endpoint because there is no
 password — OTP re-login IS recovery (documented in AuthService's javadoc and AUTH_API.md).
 
+**Google Sign-In configured (mid-session):** a Google Cloud OAuth Web client (project
+`BMP2026`) was created; its Client ID is now the default for `bmp.auth.google-client-id`
+(not a secret, safe in-repo). `/oauth2/google` is live in local dev. Mobile clients later
+will need the verifier to accept a LIST of client ids (different `aud` per platform) — still
+a single id today.
+
+**Email delivery switched on (mid-session):** `bmp-notification`'s email path is now
+config-driven — `bmp.notification.email-provider` = `log` (default, console) or `smtp` (real
+JavaMailSender delivery, `spring.mail.*` from `BMP_SMTP_*` env vars, STARTTLS, Gmail
+defaults). `LoggingEmailSender`/`SmtpEmailSender` are now mutually-exclusive
+`@ConditionalOnProperty` beans (was a hardcoded `@Primary`). **SMS/WhatsApp deliberately
+LEFT as the log stub** (Darshan's call — SMS needs India DLT registration, deferred; the
+`SmsSender` interface means it's a drop-in later). SMTP password is env-var only, never
+committed.
+
 **Reminder still standing from Session 13:** the `hasRole` case fix (JwtAuthFilter uppercases
 the authority) is what makes SALON_OWNER-gated endpoints — including the salon-creation and
 manager-invite steps in the owner/manager journeys above — actually work. Verify that flow

@@ -385,9 +385,12 @@ pass.
 These are deliberately left as dev-only placeholders — don't spend time debugging
 "why doesn't email/SMS/payment actually work," it's not wired up yet:
 
-- **SMS/WhatsApp**: logged to console only (`LoggingSmsSender`) — see §7.
-- **Email**: logged to console only (`LoggingEmailSender`), and `spring.mail.host`
-  points at a `localhost:1025` placeholder that isn't running.
+- **SMS/WhatsApp**: logged to console only (`LoggingSmsSender`) — see §7. Still stubbed
+  (needs a gateway + India DLT registration).
+- **Email**: log-only by default (`LoggingEmailSender`), BUT real SMTP delivery can now be
+  switched on (Session 14) — set `BMP_EMAIL_PROVIDER=smtp` plus `BMP_SMTP_USERNAME` /
+  `BMP_SMTP_PASSWORD` (Gmail app password, or Brevo/SES). Defaults target Gmail
+  (`smtp.gmail.com:587`, STARTTLS). Left at `log` by default so no dev needs SMTP creds.
 - **Razorpay** (bmp-payment): no real API keys configured.
 - **Google Sign-In** (`POST /api/v1/auth/oauth2/google`): returns `501` until
   `BMP_GOOGLE_CLIENT_ID` is set — no Google Cloud OAuth client exists yet.

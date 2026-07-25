@@ -209,8 +209,10 @@ with the HTTP status carrying the real meaning (`400/401/410/423/429/501`).
   `bmp.auth.dev-master-otp`, disabled on staging/prod. You still call `/otp/request` first.
 - Prefer the real code? It's printed in the **bmp-notification** console log after
   `/otp/request` (SMS + email stubs) — same expiry/attempt rules apply to it.
-- SMS/WhatsApp/email are console-log stubs; Razorpay/Google aren't wired. None of that
-  blocks building/testing the auth flows.
+- SMS/WhatsApp are console-log stubs (need a gateway + DLT). **Email can now send for real**
+  — set `BMP_EMAIL_PROVIDER=smtp` + `BMP_SMTP_USERNAME`/`BMP_SMTP_PASSWORD` on
+  bmp-notification (defaults to Gmail SMTP); leave unset for console-log. Google Sign-In is
+  configured. None of this blocks building/testing auth (`000000` works regardless).
 
 ---
 

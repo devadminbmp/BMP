@@ -1,10 +1,12 @@
 package com.bmp.notification.services;
 
 /**
- * Same pattern as {@link SmsSender}: an interface with a logging-only default
- * ({@link LoggingEmailSender}) and a real implementation ({@link SmtpEmailSender}) that
- * isn't wired in as the primary bean yet — no SMTP provider account exists. Swap to real
- * delivery by removing {@code @Primary} from LoggingEmailSender (see that class's javadoc).
+ * An interface with two implementations, selected by config (Session 14):
+ * {@link LoggingEmailSender} (console log, the default) and {@link SmtpEmailSender} (real
+ * JavaMailSender delivery). Which one is active is driven by
+ * {@code bmp.notification.email-provider} (log | smtp) via {@code @ConditionalOnProperty} —
+ * exactly one bean exists at a time. Set it to {@code smtp} (+ the {@code spring.mail.*}
+ * creds) to send real email. See LoggingEmailSender's javadoc for the switch details.
  */
 public interface EmailSender {
     void send(String toEmail, String subject, String body);

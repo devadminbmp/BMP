@@ -24,10 +24,11 @@ public class OpenApiConfig {
                     notification_log CRUD (BMP-30) plus the real dispatch pipeline added in \
                     Session 6: OutboxKafkaRelay (bmp-common) publishes outbox rows to the \
                     bmp.events Kafka topic, NotificationDispatcher consumes them and calls \
-                    EmailSender/SmsSender. Both channels currently log to the console \
-                    instead of sending for real (LoggingEmailSender/LoggingSmsSender are \
-                    @Primary) — no SMTP or SMS gateway account exists yet. Swap to real \
-                    delivery by moving @Primary to SmtpEmailSender / a real SmsSender impl."""))
+                    EmailSender/SmsSender. EMAIL can send for real (Session 14): set \
+                    bmp.notification.email-provider=smtp + the spring.mail.* creds; it \
+                    defaults to log (console). SMS stays a console-log stub until a gateway \
+                    + India DLT are set up. Channel selection is @ConditionalOnProperty, not \
+                    @Primary."""))
             .components(new Components().addSecuritySchemes(BEARER_SCHEME,
                 new SecurityScheme().type(SecurityScheme.Type.HTTP).scheme("bearer").bearerFormat("JWT")))
             .addSecurityItem(new SecurityRequirement().addList(BEARER_SCHEME));
