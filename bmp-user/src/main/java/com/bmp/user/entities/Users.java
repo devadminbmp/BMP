@@ -51,6 +51,11 @@ public class Users {
     private String defaultRole;
     @Column(name = "is_verified", nullable = false)
     private boolean isVerified;
+    /** V004 (Session 13): NULL = active. Soft deactivation, reversed automatically on the
+     * user's next successful OTP login (see bmp-auth's AuthService) — Instagram-style,
+     * not a permanent deletion. */
+    @Column(name = "deactivated_at")
+    private Instant deactivatedAt;
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
     @Column(name = "updated_at", nullable = false)
@@ -75,4 +80,21 @@ public class Users {
     }
 
     public void touch() { this.updatedAt = Instant.now(); }
+
+    /** Session 13: the user has re-chosen which of their held roles is the default they
+     * log in as (the "stylist who also books as a customer" case from CONTEXT.md Module 1).
+     * Validated against user_roles by the caller (UserService.setDefaultRole), not here. */
+    public void setDefaultRole(String defaultRole) { this.defaultRole = defaultRole; }
+
+    public void deactivate() {
+        this.deactivatedAt = Instant.now();
+        this.updatedAt = Instant.now();
+    }
+
+    public void reactivate() {
+        this.deactivatedAt = null;
+        this.updatedAt = Instant.now();
+    }
+
+    public boolean isDeactivated() { return deactivatedAt != null; }
 }

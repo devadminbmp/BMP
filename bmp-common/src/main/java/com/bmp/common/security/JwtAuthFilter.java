@@ -83,7 +83,14 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 String salonIdStr = claims.get("salonId", String.class);
                 UUID salonId = salonIdStr != null ? UUID.fromString(salonIdStr) : null;
 
-                List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
+                // Session 13 fix: the role claim is stored lowercase ("salon_owner", matching
+                // the DB convention), but every @PreAuthorize("hasRole('SALON_OWNER')") check
+                // is uppercase and hasRole() is case-sensitive — without this toUpperCase(),
+                // every role-gated endpoint silently 403'd legitimate users (latent since
+                // Session 6; never caught because no session had exercised a role-gated
+                // endpoint with a real user token until now).
+                List<GrantedAuthority> authorities =
+                        List.of(new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()));
                 AuthenticatedUser principal = new AuthenticatedUser(userId, role, salonId);
 
                 var auth = new UsernamePasswordAuthenticationToken(principal, null, authorities);

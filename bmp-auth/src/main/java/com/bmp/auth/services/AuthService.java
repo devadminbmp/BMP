@@ -166,6 +166,11 @@ public class AuthService {
             userId = existing.id();
             role = existing.defaultRole();
             salonId = resolveSalonScope(userId, role);
+            if (existing.deactivatedAt() != null) {
+                // Session 13: soft deactivation is reversed by the next successful OTP
+                // login — this line IS the reactivation flow, there's no separate one.
+                userServiceClient.reactivateUser(userId);
+            }
         } else {
             String requestedRole = req.role() == null ? "customer" : req.role().toLowerCase();
             if (!VALID_ROLES.contains(requestedRole)) {

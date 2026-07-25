@@ -21,11 +21,18 @@ public class OpenApiConfig {
                 .title("BMP User Service")
                 .version("v1")
                 .description("""
-                    users + user_roles CRUD (BMP-22). Created by bmp-auth-service on first \
-                    successful OTP verify — most of this API is called service-to-service \
-                    (X-Internal-Service-Key), not directly by end users through the \
-                    gateway. Roles beyond a user's defaultRole are tracked in user_roles, \
-                    each optionally scoped to a salon via salonId."""))
+                    users + user_roles + onboarding_state (BMP-22, completed Session 13). \
+                    Users are created by bmp-auth-service on first successful OTP verify \
+                    (stored verified — every creation path is post-OTP), with a DB-enforced \
+                    unique phone. Roles beyond a user's defaultRole are tracked in \
+                    user_roles (deduplicated, revocable, salon-scopable); the default role \
+                    is switchable when held. Soft deactivation hides an account until the \
+                    next OTP login auto-reactivates it. onboarding_state is a transient \
+                    crash-recovery blob, deleted on completion.
+
+                    First business service with a real authorization pass: self-or-service \
+                    on user-facing endpoints, service-only (X-Internal-Service-Key) for \
+                    creation, phone lookup, role grants/revocations and reactivation."""))
             .components(new Components().addSecuritySchemes(BEARER_SCHEME,
                 new SecurityScheme().type(SecurityScheme.Type.HTTP).scheme("bearer").bearerFormat("JWT")))
             .addSecurityItem(new SecurityRequirement().addList(BEARER_SCHEME));

@@ -370,10 +370,13 @@ button top-right, paste the raw access token (no `Bearer ` prefix needed — Swa
 it), click Authorize, then "Try it out" on any endpoint.
 
 Most endpoints across most services are currently wide open in local dev (no token
-required) — only `bmp-auth` and any endpoint explicitly annotated with
+required) — only `bmp-auth`, **`bmp-user` (tightened in Session 13: every
+`/api/v1/users/**` call now needs a bearer token or the internal service key — end
+users can only access their own record)**, and any endpoint explicitly annotated with
 `@PreAuthorize` enforce a real check right now. That's an intentional, tracked interim
 state (see each service's `bmp.security.public-paths` in its `application.yml`), not a
-bug — tightening it is a later, service-by-service pass.
+bug — the remaining services get the same treatment in the ongoing service-by-service
+pass.
 
 ---
 

@@ -48,4 +48,11 @@ public class OnboardingState {
     public String getStateJson() { return stateJson; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+
+    /** Session 13: upsert path — the client re-saves the whole blob on every onboarding
+     * step, so replacement (not merge) is the intended semantics. */
+    public void replaceState(String stateJson) {
+        this.stateJson = stateJson;
+        this.updatedAt = Instant.now();
+    }
 }

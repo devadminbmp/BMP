@@ -635,6 +635,67 @@ table built directly from the bugs hit this session.
 
 ---
 
+### Session 13 (Darshan/Cowork) — Service-by-service completion pass, starting with bmp-user
+
+**Darshan asked:** go service by service (working dependent services together), starting
+with bmp-user; think deeply about everything it should have. WhatsApp/email/Razorpay
+stay stubbed as before.
+
+**Audit findings (real gaps, not cosmetics):**
+1. `users.phone` had NO actual UNIQUE constraint — V002's comment claims "UK" but never
+   declared one; only UserService's racy app-level `existsByPhone` check existed.
+2. `is_verified` was never set true anywhere — every user, all of whom are created only
+   AFTER passing OTP verification, was stored permanently unverified.
+3. `user_roles` had no dedup — the same role was grantable to the same user unlimited times.
+4. `onboarding_state` was completely unused (entity+repo existed, no service/controller),
+   despite Module 1's spec defining its exact lifecycle.
+5. Zero authorization — with `public-paths` defaulting to `/**`, anyone could look up any
+   user by phone, create users, or grant themselves roles.
+
+**Fixed/built (bmp-user + its dependent, bmp-auth):**
+- **V004 migration:** `uk_users_phone` UNIQUE constraint; role-dedup unique index
+  (COALESCE(salon_id, zero-uuid) because Postgres treats NULLs as distinct);
+  `deactivated_at` column.
+- **Create-verified:** users are now stored `is_verified=true` at creation, with a javadoc
+  note to add an explicit flag if a pre-verification creation path ever appears. Both
+  `create` and `addRole` also catch the DB constraint violation as a race-proof 409.
+- **Soft deactivation (Instagram-style):** `POST /{id}/deactivate` (self), auto-reversed
+  by the user's next successful OTP login — bmp-auth's verify flow now checks
+  `deactivatedAt` on the fetched UserDto and calls the new internal
+  `POST /{id}/reactivate`. No separate reactivation UX needed.
+- **Roles completed:** dedup on grant (409 ROLE_ALREADY_GRANTED), revocation
+  (`DELETE /{userId}/roles/{roleId}`, service-only, refuses to remove the current
+  default role), and default-role switching (`PUT /{userId}/default-role`, self, must
+  actually hold the role) — the "stylist who also books as a customer" case.
+- **Onboarding state lifecycle:** `PUT`/`GET`/`DELETE /{userId}/onboarding-state` —
+  wholesale-replace on save, 404 when nothing in progress, deleted on completion, exactly
+  per Module 1's "transient crash-recovery table" spec.
+- **Authorization pass (first business service to get one):** `public-paths` tightened to
+  swagger+health/info; every endpoint `@PreAuthorize`d. Model: `ROLE_SERVICE` can do
+  everything; end users only their own record (`principal.userId() == #userId`);
+  create/phone-lookup/role-grant/role-revoke/reactivate are service-only (phone→profile
+  resolution for arbitrary numbers is an enumeration risk).
+- **Validation hardening:** gender whitelist (male/female/other), age 1-120, `@Email`,
+  role whitelist (lowercase, matching the DB convention and what bmp-auth actually sends).
+
+**⚠️ Cross-cutting latent bug found and fixed while doing this (affects EVERY service):**
+the JWT `role` claim is stored lowercase (`salon_owner`), and `JwtAuthFilter` built the
+Spring authority as `ROLE_salon_owner` — but every `@PreAuthorize("hasRole('SALON_OWNER')")`
+check is uppercase and case-sensitive, so **every role-gated endpoint (salon creation,
+manager invites) has been silently 403ing legitimate users since Session 6**. Never caught
+because no session had exercised a role-gated endpoint with a real user token (Session 12's
+end-to-end test hit user-fetch, which had no role gate). Fix: `JwtAuthFilter` now
+uppercases the authority only (`ROLE_` + role.toUpperCase()); stored/claimed values stay
+lowercase.
+
+**Not done, deliberately:** no user list/search endpoint (nothing needs it yet — add for
+the admin dashboard when bmp-admin's own pass happens); no hard-delete/DPDP data-erasure
+flow (needs a real cross-service design — bookings/reviews reference user ids — worth a
+ticket before public launch); profile photo upload still just stores a URL string
+(Cloudflare R2 integration is Phase 3-adjacent, per "keep providers stubbed").
+
+---
+
 ## How to Add to This File
 
 When you finish a session:

@@ -24,4 +24,9 @@ public interface UserServiceClient {
 
     @PostMapping("/api/v1/users")
     UserDto createUser(@RequestBody CreateUserRequest request);
+
+    /** Session 13: a deactivated user completing a fresh OTP login gets auto-reactivated
+     * (Instagram-style soft deactivation — see bmp-user's UserService.reactivate). */
+    @PostMapping("/api/v1/users/{userId}/reactivate")
+    UserDto reactivateUser(@PathVariable("userId") java.util.UUID userId);
 }
