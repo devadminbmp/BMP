@@ -52,18 +52,25 @@ eureka:
 
 bmp:
   # Session 6: shared JWT validation (com.bmp.common.security.CommonSecurityConfig).
-  # public-paths defaults to /** in code (CommonSecurityConfig) for services that haven't
-  # had their own authorization pass yet — endpoints that DO need a real role check use
-  # @PreAuthorize directly (see bmp-salon's SalonController/StaffController for the pattern).
   auth:
     jwt-secret: ${BMP_JWT_SECRET:dev-only-secret-change-in-real-environment-min-32-bytes-long}
   security:
     internal-service-key: ${BMP_INTERNAL_SERVICE_KEY:dev-only-internal-key-change-in-real-environment}
+    # Session 22: this service's authorization pass.
+    #
+    # public-paths previously fell back to the code default of /**, which meant NOTHING here
+    # was authenticated — the principal was always null, so the @PreAuthorize on the coupon
+    # endpoints could not have worked, and /internal/redeem would have been callable by
+    # anyone who could reach the port. Coupons are money; that is not a theoretical hole.
+    #
+    # Nothing about rewards is public: you must be signed in to quote a code, and only
+    # ROLE_SERVICE may redeem one.
+    public-paths: >-
+      /actuator/health, /actuator/info,
+      /swagger-ui/**, /swagger-ui.html, /v3/api-docs/**
 
-# Session 7: actuator surface — health/info are public (see bmp.security.public-paths
-# default of /** for this service; tighten alongside that service's own authorization
-# pass). env/beans/heapdump are powerful; not yet gated per-path here since this service
-# hasn't had its Session 6-style authorization pass — flagged, not silently left open.
+# Session 7/22: actuator surface — only health and info are public now (see
+# bmp.security.public-paths above); env/beans/heapdump require a token like everything else.
 management:
   endpoints:
     web:

@@ -13,6 +13,14 @@
 
   <dependencies>
     <dependency><groupId>in.bemyprofessional</groupId><artifactId>bmp-common</artifactId></dependency>
+    <!-- Session 32: bmp-rewards now calls bmp-user to resolve a salon owner's contact details
+         when they raise an offer request. bmp-notification deliberately holds no clients of its
+         own — every event carries the address it needs — so the resolution has to happen here,
+         at the point the request is created. -->
+    <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-openfeign</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-data-jpa</artifactId>

@@ -39,6 +39,20 @@ public class Review {
     @Setter
     @Column(name = "review_text")
     private String reviewText;
+    /**
+     * Who wrote it. V004 (Session 40).
+     *
+     * <p>This table had no author. `PUT /reviews/{id}` had no @PreAuthorize and sat behind a
+     * public-paths entry written for the GET, so it was editable <b>with no credential at all</b>
+     * — and even once that was closed, there was nothing to compare a caller against.
+     *
+     * <p>Null on rows written before V004. {@code ReviewService.update} refuses those rather than
+     * guessing: an unattributable review is one nobody can prove they own.
+     */
+    @Setter
+    @Column(name = "author_user_id")
+    private UUID authorUserId;
+
     @Column(name = "edit_locked_at", nullable = false)
     private Instant editLockedAt;
     @Setter

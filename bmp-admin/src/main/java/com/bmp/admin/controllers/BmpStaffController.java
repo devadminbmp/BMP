@@ -7,15 +7,41 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
 
-/** BMP-29: admin_schema.bmp_staff CRUD. password_hash never appears in any response. */
-@Tag(name = "BMP Staff", description = "Internal staff accounts (bcrypt passwords). Separate identity space from user_schema.users — see this service's OpenApiConfig for the auth-gap caveat.")
+/**
+ * BMP-29: admin_schema.bmp_staff CRUD. password_hash never appears in any response.
+ *
+ * <h2>⚠️ DEPRECATED, AND IT WAS THE WORST HOLE IN THE PLATFORM</h2>
+ * This controller sits at {@code /api/v1/staff} — <b>outside</b> {@code AdminSecurityConfig}'s
+ * {@code /api/v1/admin/**} matcher. It therefore fell through to the shared chain, which
+ * accepts any valid JWT, and it had no {@code @PreAuthorize} on any method.
+ *
+ * <p><b>The consequence: any logged-in CUSTOMER could POST here and create themselves a BMP
+ * staff account.</b> Not a privilege-escalation chain — a single call. Found in the Session 29
+ * access audit; the same shape as the SupportTicketController hole found in Session 20, which
+ * is the tell that "controller outside the admin matcher" is a category, not an incident.
+ *
+ * <p><b>Superseded by {@link StaffAdminController}</b> ({@code /api/v1/admin/staff}), which the
+ * console actually uses and which enforces {@code staff:manage} inside
+ * {@code StaffAdminService}. Nothing in either frontend calls this class.
+ *
+ * <p>Now locked to {@code ROLE_SERVICE} — no human token of any kind reaches it — as the
+ * smallest change that closes the hole without deleting code someone may be mid-way through
+ * using. <b>It should be deleted outright</b>; a second, unused door into staff records is
+ * pure liability. Tracked in {@code docs/PENDING_WORK.md} §4.
+ *
+ * @deprecated use {@link StaffAdminController} at {@code /api/v1/admin/staff}.
+ */
+@Deprecated(forRemoval = true)
+@Tag(name = "BMP Staff (DEPRECATED)", description = "Superseded by /api/v1/admin/staff. Locked to internal service calls only; scheduled for removal.")
 @RestController
 @RequestMapping("/api/v1/staff")
+@PreAuthorize("hasRole('SERVICE')")
 public class BmpStaffController {
 
     private final BmpStaffService service;

@@ -4,6 +4,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.cloud.openfeign.EnableFeignClients;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
@@ -25,6 +26,10 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  */
 @SpringBootApplication
 @EnableDiscoveryClient
+// Session 21: the console reads customers, salons, bookings and coupons from their owning
+// services rather than reaching into their tables — so every read a staff member performs
+// crosses one place where the audit entry is written.
+@EnableFeignClients(basePackages = "com.bmp.admin.client")
 @ComponentScan(basePackages = {"com.bmp.admin", "com.bmp.common"})
 @EntityScan(basePackages = {"com.bmp.admin", "com.bmp.common"})
 @EnableJpaRepositories(basePackages = "com.bmp.admin")

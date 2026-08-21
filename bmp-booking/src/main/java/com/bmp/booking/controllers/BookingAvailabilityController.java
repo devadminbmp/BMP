@@ -35,7 +35,11 @@ public class BookingAvailabilityController {
     @GetMapping("/busy-windows")
     @PreAuthorize("hasRole('SERVICE')")
     public BusyWindowsResponse busyWindows(@RequestParam UUID stylistId,
-                                            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        return new BusyWindowsResponse(service.getBusyWindows(stylistId, date));
+                                            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+                                            // Session 37. Optional, and only ever set during a
+                                            // reschedule — a booking must not block itself. See
+                                            // BookingServiceItemRepository.findBusyItemsForStylist.
+                                            @RequestParam(required = false) UUID excludeBookingId) {
+        return new BusyWindowsResponse(service.getBusyWindows(stylistId, date, excludeBookingId));
     }
 }

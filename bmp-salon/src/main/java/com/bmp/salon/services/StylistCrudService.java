@@ -99,9 +99,22 @@ public class StylistCrudService {
                 s.getTotalReviews(), s.isTopStylist(), s.getCreatedAt());
     }
 
+    /**
+     * Session 16: resolves the stylist's name so callers don't have to fan out one lookup per
+     * row. Same service, adjacent table — the cost is a primary-key hit that Hibernate's
+     * first-level cache collapses across a single list() call.
+     */
     private StylistSalonResponse toStylistSalonResponse(StylistSalon l) {
-        return new StylistSalonResponse(l.getId(), l.getStylistId(), l.getSalonId(), l.getStatus(),
-                l.isAvailableToday(), l.getSalonRating(), l.getSalonReviewCount(), l.getJoinedAt(), l.getLeftAt());
+        // One lookup, two fields off it. Session 26 added the userId; resolving the Stylist into
+        // a variable rather than chaining .map() twice keeps it at a single repository hit.
+        Stylist stylist = stylists.findById(l.getStylistId()).orElse(null);
+        String name = stylist == null ? null : stylist.getName();
+        // Null for any stylist who has never signed up — most of them, early on. The stylist
+        // dashboard uses this to find "which of these rows is me"; see StylistDtos.
+        UUID stylistUserId = stylist == null ? null : stylist.getUserId();
+        return new StylistSalonResponse(l.getId(), l.getStylistId(), name, stylistUserId, l.getSalonId(),
+                l.getStatus(), l.isAvailableToday(), l.getSalonRating(), l.getSalonReviewCount(),
+                l.getJoinedAt(), l.getLeftAt());
     }
 
     private StylistServiceResponse toStylistServiceResponse(com.bmp.salon.entities.StylistService s) {

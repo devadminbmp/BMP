@@ -23,6 +23,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  * {@code @ComponentScan}, CommonSecurityConfig is silently never registered and Spring
  * Boot falls back to its own auto-generated-password HTTP Basic security on everything.
  */
+@org.springframework.cloud.openfeign.EnableFeignClients
 @SpringBootApplication
 @EnableDiscoveryClient
 @ComponentScan(basePackages = {"com.bmp.rewards", "com.bmp.common"})

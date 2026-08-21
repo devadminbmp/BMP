@@ -1,4 +1,27 @@
-# Local dev: the entire BMP backend is `docker compose up` + `mvn spring-boot:run -pl bmp-app`
+# ═══════════════════════════════════════════════════════════════════════════════════════════
+# Local dev infrastructure: Postgres + Redis + Kafka. The SERVICES are run separately.
+# ═══════════════════════════════════════════════════════════════════════════════════════════
+#
+#   docker compose up -d          # this file: infrastructure only
+#   then follow RUN_LOCALLY.md §4 — 13 services, started in order
+#
+# ───────────────────────────────────────────────────────────────────────────────────────────
+# DO NOT RUN `mvn spring-boot:run -pl bmp-app`.
+# ───────────────────────────────────────────────────────────────────────────────────────────
+# This header used to say exactly that, and it is WRONG — it predates the Session 5 pivot from
+# monolith to 13 services. bmp-app is retired (bmp-app/RETIRED.md).
+#
+# Following it poisons this database, and the damage survives the container because `pgdata` is
+# a named volume: bmp-app lays down the Session-5 schema (16 tables and 211 columns short of
+# today's), and every real service then aborts on `relation "..." already exists` and never
+# starts. Symptom: Swagger errors and "entities not created". Reproduced in Session 42 —
+# 8 of 8 services failed to boot.
+#
+# bmp-app's Flyway is now `enabled: false` so it cannot do this again. If you are already
+# stuck, the volume is poisoned and you need:
+#
+#     docker compose down -v && docker compose up -d      # -v is the whole point
+#
 # Pilot production is the same shape on one small VM (pivot decision T5, ₹3–6k/month).
 services:
   postgres:

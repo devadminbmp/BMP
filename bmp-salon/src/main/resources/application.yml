@@ -51,13 +51,49 @@ eureka:
     prefer-ip-address: true
 
 bmp:
-  # Session 6: shared JWT validation (com.bmp.common.security.CommonSecurityConfig).
-  # public-paths defaults to /** in code (CommonSecurityConfig) for services that haven't
-  # had their own authorization pass yet — endpoints that DO need a real role check use
-  # @PreAuthorize directly (see bmp-salon's SalonController/StaffController for the pattern).
   auth:
     jwt-secret: ${BMP_JWT_SECRET:dev-only-secret-change-in-real-environment-min-32-bytes-long}
   security:
+    # ═════════════════════════════════════════════════════════════════════════════════════════
+    # Session 29 authorization pass. This property is now MANDATORY — CommonSecurityConfig has
+    # no default, so a service that omits it fails to start rather than serving everything.
+    #
+    # Before this, bmp-salon had NO public-paths at all, which meant the code default of /**
+    # applied: 35 of its 51 endpoints were reachable with no token whatsoever, including
+    # PUT /salons/{id} (edit any salon), the whole combos CRUD, and stylist linking.
+    #
+    # WHAT IS GENUINELY PUBLIC HERE, AND WHY:
+    #  · Salon discovery and detail — the web app lets guests browse BEFORE logging in. That's
+    #    the product model (web browses first, the app logs in first), so these must work with
+    #    no token. Only APPROVED/ACTIVE salons are returned; see SalonService.near().
+    #  · Services and reviews for a salon — same reason: they're on the public salon page.
+    #  · Free slots — a guest picks a time and is asked to log in at "Book". Gating this would
+    #    move the login wall earlier, which is exactly where bookings get abandoned.
+    #
+    # Everything else — creating, editing, linking, availability writes, walk-ins — requires a
+    # token AND a role, enforced per-endpoint with @PreAuthorize.
+    # ═════════════════════════════════════════════════════════════════════════════════════════
+    # These are ANT patterns (Spring's requestMatchers), NOT URI templates. `*` matches exactly
+    # one path segment and `**` matches any number — so `/api/v1/salons/*` matches
+    # `/api/v1/salons/abc` but NOT `/api/v1/salons/internal/abc/status`, which is what keeps the
+    # internal endpoints off this list. Writing `{salonId}` here would match the literal string
+    # "{salonId}" and nothing else — a silent no-op that looks correct.
+    #
+    # NOTE these are GET-shaped paths that also exist as POST/PUT (e.g. /api/v1/salons is both
+    # "search nearby" and "create a salon"). permitAll here is path-based, not method-based, so
+    # the WRITE side is protected by @PreAuthorize on the method — see SalonController. Both
+    # layers are required; neither is sufficient alone.
+    public-paths: >-
+      /api/v1/salons,
+      /api/v1/salons/*,
+      /api/v1/salons/*/services,
+      /api/v1/salons/*/reviews,
+      /api/v1/salons/*/stylists,
+      /api/v1/stylists/*,
+      /api/v1/availability/slots,
+      /api/v1/availability/slots/any,
+      /actuator/health, /actuator/info,
+      /swagger-ui/**, /swagger-ui.html, /v3/api-docs/**
     internal-service-key: ${BMP_INTERNAL_SERVICE_KEY:dev-only-internal-key-change-in-real-environment}
 
 # Session 7: actuator surface — health/info are public (see bmp.security.public-paths

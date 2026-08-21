@@ -7,15 +7,36 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
 
-/** BMP-29: admin_schema.support_ticket + support_message CRUD. */
-@Tag(name = "Support Tickets", description = "support_ticket + support_message CRUD.")
+/**
+ * BMP-29: admin_schema.support_ticket + support_message CRUD.
+ *
+ * <h2>⚠️ Session 21: this is now SERVICE-ONLY, and that was a real hole</h2>
+ * This controller sits at {@code /api/v1/support-tickets} — <b>outside</b> the
+ * {@code /api/v1/admin/**} matcher that {@link com.bmp.admin.security.AdminSecurityConfig}
+ * guards. It therefore fell through to bmp-common's shared chain, which accepts a CUSTOMER
+ * token. Any logged-in customer could have listed, read and edited every support ticket on the
+ * platform, including internal notes about other customers.
+ *
+ * <p>It predates the console's own auth and was never reachable from the app, which is why
+ * nobody noticed. Locking it to {@code ROLE_SERVICE} keeps it usable for the path it was built
+ * for — another service raising a ticket automatically — while closing it to end users.
+ *
+ * <p>Staff use {@link SupportDeskController} at {@code /api/v1/admin/support/**}, which runs
+ * through the staff filter chain and audits everything.
+ *
+ * <p>TODO: fold the remaining useful bits into SupportDeskController and delete this, once the
+ * console no longer needs a create-ticket path that predates it.
+ */
+@Tag(name = "Support Tickets (internal)", description = "Service-to-service ticket creation. Staff use /api/v1/admin/support/** instead — see SupportDeskController.")
 @RestController
 @RequestMapping("/api/v1/support-tickets")
+@PreAuthorize("hasRole('SERVICE')")
 public class SupportTicketController {
 
     private final SupportTicketService service;

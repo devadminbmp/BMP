@@ -111,4 +111,93 @@
       <scope>provided</scope>
     </dependency>
   </dependencies>
+
+  <build>
+    <plugins>
+      <!--
+        ═══════════════════════════════════════════════════════════════════════════════════
+        Session 42 — Lombok, declared explicitly. THIS IS WHY THE BUILD WAS FAILING.
+        ═══════════════════════════════════════════════════════════════════════════════════
+        A local build produced 100 errors (javac's default `-Xmaxerrs` — it stopped counting,
+        it didn't stop there). Every single one traced to ONE cause:
+
+            cannot find symbol: method getId()
+            location: variable b of type com.bmp.booking.entities.Booking
+
+        `Booking` is `@Getter` with per-field `@Setter`, and its only hand-written methods are
+        `touch()` and `applyDiscount()`. So `getId`, `getBookingRef`, `getCustomerName`,
+        `setOriginalStart` — all of them — are Lombok's. If Lombok doesn't run, none exist,
+        and every caller fails at once.
+
+        The knock-on is what made it look like a hundred different problems. Once javac has
+        that many errors it reports downstream symbols as unresolved too, which is why the log
+        also claimed `SlotLock`, `BookingEvents` and `com.bmp.booking.client.dto` were missing.
+        All four are present on disk, in the right packages. They were collateral.
+
+        WHY IT BROKE
+        Lombok was declared only as a `provided` dependency. That makes it visible on the
+        compile classpath and leaves javac to *discover* it as an annotation processor, which
+        is exactly the fragile part: implicit discovery is affected by the JDK in use, by
+        `-proc` defaults (JDK 21+ warns, and newer JDKs disable implicit processing outright),
+        and by whether an IDE delegates to Maven or compiles with its own settings.
+
+        Declaring it here removes the discovery step. The processor path is explicit, so the
+        build behaves identically under `mvn`, under IntelliJ's delegated build, and in CI.
+        `${lombok.version}` comes from spring-boot-starter-parent, so it stays pinned to the
+        version Boot 3.4.1 was tested against.
+
+        IF YOU ARE STILL SEEING IT IN INTELLIJ after this change, IntelliJ is compiling with
+        its own builder rather than Maven. Two settings:
+          · Settings > Build > Compiler > Annotation Processors > Enable annotation processing
+          · Settings > Build > Build Tools > Maven > Runner > Delegate IDE build to Maven
+        And check the Project SDK is 21 — Lombok 1.18.36 predates JDK 24/25 and will fail on
+        them however it is configured.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+              <version>${lombok.version}</version>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+
+      <!--
+        ═══════════════════════════════════════════════════════════════════════════════════
+        Session 39 — tests actually run now.
+        ═══════════════════════════════════════════════════════════════════════════════════
+        CI has said `-DskipTests` since Session 33. That was honest at the time (there were no
+        tests to run) and it stopped being honest the moment there were.
+
+        The reason it couldn't simply be removed: every module ships a Spring Boot generated
+        `*ApplicationTests` with a `@SpringBootTest` context-load check. Those need PostgreSQL,
+        Kafka and Eureka to be up. On a CI runner they fail — not because anything is wrong, but
+        because there is no database — and a red build caused by missing infrastructure is the
+        fastest way to teach a team to ignore red builds.
+
+        So they are excluded here, by name, and everything else runs. What's left is pure logic:
+        the cancellation-fee calculator, the booking state machine, Money's rounding, phone
+        masking, and bmp-app's ArchUnit/Modulith rules (static analysis, no context needed).
+
+        WHEN INFRASTRUCTURE EXISTS IN CI (Testcontainers, or a service container), delete this
+        exclusion rather than adding a second profile. A context-load test that never runs is a
+        test that has been quietly failing for months.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <excludes>
+            <!-- @SpringBootTest smoke tests: need a live database. -->
+            <exclude>**/*ApplicationTests.java</exclude>
+          </excludes>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 </project>

@@ -31,18 +31,36 @@ public class SupportMessage {
     private String messageText;
     @Column(name = "attachment_url", length = 500)
     private String attachmentUrl;
+    /**
+     * V003: an internal note is NEVER shown to the customer.
+     *
+     * <p>This is a column rather than a naming convention because sending an internal note to
+     * the customer is the classic support-tool disaster — and it is always caused by a mode
+     * that looks the same whichever way it's set. It defaults to false, so the safe value is
+     * what you get when someone forgets.
+     */
+    @Column(name = "internal_note", nullable = false)
+    private boolean internalNote;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
     protected SupportMessage() {} // JPA
 
+    /** Pre-V003 constructor — a customer-visible message. */
     public SupportMessage(UUID ticketId, String senderType, UUID senderId, String messageText, String attachmentUrl) {
+        this(ticketId, senderType, senderId, messageText, attachmentUrl, false);
+    }
+
+    public SupportMessage(UUID ticketId, String senderType, UUID senderId, String messageText,
+                          String attachmentUrl, boolean internalNote) {
         this.id = UuidV7.generate();
         this.ticketId = ticketId;
         this.senderType = senderType;
         this.senderId = senderId;
         this.messageText = messageText;
         this.attachmentUrl = attachmentUrl;
+        this.internalNote = internalNote;
         this.createdAt = Instant.now();
     }
 
@@ -52,5 +70,6 @@ public class SupportMessage {
     public UUID getSenderId() { return senderId; }
     public String getMessageText() { return messageText; }
     public String getAttachmentUrl() { return attachmentUrl; }
+    public boolean isInternalNote() { return internalNote; }
     public Instant getCreatedAt() { return createdAt; }
 }

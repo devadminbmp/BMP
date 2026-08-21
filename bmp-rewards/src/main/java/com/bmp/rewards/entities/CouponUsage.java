@@ -37,6 +37,22 @@ public class CouponUsage {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    /**
+     * Session 22: give the use back when a booking never happens.
+     *
+     * <p>Marked rather than deleted, so the row stays as evidence that the code WAS applied and
+     * then released. That matters the day someone asks why a customer has apparently used a
+     * "single use" coupon twice — the answer is visible instead of being a mystery.
+     *
+     * <p>The column's original comment says "ONLY true if payment failed before confirmation".
+     * This widens it to include a booking cancelled before it was paid for, which is the same
+     * situation from the customer's side: they never received the service, so they shouldn't
+     * lose the coupon.
+     */
+    public void markRefunded() {
+        this.wasRefunded = true;
+    }
+
     protected CouponUsage() {} // JPA
 
     public CouponUsage(UUID couponId, UUID userId, UUID bookingId, Money discountAppliedPaise, boolean wasRefunded) {

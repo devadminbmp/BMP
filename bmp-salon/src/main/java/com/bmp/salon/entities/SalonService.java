@@ -34,6 +34,17 @@ public class SalonService {
     private int durationMinutes;
     @Column(name = "requires_stylist_assignment", nullable = false)
     private boolean requiresStylistAssignment;
+
+    /**
+     * V011 (Session 40). Groups the menu on the salon page: "Hair", "Skin", "Nails".
+     *
+     * <p>Nullable, and an ungrouped service goes under "Other" rather than being hidden — a
+     * service a customer can't see is a service the salon can't sell.
+     */
+    // Plain field + explicit accessor below: this entity predates Lombok and doesn't import it.
+    // Matching the file rather than introducing a second style in one class.
+    @Column(name = "category", length = 60)
+    private String category;
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -56,4 +67,8 @@ public class SalonService {
     public int getDurationMinutes() { return durationMinutes; }
     public boolean isRequiresStylistAssignment() { return requiresStylistAssignment; }
     public Instant getCreatedAt() { return createdAt; }
+
+    // V011 (Session 40) — menu grouping on the salon page.
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
 }

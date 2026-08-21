@@ -84,6 +84,23 @@ eureka:
 
 bmp:
   security:
+    # ═════════════════════════════════════════════════════════════════════════════════════════
+    # Session 29 authorization pass.
+    #
+    # NOTHING here is public. The notification log records who was sent what, to which phone
+    # number and email address — it is a list of every customer's contact details plus their
+    # activity, which is a worse leak than most of the tables it describes.
+    #
+    # This service had no public-paths, so the /** default applied and all seven endpoints were
+    # open, including GET /notifications/log (the whole table) and
+    # GET /notifications/recipient/{userId} (one person's entire message history).
+    #
+    # It is written to by other SERVICES, never by a browser or an app, so there is no
+    # end-user role that should reach it at all.
+    # ═════════════════════════════════════════════════════════════════════════════════════════
+    public-paths: >-
+      /actuator/health, /actuator/info,
+      /swagger-ui/**, /swagger-ui.html, /v3/api-docs/**
     internal-service-key: ${BMP_INTERNAL_SERVICE_KEY:dev-only-internal-key-change-in-real-environment}
   notification:
     # Which EmailSender bean is active (Session 14):
@@ -94,6 +111,16 @@ bmp:
     # SMS is unaffected — it stays the console-log stub (LoggingSmsSender) until a gateway
     # + DLT are set up (tracked separately).
     email-provider: ${BMP_EMAIL_PROVIDER:log}
+    # Where "somebody needs to look at this" mail goes — today, the coupon-approval queue.
+    #
+    # ONE address, deliberately, not per-admin routing: there is no admin distribution list in
+    # the system, and encoding whose problem each request is duplicates what the queue already
+    # does. An address a human watches beats a routing rule nobody maintains.
+    #
+    # Empty by default so a dev machine never emails anyone. Unset in a real environment means
+    # the approval queue goes unwatched — NotificationDispatcher logs a warning rather than
+    # failing quietly, but set it before launch.
+    ops-email: ${BMP_OPS_EMAIL:}
     # The "From" address on outgoing mail. For Gmail this MUST equal BMP_SMTP_USERNAME or
     # Gmail rejects the send; for Brevo/SES it must be a verified sender.
     email-from: ${BMP_EMAIL_FROM:no-reply@bemyprofessional.in}

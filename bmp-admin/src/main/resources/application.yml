@@ -43,6 +43,55 @@ spring:
     create-schemas: true
     baseline-on-migrate: true
 
+bmp:
+  security:
+    # Session 20: this service's authorization pass. Previously fell back to the code default
+    # of /**, which meant NO authentication on anything here. Only the login handshake and
+    # health/docs are public now; /api/v1/admin/** is handled by AdminSecurityConfig's own
+    # filter chain (a different key and audience from customer tokens).
+    public-paths: >-
+      /actuator/health, /actuator/info,
+      /swagger-ui/**, /swagger-ui.html, /v3/api-docs/**
+    internal-service-key: ${BMP_INTERNAL_SERVICE_KEY:dev-only-internal-key-change-in-real-environment}
+  auth:
+    jwt-secret: ${BMP_JWT_SECRET:dev-only-secret-change-in-real-environment-min-32-bytes-long}
+
+  admin:
+    # ⚠️ A DIFFERENT SECRET FROM bmp.auth.jwt-secret, deliberately. If staff and customer tokens
+    # shared a key, anything able to forge one could forge the other, and compromising the
+    # customer stack would hand over the console. Must be set explicitly in any real environment.
+    jwt-secret: ${BMP_ADMIN_JWT_SECRET:dev-only-ADMIN-secret-change-me-min-32-bytes-long-really}
+
+    # 15 minutes. Staff refresh silently while working, so a token found in a log or left in a
+    # browser on a shared machine is stale almost immediately.
+    access-token-seconds: ${BMP_ADMIN_ACCESS_TOKEN_SECONDS:900}
+    # The window between "password correct" and "code correct". Three minutes is enough to open
+    # an authenticator app and not much else.
+    challenge-token-seconds: ${BMP_ADMIN_CHALLENGE_TOKEN_SECONDS:180}
+
+    # CORS allowlist — exactly one origin. A wildcard would let any site a signed-in staff
+    # member visits make authenticated requests on their behalf.
+    console-origin: ${BMP_ADMIN_CONSOLE_ORIGIN:http://localhost:5180}
+
+    # One-time bootstrap for the seeded superadmin (see StaffBootstrap). Set both, start the
+    # service once, then REMOVE them. They are ignored on every later boot because the account
+    # will already have a password — so a stale value in a deploy config cannot reset a live
+    # account.
+    bootstrap-email: ${BMP_ADMIN_BOOTSTRAP_EMAIL:}
+    bootstrap-password: ${BMP_ADMIN_BOOTSTRAP_PASSWORD:}
+
+    # Local-only convenience: create one signed-in-able account per role so least-privilege
+    # behaviour can actually be tested. See DevStaffSeeder — it refuses to run unless the
+    # datasource is on localhost, regardless of this flag, because the `dev` profile in this
+    # repo points at a SHARED Neon branch and a profile-gated seeder would have written
+    # known-password admin accounts there.
+    #
+    # OFF by default. Never set it in any deployed environment.
+    dev-staff:
+      enabled: ${BMP_ADMIN_DEV_STAFF:false}
+      # Optional. Blank => a random one is generated and printed once at startup.
+      password: ${BMP_ADMIN_DEV_STAFF_PASSWORD:}
+
 eureka:
   client:
     service-url:
@@ -50,25 +99,43 @@ eureka:
   instance:
     prefer-ip-address: true
 
-bmp:
-  # Session 6: shared JWT validation (com.bmp.common.security.CommonSecurityConfig).
-  # public-paths defaults to /** in code (CommonSecurityConfig) for services that haven't
-  # had their own authorization pass yet — endpoints that DO need a real role check use
-  # @PreAuthorize directly (see bmp-salon's SalonController/StaffController for the pattern).
-  auth:
-    jwt-secret: ${BMP_JWT_SECRET:dev-only-secret-change-in-real-environment-min-32-bytes-long}
-  security:
-    internal-service-key: ${BMP_INTERNAL_SERVICE_KEY:dev-only-internal-key-change-in-real-environment}
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# THERE WAS A SECOND `bmp:` BLOCK HERE. IT HAS BEEN DELETED. DO NOT ADD ONE BACK.
+#
+# It was the boilerplate block every service got in Session 6 — `bmp.auth.jwt-secret` and
+# `bmp.security.internal-service-key`. Both of those already live in the `bmp:` block above
+# (line 46), with identical values, so nothing is lost by removing it.
+#
+# YAML mappings cannot have duplicate keys, so Spring Boot refused to start at all:
+#
+#     org.yaml.snakeyaml.constructor.DuplicateKeyException: found duplicate key bmp
+#
+# The crash is the good outcome. Had SnakeYAML been lenient, the second `bmp:` would have
+# REPLACED the first one wholesale — merging is not per-leaf — silently deleting
+# `bmp.security.public-paths` and the entire `bmp.admin` section. The service would have booted
+# with no admin JWT secret, no console origin and no bootstrap config, and the first sign-in
+# attempt would have failed for reasons pointing nowhere near this file.
+#
+# If you add another `bmp.*` property, put it inside the block at line 46.
+# ─────────────────────────────────────────────────────────────────────────────────────────────
 
-# Session 7: actuator surface — health/info are public (see bmp.security.public-paths
-# default of /** for this service; tighten alongside that service's own authorization
-# pass). env/beans/heapdump are powerful; not yet gated per-path here since this service
-# hasn't had its Session 6-style authorization pass — flagged, not silently left open.
+# Actuator surface — deliberately NARROWER than the other services.
+#
+# `env`, `beans`, `threaddump` and `heapdump` were exposed here and are now removed. Only
+# /actuator/health and /actuator/info are in `bmp.security.public-paths`; the rest require a
+# valid JWT — but "a valid JWT" includes an ordinary CUSTOMER token, because CommonSecurityConfig
+# validates signature and expiry, not audience, on non-admin paths.
+#
+# That combination meant any signed-in customer could have pulled a heap dump from the one
+# service that holds `bmp.admin.jwt-secret` in memory — and with that key you can mint a
+# super_admin token. `env` leaks the same secret more directly. No feature depended on them.
+#
+# `refresh` and `busrefresh` stay: Spring Cloud Bus config reload needs them.
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,loggers,env,beans,refresh,busrefresh,threaddump,heapdump
+        include: health,info,metrics,loggers,refresh,busrefresh
   endpoint:
     health:
       show-details: when-authorized

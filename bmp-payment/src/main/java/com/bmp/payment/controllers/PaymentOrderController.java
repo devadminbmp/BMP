@@ -7,13 +7,33 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
-/** BMP-26: payment_order CRUD — data model only, no real Razorpay call yet. */
-@Tag(name = "Payments", description = "payment_order CRUD, 12% commission split. No real payment gateway wired yet — see the dev-only manual status endpoint below.")
+/**
+ * BMP-26: payment_order CRUD — data model only, no real Razorpay call yet.
+ *
+ * <h2>Session 29: EVERY endpoint here is SERVICE-ONLY</h2>
+ * Before this pass, bmp-payment declared no {@code public-paths}, so the {@code /**} default in
+ * {@code CommonSecurityConfig} applied and all four endpoints were reachable <b>with no token
+ * at all</b>. Including the one below that sets a payment's status.
+ *
+ * <p>The class-level annotation is deliberate: this is a service whose entire surface is money,
+ * and a default-deny at the class means a method added later is protected before anyone
+ * remembers to annotate it. The per-method exceptions, if any are ever needed, should be the
+ * thing that looks unusual — not the protection.
+ *
+ * <p>Payment orders are created and read by other SERVICES (bmp-booking creating one alongside
+ * a booking; bmp-admin reading one for a refund). A customer never talks to this service
+ * directly — their app talks to the payment gateway's SDK and the gateway talks to us. So
+ * there is no end-user role that belongs here, not even for reads: a payment order reveals what
+ * someone paid, for what, and the commission split on it.
+ */
+@Tag(name = "Payments", description = "payment_order CRUD, 12% commission split. SERVICE role only — no end-user token reaches this service. No real payment gateway wired yet.")
 @RestController
+@PreAuthorize("hasRole('SERVICE')")
 public class PaymentOrderController {
 
     private final PaymentOrderService service;
@@ -41,9 +61,21 @@ public class PaymentOrderController {
         return service.getByBookingId(bookingId);
     }
 
+    /**
+     * ⚠️ THE MOST DANGEROUS ENDPOINT IN THE PLATFORM. It marks a payment as captured.
+     *
+     * <p>It stands in for the Razorpay webhook that does not exist yet, which means it is the
+     * only thing that can move a booking from PENDING to CONFIRMED. Until Session 29 it needed
+     * no credential whatsoever — <b>on a public server, that is "book anything for free"</b>.
+     *
+     * <p>SERVICE-only now, by the class-level rule. That is necessary but not sufficient: it
+     * should be removed entirely the moment the real webhook lands, because a manual override
+     * on payment state is exactly the thing that gets left behind and rediscovered by someone
+     * else. Tracked in {@code docs/PENDING_WORK.md}.
+     */
     @Operation(
         summary = "[DEV ONLY] Manually set a payment order's status",
-        description = "Feature-flagged (bmp.payment.allow-manual-status) — a stand-in for the real payment gateway webhook that doesn't exist yet. Do NOT enable this anywhere real money is involved.")
+        description = "SERVICE role only. Feature-flagged (bmp.payment.allow-manual-status) — a stand-in for the Razorpay webhook that doesn't exist yet. DELETE THIS when the real webhook lands.")
     @PutMapping("/api/v1/payment-orders/{paymentOrderId}/status")
     public PaymentOrderResponse updateStatus(@PathVariable UUID paymentOrderId, @Valid @RequestBody UpdateStatusRequest req) {
         return service.updateStatusDevOnly(paymentOrderId, req);

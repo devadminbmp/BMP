@@ -18,9 +18,22 @@ import java.util.Set;
  * IN_SERVICE ──mark done (SALON)──▶ COMPLETED   → emits booking.completed
  * </pre>
  *
- * COMPLETED, CANCELLED, NO_SHOW are terminal. Reschedule is NOT a transition —
- * it mutates scheduled_start/end on a CONFIRMED booking and appends a
- * booking_events row; status stays CONFIRMED.
+ * COMPLETED, CANCELLED, NO_SHOW are terminal.
+ *
+ * <h2>Reschedule is NOT a transition</h2>
+ * It moves {@code service_start}/{@code service_end} on {@code booking_service_item} and appends
+ * a {@code booking_modification} row plus a {@code booking_events} row. The status does not
+ * change.
+ *
+ * <p>Corrected in Session 37: this paragraph previously said reschedule "mutates
+ * scheduled_start/end on a CONFIRMED booking". There are no such columns on {@code booking} —
+ * the times have always lived on the item. The comment described a design nobody had built, and
+ * described it wrongly, for thirty sessions. Worth remembering that prose in this repo has been
+ * wrong more often than the code has.
+ *
+ * <p>Also corrected: rescheduling is allowed from PENDING as well as CONFIRMED. Since payments
+ * do not exist yet, every real booking is PENDING — a reschedule restricted to CONFIRMED would
+ * have been unreachable code shipped as a feature.
  */
 public enum BookingStatus {
 
@@ -34,11 +47,33 @@ public enum BookingStatus {
         PENDING, Set.of(
             new Transition(CONFIRMED, Actor.SYSTEM),   // Razorpay webhook ONLY
             new Transition(CANCELLED, Actor.SYSTEM),   // payment failed / lock expired
-            new Transition(CANCELLED, Actor.CUSTOMER)  // customer cancels before payment completes (BMP-25)
+            new Transition(CANCELLED, Actor.CUSTOMER), // customer cancels before payment completes (BMP-25)
+            new Transition(CANCELLED, Actor.SALON)     // Session 37 — see below
         ),
         CONFIRMED, Set.of(
             new Transition(ARRIVED,   Actor.SALON),
             new Transition(CANCELLED, Actor.CUSTOMER), // fee from policy_snapshot
+            /*
+             * SESSION 37 — the salon can cancel.
+             *
+             * This was previously refused, on the reasoning that "the salon cancels on the
+             * customer's behalf is not a modelled move". That reasoning holds for a salon
+             * cancelling as a FAVOUR — that should stay the customer's decision.
+             *
+             * It does not hold for the case that actually happens: a burst pipe, a stylist who
+             * quits on Friday, a power cut. The salon cannot serve the appointment, and refusing
+             * to model that doesn't stop it — it just means the salon rings the customer, tells
+             * them not to come, and BMP's database still shows a live booking that then becomes
+             * a no-show against a customer who did nothing wrong.
+             *
+             * A wall with no gate makes people route around it.
+             *
+             * The rule that makes this safe is in CancellationTerms: a SALON-actor cancellation
+             * is ALWAYS fee-free, checked before any policy band, so no combination of settings
+             * can charge a customer for the salon's own problem. bmp-booking also requires a
+             * reason, which the customer is shown.
+             */
+            new Transition(CANCELLED, Actor.SALON),
             new Transition(NO_SHOW,   Actor.SALON)     // only after grace period
         ),
         ARRIVED, Set.of(

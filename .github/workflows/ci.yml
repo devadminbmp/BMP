@@ -1,0 +1,212 @@
+# ═══════════════════════════════════════════════════════════════════════════════════════════
+# CI — does it compile, and did anyone leave a service wide open?
+# ═══════════════════════════════════════════════════════════════════════════════════════════
+#
+# WHY THIS EXISTS
+# Between Sessions 26 and 32 roughly thirty Java files were written, edited or created —
+# including a new Maven dependency, three migrations, two new entities and a Feign client — and
+# NONE of it was ever compiled. Not because anyone was careless: the work happened in an
+# environment with no JDK, and "I'll build it later" is a promise nobody schedules.
+#
+# The cost of that is not the bugs. It's that they all arrive at once, in a batch, at the moment
+# somebody actually needs the thing to run — usually the moment before a demo. A compile error
+# found ninety seconds after a push is a non-event; the same error found across thirty files a
+# fortnight later is an afternoon.
+#
+# SESSION 39: THE FLAG IS GONE — TESTS RUN
+# This block used to say "there are no tests in this repo, so `-DskipTests` is honest rather than
+# aspirational". That was true when it was written and stopped being true the moment there were
+# tests. A comment explaining why something isn't done has a short shelf life, and this one
+# outlived its subject by exactly one session.
+#
+# What runs: the cancellation-fee calculator, the booking state machine, Money's rounding, phone
+# masking, and bmp-app's ArchUnit/Modulith rules. All pure logic — milliseconds, no services.
+#
+# What does NOT run: the generated `*ApplicationTests` context-load checks, excluded in the root
+# pom's surefire config. They need PostgreSQL, Kafka and Eureka; on a runner they'd fail for
+# want of a database rather than for want of correctness, and a red build caused by missing
+# infrastructure is the fastest way to teach a team to ignore red builds.
+#
+# Still no `continue-on-error` anywhere here, for the same reason.
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  # So a stale branch that still merges cleanly gets checked before anyone relies on it.
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Compile all 14 modules + run the unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          # Exactly 21, not 17 and not "latest". The root pom sets
+          # <maven.compiler.release>21</maven.compiler.release>, and RUN_LOCALLY.md §1 spends a
+          # paragraph on people accidentally building with an older JDK. Pin it here so CI can
+          # never be the thing that disagrees with a laptop.
+          java-version: '21'
+          distribution: 'temurin'
+          # Caches ~/.m2 keyed on the pom files — the difference between a 40-second job and a
+          # four-minute one, which is the difference between people reading it and ignoring it.
+          cache: maven
+
+      # No -DskipTests. See the header — the pure-logic tests run; the context-load smoke tests
+      # are excluded in the root pom, where the reason lives next to the exclusion.
+      - name: Compile and test
+        run: mvn -B -ntp verify
+
+      # Surefire's console output scrolls past. The summary is what someone actually reads when
+      # a build goes red, and it should not require opening the raw log to find the failure.
+      - name: Test summary
+        if: always()
+        run: |
+          echo "### Test results" >> "$GITHUB_STEP_SUMMARY"
+          shopt -s globstar nullglob
+          for f in **/target/surefire-reports/*.txt; do
+            grep -H "Tests run" "$f" | sed 's|/target/surefire-reports/| — |' >> "$GITHUB_STEP_SUMMARY" || true
+          done
+
+  # ═════════════════════════════════════════════════════════════════════════════════════════
+  # The one check that isn't the compiler's job
+  # ═════════════════════════════════════════════════════════════════════════════════════════
+  #
+  # `bmp.security.public-paths` has no default any more: CommonSecurityConfig fails to start
+  # without it, precisely so that forgetting it is loud. But "fails at startup" only helps if
+  # somebody starts the service — and a service nobody runs locally gets merged unstarted.
+  #
+  # This catches it at push time instead. It exists because the omission has already happened
+  # FOUR times (bmp-salon, bmp-payment, bmp-review, bmp-notification), leaving 52 endpoints
+  # reachable with no credential at all. Not one of those was a decision; every one was the
+  # same forgotten line.
+  security-config:
+    name: Every service declares its public paths
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check bmp.security.public-paths is set everywhere
+        run: |
+          python3 - <<'EOF'
+          import glob, sys, yaml
+
+          # Infrastructure — no CommonSecurityConfig, so nothing to declare.
+          EXEMPT = {'api-gateway', 'eureka-server', 'bmp-config-server', 'bmp-monitoring', 'bmp-app'}
+
+          missing, wide_open = [], []
+          for f in sorted(glob.glob('*/src/main/resources/application.yml')):
+              svc = f.split('/')[0]
+              if svc in EXEMPT:
+                  continue
+              d = yaml.safe_load(open(f)) or {}
+              pp = (d.get('bmp') or {}).get('security', {}).get('public-paths')
+              if not pp:
+                  missing.append(svc)
+              elif '/**' in str(pp).split(','):
+                  # The specific value that caused the original problem. A service can legitimately
+                  # have broad public paths; it cannot legitimately have ALL of them public.
+                  wide_open.append(svc)
+
+          for svc in missing:
+              print(f"::error::{svc} has no bmp.security.public-paths — it will not start, "
+                    f"and before Session 29 it would have served every endpoint unauthenticated.")
+          for svc in wide_open:
+              print(f"::error::{svc} sets public-paths to /** — that makes every endpoint public. "
+                    f"List the paths that genuinely need no token.")
+
+          sys.exit(1 if (missing or wide_open) else 0)
+          EOF
+
+      # ═══════════════════════════════════════════════════════════════════════════════════════
+      # Every WRITE endpoint must carry its own authorization
+      # ═══════════════════════════════════════════════════════════════════════════════════════
+      #
+      # Session 40 found `PUT /api/v1/reviews/{id}` reachable with NO CREDENTIAL AT ALL: it had
+      # no @PreAuthorize, and bmp-review's public-paths contains `/api/v1/reviews/*` — added so a
+      # review could be READ without logging in. Anyone on the internet could rewrite any review.
+      #
+      # The trap is that public-paths are PATH-ONLY and METHOD-BLIND. The pattern doesn't say
+      # "GET", it says "this URL". A read that should be public silently publishes the write on
+      # the same path.
+      #
+      # The Session 29 sweep missed it twice over: it looked for endpoints with no credential at
+      # all (this one *looked* covered by a deliberate public path), and `PUT /salons/{id}` — also
+      # unprotected, and accepting `status`, so any logged-in user could approve their own salon.
+      #
+      # So: POST/PUT/PATCH/DELETE must have @PreAuthorize on the method or the class. GETs are
+      # exempt — plenty are legitimately public, and flagging them all would produce noise that
+      # trains people to ignore this job.
+      - name: Every write endpoint has @PreAuthorize
+        run: |
+          python3 - <<'EOF'
+          import re, glob, sys
+
+          # Credential-establishing endpoints: you cannot require a role in order to obtain one.
+          #
+          # Each of these is gated by something other than a role, and that something IS the
+          # credential:
+          #   login / oauth2   — email+password, or Google's signed assertion
+          #   totp/verify|enrol— the challenge token issued by step 1 of the admin login
+          #   activate         — a one-time activation code
+          #   otp              — the code sent to the phone
+          #   refresh / logout — the refresh token itself
+          #   auth/me          — reads only the caller's own principal
+          #   webhook          — a provider signature (Razorpay, when it lands)
+          #
+          # Adding to this list is adding an endpoint anyone on the internet can call. Do it only
+          # when the endpoint genuinely cannot know who the caller is yet, and say what gates it.
+          EXEMPT = re.compile(
+              r'/(login|logout|refresh|activate|signup|register|otp|auth/me|webhook|totp|oauth2)')
+
+          bad = []
+          for f in sorted(glob.glob('*/src/main/java/**/*Controller.java', recursive=True)):
+              src = open(f, encoding='utf-8').read()
+              # A class-level @PreAuthorize covers every method in it.
+              head = src[:src.find('public class')] if 'public class' in src else ''
+              if '@PreAuthorize' in head:
+                  continue
+              base = re.search(r'@RequestMapping\("([^"]+)"\)', src)
+              base = base.group(1) if base else ''
+
+              for m in re.finditer(r'@(Post|Put|Patch|Delete)Mapping(?:\("([^"]*)"\))?', src):
+                  path = (base + (m.group(2) or '')).replace('//', '/')
+                  if EXEMPT.search(path):
+                      continue
+                  # Look between the previous mapping and this one, plus the signature after it.
+                  window = src[max(0, m.start() - 900):m.start()]
+                  prev = max(window.rfind(f'@{v}Mapping') for v in
+                             ('Get', 'Post', 'Put', 'Patch', 'Delete'))
+                  if prev >= 0:
+                      window = window[prev:]
+                  after = src[m.end():m.end() + 400].split('{')[0]
+                  if '@PreAuthorize' not in window and '@PreAuthorize' not in after:
+                      bad.append((f, m.group(1).upper(), path))
+
+          for f, verb, path in bad:
+              print(f"::error file={f}::{verb} {path} has no @PreAuthorize. A write endpoint must "
+                    f"state who may call it — being inside a public-paths pattern does NOT make it "
+                    f"read-only, and 'authenticated' is not 'authorised'.")
+          sys.exit(1 if bad else 0)
+          EOF
+
+      - name: Check no migration was edited after being released
+        run: |
+          # Flyway validates checksums at startup: editing an APPLIED migration breaks every
+          # environment that already ran it, with an error that reads like a database problem.
+          # Editing an unreleased one is fine and sometimes right — so this warns rather than
+          # fails, and leaves the judgement to a human who knows whether it shipped.
+          git fetch origin ${{ github.event.before || 'HEAD~1' }} --depth=2 2>/dev/null || true
+          CHANGED=$(git diff --name-only ${{ github.event.before || 'HEAD~1' }} HEAD -- '*/db/migration/*.sql' 2>/dev/null || true)
+          for f in $CHANGED; do
+            if git log --oneline --follow "$f" 2>/dev/null | tail -n +2 | grep -q .; then
+              echo "::warning file=$f::This migration existed before this push and has been edited. \
+          If it has been applied anywhere, Flyway will refuse to start with a checksum mismatch. \
+          Either write a new migration, or make sure every environment resets its volume."
+            fi
+          done

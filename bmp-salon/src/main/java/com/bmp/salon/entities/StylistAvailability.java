@@ -28,8 +28,16 @@ public class StylistAvailability {
     private UUID salonId;
     @Column(name = "rule_type", nullable = false, length = 20)
     private String ruleType;
+    /**
+     * 0–6 (Monday=0), and NULL for exception/leave rows, which are keyed on specific_date.
+     *
+     * <p>Session 18 BUGFIX: this was a primitive {@code int} against a NULLABLE column. Hibernate
+     * throws when it reads a SQL NULL into a primitive, so any exception or leave row written
+     * with a null day_of_week — exactly what the schema intends — would blow up on the next read.
+     * Nothing had written one yet, which is the only reason it hadn't surfaced.
+     */
     @Column(name = "day_of_week")
-    private int dayOfWeek;
+    private Integer dayOfWeek;
     @Column(name = "specific_date")
     private LocalDate specificDate;
     @Column(name = "slot_type", nullable = false, length = 10)
@@ -47,7 +55,7 @@ public class StylistAvailability {
 
     protected StylistAvailability() {} // JPA
 
-    public StylistAvailability(UUID stylistId, UUID salonId, String ruleType, int dayOfWeek, LocalDate specificDate, String slotType, String startTime, String endTime, boolean blocksBooking) {
+    public StylistAvailability(UUID stylistId, UUID salonId, String ruleType, Integer dayOfWeek, LocalDate specificDate, String slotType, String startTime, String endTime, boolean blocksBooking) {
         this.id = UuidV7.generate();
         this.stylistId = stylistId;
         this.salonId = salonId;
@@ -66,7 +74,8 @@ public class StylistAvailability {
     public UUID getStylistId() { return stylistId; }
     public UUID getSalonId() { return salonId; }
     public String getRuleType() { return ruleType; }
-    public int getDayOfWeek() { return dayOfWeek; }
+    /** Null for exception/leave rows — see the field comment. */
+    public Integer getDayOfWeek() { return dayOfWeek; }
     public LocalDate getSpecificDate() { return specificDate; }
     public String getSlotType() { return slotType; }
     public String getStartTime() { return startTime; }

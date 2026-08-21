@@ -77,4 +77,32 @@ public class BookingServiceItem {
     public int getDurationShownMinutes() { return durationShownMinutes; }
     public int getActualDurationMinutes() { return actualDurationMinutes; }
     public String getItemStatus() { return itemStatus; }
+
+    /**
+     * Session 16: item_status follows the parent booking's terminal state — set to
+     * "completed" when the salon marks the booking done. A named mutator rather than a plain
+     * setter because this is a one-way lifecycle step, not a free-form field (same spirit as
+     * StaffInvites.setStatus and OutboxEntry.markProcessed).
+     *
+     * <p>Values in use: active | removed | completed (10-char column).
+     */
+    public void setItemStatus(String itemStatus) { this.itemStatus = itemStatus; }
+
+    // ---- Session 37: rescheduling -----------------------------------------------------------
+    //
+    // The ONLY three fields a reschedule may touch. Price, duration and nameSnapshot stay
+    // deliberately unsettable: the customer is moving an appointment, not rebuying it, and a
+    // reschedule that re-derived the price would let a salon's price rise apply retroactively to
+    // a booking somebody already agreed to.
+    //
+    // Setters rather than a single move() method because the stylist is resolved separately by
+    // the availability algorithm — the three values don't arrive together, so an all-or-nothing
+    // constructor would just be filled in twice.
+
+    public void setServiceStart(Instant serviceStart) { this.serviceStart = serviceStart; }
+
+    public void setServiceEnd(Instant serviceEnd) { this.serviceEnd = serviceEnd; }
+
+    /** May change on a reschedule — the requested stylist can be busy at the new time. */
+    public void setAssignedStylistId(UUID assignedStylistId) { this.assignedStylistId = assignedStylistId; }
 }

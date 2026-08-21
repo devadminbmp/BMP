@@ -87,28 +87,35 @@ Session 4 availability-model work. **Flagged for both of you to review before th
 as final.** Nothing here is unrecoverable (the old bmp-app monolith entry point still exists,
 see `bmp-app/RETIRED.md`), but going forward all 3 of you need to agree this is the direction.
 
+### Status table — refreshed Session 25
+
 | Area | Status |
 |---|---|
 | Product strategy and GTM | ✅ LOCKED |
 | UX/UI design (60+ screens) | ✅ COMPLETE |
-| All 8 core module schemas (incl. Admin, Notification) | ✅ COMPLETE — V001(outbox)+V002-V009 migrations, 57 JPA entities |
+| All core module schemas | ✅ COMPLETE — V001(outbox) onward per service, 57+ JPA entities |
 | Architecture | ⚠️ CHANGED Session 5 — modular monolith → **microservices** (Darshan-only, NOT ratified) |
-| Service registry (Eureka) + API Gateway | ✅ DONE — see Port Table in Session 5 log entry |
-| bmp-auth-service (OTP/JWT issuing) | ✅ DONE — full auth flow (request/verify OTP, refresh, logout) |
-| **Phase 1 CRUD — Admin module** | ✅ DONE (Session 6) — entities + repositories + services + controllers for bmp_staff, support_ticket, support_message, audit_log |
-| **Phase 1 CRUD — User module** | 🔜 IN PROGRESS (Session 6) — entities ✅, building repositories/services/controllers |
-| **Phase 1 CRUD — Salon module (core)** | 🔜 IN PROGRESS (Session 6) — entities ✅, building repositories/services/controllers |
-| **Phase 1 CRUD — Stylist module** | 🔜 IN PROGRESS (Session 6) — entities ✅, building repositories/services/controllers |
-| **Phase 1 CRUD — Booking module** | 🔜 PLANNED (Session 6) |
-| **Phase 1 CRUD — Payment module** | 🔜 PLANNED (Session 6) |
-| **Phase 1 CRUD — Review module** | 🔜 PLANNED (Session 6) |
-| **Phase 1 CRUD — Rewards module** | 🔜 PLANNED (Session 6) |
-| **Phase 1 CRUD — Notification module** | ✅ DONE (Session 7 — BMP-6 & BMP-30) — notification_log entity + repository + service + controller CRUD endpoints |
-| Availability model paper design (Q1-Q6) | ✅ DRAFTED — ⚠️ Darshan-only sign-off, Shivam/Achyuth must review/ratify |
-| Availability model schema | ✅ DONE — V003 + V004 (salon service), stylist_availability + walk_in_block |
-| Availability model algorithm (freeSlots/blockWalkIn) | 🔜 PHASE 2 (after Phase 1 CRUD) |
+| Service registry (Eureka) + API Gateway | ✅ DONE |
+| bmp-auth (OTP/JWT, 4 roles, Google OAuth) | ✅ DONE |
+| Phase 1 CRUD — all 9 modules | ✅ DONE |
+| Availability algorithm (freeSlots / blockWalkIn) | ✅ DONE (Sessions 9–10), wired into booking creation |
+| Salon staff management (owner adds/removes managers, invites stylists) | ✅ DONE (Sessions 15, 17) |
+| Stylist availability — write side | ✅ DONE (Session 18) |
+| Walk-ins from the manager desk | ✅ DONE (Session 19) |
+| **bmp-admin — staff auth, TOTP 2FA, RBAC, audit** | ✅ DONE (Session 20) |
+| **bmp-admin — moderation, data requests, settings, reports, refunds** | ✅ DONE (Sessions 21, 23) |
+| **Coupons & referrals with audience targeting** | ✅ DONE (Session 22) |
+| **Authorization pass — bmp-booking, bmp-rewards** | ✅ DONE (Sessions 21–22) — both were previously **fully unauthenticated** |
+| Authorization pass — bmp-payment, bmp-review, bmp-notification | 🔜 NOT DONE |
+| **Payments (Razorpay)** | ❌ NOT STARTED — blocks refund payouts, manager check-in, referral rewards |
+| Reviews UI, owner dashboard, reschedule | 🔜 NOT STARTED |
 | Razorpay Route confirmation | ⏳ PENDING (confirm directly with Razorpay) |
-| Inter-service auth, OTP login, integrations | 🔜 PHASE 3 (deliberately deferred until Phase 1 CRUD complete) |
+| **Automated tests** | ❌ **NONE, anywhere, in any of the three repos** |
+
+**The two honest headlines:** no payments means no money has ever moved, so several features
+(refund payouts, check-in, referral rewards) are structurally unreachable rather than buggy.
+And there are no tests at all — every regression so far has been caught by a person running the
+thing.
 
 ---
 
@@ -746,6 +753,959 @@ committed.
 the authority) is what makes SALON_OWNER-gated endpoints — including the salon-creation and
 manager-invite steps in the owner/manager journeys above — actually work. Verify that flow
 on the next real local build.
+
+---
+
+### Sessions 15–19 (Darshan/Cowork) — Salon staff, availability, walk-ins
+
+Backend half of the frontend work logged in `../BMP-FE/CONTEXT.md` sessions 15–19.
+
+**bmp-salon**
+- `V008__staff_invites_role.sql`; `StaffService` — owner adds and removes managers, issues
+  invites. Role is granted by someone who already owns the salon, never claimed at signup.
+- `StylistAvailabilityService` / `Dtos` / `Controller` — weekly hours + dated overrides.
+- `InternalSalonController`, `AdminServiceClient`, `UserServiceClient`.
+
+**bmp-auth** — stylist and manager invite consumption in `AuthService`.
+
+**Two bugs caught before they shipped, both silent-failure class:**
+
+1. **Weekday convention.** `stylist_availability.day_of_week` was being written Monday=0, but
+   the existing reader uses `getValue() % 7`, i.e. **Sunday=0**. Every stylist's hours would
+   have landed on the wrong day, with no error anywhere.
+2. **`dayOfWeek` was a primitive `int`** on a nullable column. Hibernate throws reading SQL
+   NULL into a primitive. Changed to `Integer`.
+
+**`SalonService.near()` returned every salon regardless of status**, which made the whole
+moderation gate decorative — an unapproved salon was publicly bookable. Now filters on
+`PUBLICLY_VISIBLE = List.of("approved", "active")`. Both values are accepted deliberately: the
+seed writes `'active'` and moderation writes `'approved'`, and filtering on only one would have
+emptied every dev environment.
+
+### Session 20 (Darshan/Cowork) — bmp-admin: the staff console service
+
+A new service, and the first one with an identity model of its own.
+
+- `V003__admin_console_hardening.sql`, `V004__staff_activation.sql`, `V005__refund_request.sql`
+- `TotpService`, `StaffPermission`, `AdminJwtService`, `StaffAuthFilter`, `AdminSecurityConfig`,
+  `StaffBootstrap`, `StaffAuthService`, `StaffAdminService`
+- `ConsoleController`, `SupportDeskController`, `PlatformSettingService`, `RefundService`,
+  `PiiMasker`
+- Entities: `SalonReview`, `DataRequest`, `PlatformSetting`, `ContentReport`, `RefundRequest`,
+  `StaffSession`, `StaffActivation`
+
+**Design rules established, all of them enforced in code:**
+
+- Staff identity is `admin_schema.bmp_staff`, **separate from customers**. There is no
+  "promote user to admin" path, because there is no role on a customer account that means
+  anything here.
+- A **different JWT signing key** (`bmp.admin.jwt-secret`) and a `bmp-admin` audience claim,
+  checked explicitly. If the two shared a key, compromising the consumer stack would hand over
+  the console.
+- PII masked at the **API boundary**, not the UI. Revealing a field costs a typed justification
+  and writes an audit row. Masking in the UI would leave the real value in the network log.
+- The audit log is append-only at the **database** level: `REVOKE UPDATE, DELETE`.
+- Four-eyes on refunds — you cannot approve one you raised.
+
+**Security holes found and closed while building it:** `SupportTicketController` sat outside the
+admin security matcher, so **any customer token could read and edit every ticket, including
+internal notes**.
+
+**A mistake worth recording permanently.** V003 originally seeded the superadmin with
+`$2a$10$N9qo8uLOickgx2ZMRZoMye…` — a bcrypt hash copied from Spring Security's own
+documentation, i.e. **publicly known** — under a comment claiming it was the hash of
+`ChangeMe#2026`. Replaced with the literal `LOCKED-NO-PASSWORD-SET`, which is not a valid
+bcrypt hash and can therefore only fail verification, plus `StaffBootstrap` for a one-time
+environment-variable claim. Remediation SQL for anyone who applied the early version is in
+`../BMP-ADMIN/RUN_LOCALLY.md` §2c.
+
+### Session 21 (Darshan/Cowork) — Authorization pass: auth, booking, salon
+
+**`BookingController` had no authorization at all.** Any authenticated customer could read,
+modify or cancel **any** booking by guessing or enumerating an id. Full rewrite.
+
+Also added `V005__booking_discount.sql`, `InternalBookingController`, `RewardsServiceClient`,
+and `BookingService.applyCouponIfPresent`.
+
+**A bug inside the fix:** `applyCouponIfPresent` caught `ResponseStatusException` instead of
+`FeignException`, so **every coupon refusal** — expired, already used, wrong salon — surfaced as
+"try again later". Now branches on `e.status()`; 409 and 404 pass the real message through.
+
+`bmp-booking`'s `bmp.security.public-paths` was **absent**, and the code default in
+`CommonSecurityConfig` is `/**`. An omission fails open. Set explicitly.
+
+### Session 22 (Darshan/Cowork) — bmp-rewards: coupons and referrals
+
+`V003__coupon_targeting.sql`, `CouponIssuePolicy`, `CouponAdminService`,
+`CouponRedemptionService`, `ReferralService`.
+
+Audiences: all users, selected users, all salons, selected salons, new users, referred users.
+**Support can only issue to selected users, and only against a ticket** — a support agent should
+not be able to discount the entire platform from a chat window. Enforced in `CouponIssuePolicy`
+server-side, not by hiding a form field.
+
+- Redemption happens **after slot validation, inside the transaction**, with a pessimistic row
+  lock on the usage cap. Order matters: redeem-then-validate burns a coupon on a booking that
+  fails.
+- `public-paths` here also fell back to `/**` — nothing was authenticated. Tightened.
+
+### Session 23 (Darshan/Cowork) — Backend completion pass
+
+Settings, content reports, refund approve/reject, real ops numbers rather than placeholder
+counts, and Feign wiring from bmp-admin to user/salon/booking/rewards.
+
+Fixed: nested Spring Data repository interfaces inside a container class (split into separate
+files to avoid scanner risk), and duplicate hand-written getters on `Booking`, which already has
+Lombok `@Getter`.
+
+**An SLA clock that was structurally incapable of firing** — nothing enqueued salons for review,
+so the moderation queue would have stayed permanently empty and the SLA would have looked
+healthy forever.
+
+### Session 24 (Darshan/Cowork) — Test credentials
+
+`docs/TEST_CREDENTIALS.md` — every role, in all three apps, with the honest note about what can
+and cannot actually be signed into today.
+
+### Session 25 (Darshan/Cowork) — First real run of bmp-admin, and a documentation pass
+
+**`bmp-admin` would not start.** Two top-level `bmp:` keys in `application.yml` (line 46 and
+line 90 — the second was leftover Session 6 boilerplate duplicating two properties already
+present in the first):
+
+```
+org.yaml.snakeyaml.constructor.DuplicateKeyException: found duplicate key bmp
+```
+
+The crash is the lucky outcome. **YAML does not merge mappings per-leaf** — had the parser been
+lenient, the second `bmp:` would have replaced the first one wholesale, wiping
+`bmp.security.public-paths` and the entire `bmp.admin` section. The service would have started
+with no admin signing key, no console origin and no bootstrap config, and login would have
+failed somewhere that pointed nowhere near this file. Checked all 14 services: no other
+duplicates.
+
+**Actuator surface on bmp-admin tightened.** It exposed `env`, `beans`, `threaddump` and
+`heapdump`. Only `/actuator/health` and `/actuator/info` are public, but `CommonSecurityConfig`
+validates signature and expiry — **not audience** — on non-admin paths, so an ordinary
+*customer* token satisfied the rest. Any signed-in customer could have pulled a heap dump from
+the one service holding `bmp.admin.jwt-secret` in memory, and that key mints `super_admin`
+tokens. Now `health,info,metrics,loggers,refresh,busrefresh`.
+
+**The gateway had no route for `/api/v1/admin/**`.** The console's axios baseURL is
+`/api/v1/admin` and its Vite dev proxy forwards `/api` to the gateway, so every console request
+against a real backend 404'd before reaching bmp-admin. Nothing in the console or the service
+was wrong — the request never arrived. Added to the `admin-service` predicate.
+
+**`DevStaffSeeder` — one account per console role, local only.** The production onboarding path
+(bootstrap superadmin → enrol 2FA → create employee → hand over a single-use code → they enrol
+2FA) is correct and unchanged, but it's ~5 minutes *per role* after every
+`docker compose down -v`. Nobody was ever testing as a support agent or a read-only analyst,
+which meant the least-privilege rules the console rests on went unverified.
+
+Three guards, and **the second is the interesting one**: it checks the **JDBC URL is
+localhost**, not `@Profile("dev")` — because in this repo the `dev` profile points at a
+**shared Neon branch**. A profile-gated seeder would have written known-password admin accounts
+into a database three founders share. Profile names lie; a JDBC URL doesn't. Password is random
+per run and printed once to the console — never in a migration, for the reason V003 taught us.
+
+Docs: this update, `../BMP-ADMIN/CONTEXT.md` (new), `../BMP-ADMIN/RUN_LOCALLY.md` (new),
+`../BMP-FE/RUN_LOCALLY.md` (new, replacing `RUN.md`), `docs/TEST_CREDENTIALS.md` §3,
+`RUN_LOCALLY.md` §0/§5b/§10b, and `../BMP-FE/CONTEXT.md`.
+
+**Standing note for whoever picks this up:** the authorization state table in
+`RUN_LOCALLY.md` §8 is now the accurate one. The old "most endpoints are wide open" line was
+out of date and would have led someone to assume a gap that had been closed — or worse, to
+assume one had been closed when it hadn't.
+
+### Sessions 29–30 (Darshan/Cowork) — The access audit, and the booking-price hole
+
+**Session 29 — every endpoint, documented and gated.** `docs/API_ACCESS.md` now covers all 166
+endpoints with the rule that guards each and why. 138 carry an explicit rule (was 121); the rest
+are auth endpoints that must be public, plus bmp-booking's five, which enforce ownership in the
+method body because "self or staff of the salon this booking belongs to" needs a DB lookup SpEL
+can't do — **a scan for `@PreAuthorize` reports those as unprotected and is wrong**.
+
+*The structural fix:* `CommonSecurityConfig` no longer defaults `public-paths` to `/**`. A
+service that omits it now **fails to start**. Four services had omitted it, which is how 52
+endpoints came to need no credential — none of it a decision, all of it the same omission
+repeated. Splitting one process into thirteen turned one authorization decision into thirteen
+chances to forget one.
+
+*The worst finding:* **`POST /api/v1/staff` creates a BMP staff account**, sits outside
+`AdminSecurityConfig`'s `/api/v1/admin/**` matcher, and had no `@PreAuthorize` — so it fell to
+the shared chain, which accepts any valid JWT. **Any logged-in customer could create themselves
+a staff account with one call.** `/api/v1/audit-log` was the same, exposing the record of which
+staff member viewed which customer's phone number and why. Both are now SERVICE-only and
+`@Deprecated(forRemoval = true)`.
+
+This was the **second** time a controller outside an intended matcher proved wide open
+(`SupportTicketController`, Session 20). A `securityMatcher` protects a path prefix, not a
+service. Written down as a rule in API_ACCESS.md §8.
+
+*Also closed:* `POST /coupons` (minted coupons — a customer could make themselves 100% off),
+`POST /admin/wallet/credit` (created money from nothing; **a path is not a permission** — the
+`/admin/` prefix protected nothing), `GET /users/{id}/wallet` (readable for any user id by
+changing the UUID — classic IDOR), `PUT /payment-orders/{id}/status` (marks a payment captured;
+on a public server, "book anything for free"), and every salon write, which now checks
+`principal.salonId().equals(#salonId)` as well as the role — the role says what *kind* of thing
+you are, `salonId` says *which one*, and omitting the second half is invisible when you test
+with one tenant.
+
+**Session 30 — the booking price came from the client.** `ItemRequest` carried `nameSnapshot`,
+`pricePaise` and `durationMinutes`, and `BookingService.create` wrote them straight to the
+database. A hand-rolled POST booked a ₹4,500 service for ₹1.
+
+**The duration half was worse, and less obvious.** `resolveAndValidateSlot` passed
+`item.durationMinutes()` — the *client's* number — to bmp-salon's availability check. Understate
+a 120-minute service as 15 and the question asked is "is there a 15-minute gap here?" There is,
+so the booking is accepted, written at 15 minutes, and then overruns the next three
+appointments. **Validating against a length the caller chose is not validation.**
+
+Both fixed by fetching the salon's menu over Feign and using its values; the request's are
+ignored (fields kept, marked `@Deprecated`, so older clients don't 400). If the menu can't be
+loaded the booking is **refused** rather than falling back — a booking at an unverified price is
+worse than one that didn't happen, because the salon has to honour the first.
+
+**Session 30 (cont.) — commission became data, and the policy snapshot started existing.**
+`V009__salon_commission.sql` adds `salon_policy.commission_bps` (basis points, integer, default
+1200 = today's hardcoded rate, CHECK 0–5000). Commission was `total.percentBps(1200)` — the same
+12% for every salon, unchangeable without a deploy. A launch offer or a negotiated rate for an
+anchor salon was not expressible, which would have ended the first commercial conversation with
+"we can't do that".
+
+Owners can **see** their rate but not set it: `commissionBps` is nullable on the request and
+null means "leave unchanged". Reading it unconditionally would let an owner zero their own rate
+by adding a field — and, far more likely, would silently reset a negotiated rate whenever a
+client saved an unrelated change without sending it.
+
+**`policy_snapshot` was the literal string `"{}"`**, on a column whose own migration comment
+reads *"FROZEN copy of salon_policy, never changes"*. It froze nothing. It now captures the
+cancellation terms at booking time, so a salon later switching from `flexible` to `strict`
+cannot retroactively change what an existing customer agreed to. A salon with no policy row is
+normal and does **not** refuse the booking — it falls back to platform defaults and records
+`"source": "platform_default"` in the snapshot, because in a dispute "the salon chose these
+terms" and "nobody had chosen any" are different facts. Contrast the service menu, which *does*
+refuse: there is no safe default for someone else's price.
+
+**A correction to the Session 29 audit.** It reported "cancelling a booking burns the coupon",
+from a `TODO` in `CouponRedemptionService:138`. That TODO had been stale for eight sessions —
+`BookingService.cancel` has released coupons since Session 22. The audit that warned "trust call
+sites, not prose" then made exactly that mistake. Comment corrected; `PENDING_WORK.md` marks the
+item as never-true rather than fixed.
+
+### Session 31 (Darshan/Cowork) — Coupon requests, approvals and spend allowances
+
+Darshan's spec: support should hold only a small discount budget; anything more goes to admin as
+a request; **salon owners can raise requests too**, admin creates the coupon, the salon then
+gives it to their customers; and admin manages what support is allowed.
+
+`V004__coupon_requests.sql` + `CouponRequestService` + `CouponAllowanceService`. Full write-up:
+`docs/COUPON_REQUESTS.md`.
+
+**The gap this closes.** Session 22's limits (₹500 / 20% / 1 recipient / 30 days) were the right
+wall, but a wall with no gate fails predictably: *"the salon cancelled this customer's wedding
+booking, ₹500 isn't enough"* → 403 → the agent either gives up or borrows an admin login. **A
+refusal with no path forward doesn't enforce a policy, it makes people route around it.**
+
+**Second gap: per-coupon limits are not a budget.** One agent could have issued a hundred
+compliant ₹500 coupons in an afternoon, unnoticed until the month's numbers. There is now a
+rolling 7-day allowance on count *and* total value, and exceeding it routes to the request flow
+rather than failing.
+
+**Design decisions worth keeping:**
+
+- **Rolling window, not calendar.** A calendar reset creates a use-it-or-lose-it rush at
+  month-end — the last incentive you want on an apology budget.
+- **Percentage coupons count at their cap**, not their expected value. The allowance measures
+  exposure, and the honest worst case is the cap.
+- **Revoked coupons still count.** Otherwise the limit is bypassed by churn and measures nothing.
+- **Approve-with-modification** (`approvedValue`, `approvedMaxDiscountPaise`, `approvedActiveTo`).
+  An approver who can only say yes or no says **no**; "you asked ₹2,000, here's ₹800" is the
+  answer most of the time, and reject-then-re-ask is a round trip nobody makes.
+- **The queue is oldest-first**, because a goodwill request has an unhappy customer already
+  waiting behind it. Newest-first is the default everywhere and wrong in every queue.
+- **`cancelled` ≠ `rejected`** — withdrawal vs refusal. Collapsing them makes approval rate
+  meaningless.
+- **A salon owner's request is forced to their own salon from the token**, so a platform-wide
+  ask is impossible rather than possible-and-refused. Refusing at approval time is too late: by
+  then it looks like a decision someone made.
+- **Allowance overrides are data, not a role.** "Senior support" as a fourth role means a new
+  permission matrix for one number.
+- **Minimum text lengths** on justification (20) and rejection notes (10). A required field that
+  accepts "." is required in name only.
+- Coupons are minted under the **approver's** identity — the honest attribution is who
+  authorised it, not who asked.
+
+### Session 32 (Darshan/Cowork) — Telling people things happened
+
+The console UI landed (see `../BMP-ADMIN/CONTEXT.md`) and the salon-owner Offers tab (see
+`../BMP-FE/CONTEXT.md`), which left one gap: **an approval workflow where neither side was ever
+notified.** A raised request sat in a queue nobody was told about; an approval never reached the
+requester. That is the same failure the workflow exists to prevent, moved one step along.
+
+Two events on the existing outbox → Kafka → `NotificationDispatcher` path:
+`coupon_request.raised` → the ops address, `coupon_request.decided` → the requester.
+
+**Published inside the request's transaction.** A rollback takes the notification with it —
+otherwise you send "your request has been received" for requests that don't exist.
+
+**bmp-rewards gained its first Feign client** (`UserServiceClient`), because contact details are
+resolved at RAISE time and stored on the row. `NotificationDispatcher` deliberately holds no
+clients — every event carries the address it needs, which keeps the dispatcher a dumb delivery
+mechanism instead of fanning out a dozen lookups per message. So whoever emits owns the address.
+
+Resolving at raise rather than at decision matters twice over: the approval transaction also
+mints a coupon, so an outbound call in there means bmp-user being briefly down takes the
+approval with it; and the address you should answer is the one on file when they asked.
+
+Smaller calls: **one ops address, not per-admin routing** (no distribution list exists, and
+encoding whose problem each request is duplicates the queue); **the summary and reason go in the
+body** so a decision can be triaged from a phone; **SMS only on approval with a code**, because
+a rejection's reasoning doesn't fit in 160 characters and a truncated refusal reads worse than
+none. Unset `BMP_OPS_EMAIL` logs a warning rather than failing silently.
+
+`requester_phone` was added to V004 in place rather than as a V005 — V004 was written the same
+day, has never been applied anywhere, and a fresh migration for a column forgotten minutes
+earlier is worse than editing an unreleased one. **If you did apply V004 locally, reset the
+volume; the checksum will mismatch.**
+
+**Still not built:** an aggregate view of platform-wide coupon spend, and `expireStale()` runs on
+queue read rather than on a schedule. The default numbers (10 coupons / ₹3,000 per week) are
+deliberately tight placeholders, not a business position.
+
+### Session 33 (Darshan/Cowork) — CI, because nothing had been compiled since Session 25
+
+**The honest state before this:** roughly thirty Java files written or edited across Sessions
+26–32 — a new Maven dependency in bmp-rewards, three migrations, two entities, a Feign client,
+authorization annotations across nine controllers — and **not one line of it compiled**. The
+work happened in an environment with no JDK, and "I'll build it later" is a promise nobody
+schedules.
+
+The cost of that isn't the bugs. It's that they arrive **in a batch**, at the moment somebody
+needs the thing to run — which is usually the day before a demo. A compile error found ninety
+seconds after a push is a non-event; thirty files' worth found a fortnight later is an
+afternoon, in the worst possible week.
+
+`.github/workflows/ci.yml` in all three repos. `mvn -B -DskipTests verify` on the backend,
+`tsc` (+ `vite build` on the console) on the frontends.
+
+**`-DskipTests` is honest rather than aspirational.** There are no tests. The job answers one
+question — *does it build* — and answers it reliably, which beats a job that claims more and
+gets switched off when it's flaky. Same reason nothing here uses `continue-on-error`.
+
+**Four non-compiler guards, each because the thing has already gone wrong:**
+
+- **`public-paths` declared, and not `/**`** — the omission has happened FOUR times, leaving 52
+  endpoints reachable with no credential. `CommonSecurityConfig` now fails at startup without
+  it, but "fails at startup" only helps if somebody starts the service, and a service nobody
+  runs locally gets merged unstarted.
+- **Console routes exist** — three dashboard tiles once pointed at routes that never existed.
+  React Router can't warn: navigating to an unmatched path is a legitimate navigation to the
+  catch-all.
+- **`auth.ts` never references `USE_MOCKS`** — every other API is mocked behind a flag that
+  defaults to ON. If auth joined them, one forgotten env var ships an authentication bypass.
+- **The console's demo-login block stays gated** — it lists five working sign-ins and accepts
+  any four-character password.
+
+Plus a *warning* (not a failure) when an existing migration is edited: sometimes that's right,
+as with V004's `requester_phone` this week, and the judgement belongs to a human who knows
+whether it shipped.
+
+**All four guards were run green against the current tree before being committed.** A check that
+fails on day one gets switched off on day two.
+
+Also done this session: a static sweep of every uncompiled Java file for unresolved imports,
+Lombok getters without fields, and record-arity mismatches. It found nothing — which is
+reassuring but weak evidence, and precisely why the compiler needs to run.
+
+### Session 34 (Darshan/Cowork) — bmp-booking learns to tell someone
+
+**The finding:** bmp-booking published no cross-service events whatsoever. A customer could book
+an appointment and receive **nothing** — no confirmation, no reminder, no notice of their own
+cancellation. The only message BMP had ever sent them was their login OTP.
+
+**Why it went unnoticed for eight sessions**, which is the part worth keeping. Every piece of
+plumbing was already in place: the outbox table in bmp-booking's schema, `@EntityScan` over
+`com.bmp.common` *with a comment saying it was there for `OutboxPublisher`*, and the relay
+draining to Kafka. `OutboxPublisher`'s own usage example, written in Session 3, is
+`outbox.publish(new BookingCompleted(...))` — an event that did not exist.
+
+The trap was one line in `BookingService.create`:
+
+```java
+recordEvent(booking.getId(), "CREATED", "customer", req.customerId(), Map.of());
+```
+
+That writes to `booking_events`, bmp-booking's own append-only audit trail. It is correct and it
+does its job — and it *reads* like publishing. Two systems with "event" in the name, one local
+and one cross-service, and the local one was written first. **Nothing ever failed**, because a
+missing event is silence rather than an exception. The same shape as the stale `TODO` that made
+Session 33 report C1 as broken when it never was: prose and near-miss code both outrank memory,
+and neither outranks a call site.
+
+**What was built**
+
+| Piece | Why |
+|---|---|
+| `V006__booking_contact_snapshot.sql` | `customer_name/phone/email` + `salon_name_snapshot` on the booking row. Additive, nullable, no backfill. |
+| `BookingCreated` / `BookingCancelled` / `BookingCompleted` | In `bmp-common/events`, following the emitter-carries-contact rule already documented in bmp-rewards' `UserServiceClient`. |
+| `bmp-booking/client/UserServiceClient` | One method, four fields. Called **once per booking**. |
+| Three handlers in `NotificationDispatcher` | Email + SMS, composed separately rather than one truncating the other. |
+| Customer name + masked phone on `ScheduleEntryResponse` | The desk previously showed a bare UUID. |
+
+**The three decisions that carry the design**
+
+1. **Snapshot the contact, don't look it up.** `cancel` and `salonTransition` publish too. If
+   they resolved contact live, a customer could not cancel their appointment while bmp-user was
+   restarting — and being unable to cancel is far worse than a stale phone number. The accepted
+   cost is that a number changed after booking is stale; the fix if it ever bites is to refresh
+   on the reminder job, **not** to make the booking path depend on a live lookup.
+
+2. **A contact-lookup failure does not fail the booking.** This is the deliberate opposite of
+   the `serviceMenu` call twenty lines above it, and the distinction is the whole design. Price
+   is part of the agreement and cannot be guessed, so an unreachable bmp-salon *must* refuse the
+   booking. Contact details are not part of the agreement — a customer whose appointment was
+   accepted but whose SMS never sent still has an appointment; it's in the app. Refusing the
+   booking to protect the receipt would be backwards.
+
+3. **The phone is masked in the service, not the UI.** A client that masks is a client that
+   received the real number. Beyond DPDP, a day view showing full numbers is a downloadable
+   customer list, and a salon that can harvest BMP's customers can take them off-platform —
+   which is the commission walking out the door.
+
+**What it deliberately does not say.** The message says *"requested"*, not *"confirmed"* —
+bookings sit in `PENDING` until the Razorpay webhook (Phase 3), and telling someone their
+appointment is secured before anyone has taken payment is a promise the platform has not made.
+No refund figure on cancellation: that depends on `policy_snapshot` and a payment that doesn't
+exist, and a confident wrong number in writing arrives later as a chargeback. `NO_SHOW` sends
+nothing — an automated accusation on the salon's unilateral say-so, with no right of reply,
+needs a policy before it needs code. No review prompt on completion until bmp-review verifies
+attendance (S3).
+
+Left open, in `docs/PENDING_WORK.md` §5b: **N3 reminders** (the highest-value item left in that
+file), **N4 audited reveal-phone** and **N5 templated salon→customer messages** — until those
+ship, the honest answer to "how does a salon reach a customer who's late?" is *it can't*.
+
+### Session 35 (Darshan/Cowork) — the salon can reach the customer, and can look things up
+
+Two things Darshan asked for after Session 34: a way for the salon to **call** a customer, and
+the **history** screen.
+
+**Calling — `POST /bookings/{id}/reveal-contact`**
+
+The day view shows `98765 4••••`. Showing the whole number would have been one line less code,
+and would have made every screen a manager opens a downloadable customer list. Two costs, and
+the second survives a change of ownership: a salon that can harvest BMP's customers can take
+them off-platform — that is the commission walking out the door, and the commonest way a
+marketplace is disintermediated by its own supply side — and under DPDP, BMP is the data
+fiduciary for that leak regardless of who exported it.
+
+So it is a deliberate action. A salon with a real reason pays one extra tap. A salon quietly
+building a contact list pays a permanent, per-customer record of doing so.
+
+Three decisions inside it:
+
+1. **The audit entry goes to `booking_events`, not bmp-admin's `audit_log`.** Deliberate, and
+   not for convenience: `GET /bookings/{id}/events` is readable by **the customer**. They can see
+   in their own app that the salon looked up their number and why. *An audit trail only the
+   platform can read protects the platform; one the data subject can read protects them.* Given
+   this endpoint exists to hand out a personal phone number, it should be the second kind.
+
+2. **POST, not GET** — it reads data and returns it, which sounds like a GET, but it *writes a
+   permanent record every call*. A GET that mutates is one browsers, proxies, retry logic and
+   link prefetchers will call again on their own, and every one would be an unexplained entry in
+   a customer's booking history. There is also no `useQuery` wrapper on the client, for the same
+   reason: a query refetches on focus and reconnect.
+
+3. **A fixed reason list, not a text box.** Free text becomes "." within a week, and a reveal
+   nobody can review later may as well not have been recorded.
+
+**Masked calling is the intended end state** (BMP bridges, neither party sees the other's
+number). It needs a telephony provider and a registered company — Track 0, not code.
+`revealCustomerContact` is the seam: it becomes "place a bridged call", the number stops being
+returned, and the reason, the audit entry and the customer's visibility of it are all unchanged.
+That is *why* the reason is collected server-side on a POST rather than logged client-side.
+
+**History — `HistoryPanel`, on both the owner and manager desks**
+
+`GET /bookings/salon` was written, secured and paginated in **Session 16** and nothing ever
+called it. An owner could see today and had no way to look up last Tuesday — which is most of
+what an owner wants from a booking system. *A backend endpoint with no caller is not
+half-finished work; it is invisible work: it looks done in review and does nothing for anybody.*
+
+It lists **whole bookings**, where the day view lists **service items**. A cut at 11:00 plus a
+colour at 11:45 is two rows on the timeline (two things, two times, two people's calendars) and
+one row in history ("what did this customer have done"). Same data, two shapes, and the shape
+follows the question — serving both from one shape would make one screen wrong.
+
+Managers get it too, not just owners: *"when was this customer last in?"* is a front-desk
+question. It takes no `salonId` — the salon comes from the JWT claim, so there is no parameter
+to tamper with.
+
+Also: `customerName` + masked `customerPhone` added to `BookingResponse` (so history shows a
+person), and the customer's name is now the heading of both the schedule block and the booking
+detail panel — when that panel is open, something has usually gone wrong with *this person's*
+appointment, and who to speak to is the first thing needed.
+
+Left open in `PENDING_WORK.md` §5b: **N3 reminders** (still the highest-value item),
+**N4b rate-limiting reveals**, **N5 templated messages**, **N9 masked calling**.
+
+### Session 36 (Darshan/Cowork) — one customer, at one salon
+
+**`GET /bookings/salon/customer/{customerId}`** plus `CustomerHistorySheet`: tap a name in the
+History list and see that person's visits, spend, cancellations, no-shows and usual stylist.
+
+This did not exist in any form. `BookingRepository` had `findByCustomerId` (everything for a
+person) and `findBySalonId` (everything at a salon) and **no combination** — so the
+returning-customer view was unbuildable, and the obvious shortcut was for a screen to call
+`findByCustomerId` and filter by salon in Java.
+
+**That shortcut is the whole reason this session has a design.** It would have loaded *every
+booking that customer has made anywhere on BMP* before the filter ran. Where a customer went
+last month is another salon's commercial data and the customer's own business, and "we filtered
+it in the UI" is not a defence once the JSON has crossed the wire. So the boundary is enforced
+in three independent places:
+
+- `findBySalonIdAndCustomerIdOrderByCreatedAtDesc` takes the pair, and there is deliberately
+  **no single-argument variant on the salon side** — the constraint is structural, not a rule
+  someone has to remember.
+- The path is `/salon/customer/{id}`: the salon half comes from the JWT and is not in the URL,
+  so the only salon a manager can name is their own.
+- Identity (name, masked phone) is read from the **V006 booking snapshot**, not resolved live
+  from bmp-user. The salon is entitled to what they were told at booking time, not to a live
+  view of a person's current record. A salon-facing screen that queries bmp-user is one step
+  from being a customer directory.
+
+**404, not an empty summary,** when they have never booked here. A 200-with-zeros for any
+well-formed UUID lets a salon test arbitrary ids and learn which ones are real BMP customers.
+
+**Three smaller calls worth keeping:**
+
+*Cancelled and no-show stay separate numbers.* They are different facts: cancelling is a
+customer using the product correctly — the salon got the slot back and could resell it — while a
+no-show cost them an empty chair. Merged into one "didn't attend" figure, a considerate customer
+reads as an unreliable one. This is the number a receptionist acts on (prepayment?
+double-book?), so it has to be right. The row is hidden entirely when both are zero, which is
+the common case; a row of zeros on every regular trains people to stop reading it.
+
+*"Usually sees ___" is null on a tie, and the line is then omitted.* Someone reads it out loud —
+"you usually see Meera, shall I book her?" — so a preference invented from a two-way tie is
+worse than saying nothing. Counted over **completed** items only: a cancelled booking says
+nothing about who they like.
+
+*The stats query is native SQL, not JPQL.* `final_amount_paise` maps through
+`MoneyAttributeConverter`, and JPQL `sum()` over a converted attribute is not reliably supported
+— Hibernate has to decide whether it's summing `Money` or `Long`, and the answer has changed
+between versions. The column is a plain `BIGINT`, so SQL removes the ambiguity. The cost is
+named in the code: it now knows schema and column names, and `status` is compared as text, which
+is only safe because the entity is `@Enumerated(EnumType.STRING)`. That is the first thing to
+check if these numbers ever read zero.
+
+Also: only the **name** in a history row is the tap target, not the whole row. Tapping a row in
+a list of bookings should plausibly open that booking; tapping a person's name unambiguously
+means "tell me about this person", and surprise on a screen used for disputes is expensive.
+
+Left open: **N10** — the same sheet from the Today tab's booking detail. "Have they no-showed
+before?" is asked while the customer is at the door. `BookingDetail` has no `salonId` and
+threading it through was more change than the win justified here.
+
+### Session 37 (Darshan/Cowork) — cancel, reschedule, and terms that actually apply
+
+Darshan asked for six things. **One of them worked.** Customer cancel did; salon cancel was
+blocked in the state machine, reschedule didn't exist in any form, refunds ignored timing
+entirely, and there were no per-salon reschedule settings at all.
+
+**The finding that frames the session:** `free_cancel_hours` has existed since V002, was frozen
+onto every booking by Session 30, and was **read by nothing**. A customer cancelling two minutes
+before their appointment and one cancelling three weeks out got identical treatment — no fee, no
+record, no difference. *Freezing terms nobody reads is worse than not freezing them, because it
+looks solved.* `booking_modification` was the same shape: in the schema since V002, zero rows
+ever written, and described in `BookingStatus`'s javadoc **wrongly** (it named
+`scheduled_start/end` columns that don't exist on `booking` — the times live on the item).
+
+**Decisions Darshan made, and what they cost to implement**
+
+| Decision | Implementation |
+|---|---|
+| Reschedule keeps the ORIGINAL clock | `booking.original_start`, written once at creation, never moved |
+| Salon may cancel, always full refund | `Transition(CANCELLED, Actor.SALON)`; `CancellationTerms` returns fee-free **before** consulting any band |
+| Notice + limit + tiered fees + who-may-reschedule | Seven columns in V010, an owner-facing `PolicyPanel` |
+
+**Why the original-clock rule is the load-bearing one.** Without it: book Saturday 11:00
+(24h free window) → at 10:00 on the day, deep inside the fee window, reschedule to next month →
+cancel "three weeks ahead", free. The salon lost Saturday's slot with an hour's notice and was
+paid nothing. Every serious booking platform ties these together, and it is always the salon's
+money that pays for getting it wrong. `reschedule_keeps_original_clock` defaults TRUE; a salon
+opening it gets a WARN log naming the consequence.
+
+**A real bug found while building reschedule.** The availability check made every short move
+impossible: shifting a 60-minute service from 11:00 to 11:30 asks "is 11:30–12:30 free?", and
+11:00–12:00 was occupied **by the booking being moved**. The item conflicted with itself. Fixed
+by threading `excludeBookingId` through five files across two services
+(`findBusyItemsForStylist` → `BookingAvailabilityService` → controller → `BookingServiceClient` →
+`AvailabilityApi`), overloaded with a defaulted 4-arg form so the ordinary booking path is
+untouched. Every *other* booking stays visible, so a reschedule still cannot land on someone else.
+
+**Three smaller calls worth keeping**
+
+- **The fee is WRITTEN, not computed on read.** `previewCancellation` runs the *identical*
+  `CancellationTerms.forCancellation` call, so what the customer is shown and what is recorded
+  cannot disagree. Recomputing later would also need "now" to be a past value, and would drift.
+- **An unreadable snapshot charges nothing.** If we can't say what the customer agreed to, we
+  can't claim they agreed to pay. The error goes in the log, not on the bill.
+- **`cancellation_fee_reason` is words, not derivable from the bps.** A salon whose late fee is 0
+  produces the same `0` as a free cancellation, and "you cancelled in good time" reads very
+  differently from "we don't charge for late cancellations".
+
+**UI:** `UpcomingPanel` (ordered by APPOINTMENT time — history orders by `created_at`, so a
+booking taken yesterday for next month sorted above one taken last week for tomorrow),
+salon-cancel with a required reason, `CancelFeeNotice` fetching the real figure on open (never
+cached — a booking crosses a band while the sheet is open), and `PolicyPanel` for the owner with
+**"changes apply to new bookings only"** stated above the controls.
+
+Deliberately NOT built: salon-side reschedule *UI* (needs a slot picker against live
+availability — a half-built one that double-books is worse than the phone call), and validation
+that two items of the same booking aren't moved onto each other. Both in `PENDING_WORK.md`.
+
+### Session 38 (Darshan/Cowork) — the reschedule UI, and a mock that hid a broken endpoint
+
+Finished R5 and R6 from Session 37's register. Found a third thing on the way.
+
+**`getSlots` has never worked against a real backend.**
+
+It parsed the response as `SlotGroup[]` — `{label, slots[]}`, grouped into
+Morning/Afternoon/Evening. bmp-salon returns a **flat** `List<SlotResponse(start, end,
+stylistId)>`. A Zod parse of the real payload throws, so **the booking flow's slot picker would
+have failed on its first live request** — the core screen of the whole product.
+
+Nobody noticed because `USE_MOCKS` defaults ON and `mockSlots` returned the grouped shape the
+client wanted. *The mock was written against the client's assumption instead of the server's
+contract, so the two never had to agree* — which is precisely the failure Zod-at-the-boundary
+exists to catch, defeated by a boundary the mock never crosses.
+
+Grouping is a presentation decision and now happens client-side. `stylistId` was also being
+discarded, and it matters: on the "any available" path it is the only way to know which stylist
+a slot belongs to, which a reschedule has to send back. Hence `getRawSlots` alongside `getSlots`.
+
+**`RescheduleSheet` — one component, both actors.** Customer and salon reschedule the same
+booking against the same availability; the only differences are two props. Two components would
+be two slot pickers, and the second one written would be the one that forgets
+`excludeBookingId`.
+
+Three decisions inside it:
+
+- **A slot picker, not a time field.** Free text would let someone request 11:37 on a 15-minute
+  grid. The server would refuse correctly, and the customer would have no idea which times *would*
+  work. Every option shown is one the server will accept.
+- **Multi-service bookings are moved one service at a time.** Auto-chaining ("the colour starts
+  when the cut ends") sounds helpful and quietly produces a slot nobody checked — the second
+  service's availability is a different question from the first's.
+- **Changing the date clears every pick.** Those slot times belonged to the old date; keeping
+  them would silently send yesterday's 11:00.
+
+**Entry points are gated on the real answer, not guessed.** The customer's button asks
+`reschedule-eligibility` first, and when refused shows *the salon's own wording* in its place —
+"this salon needs 24 hours' notice… you can still cancel it" tells someone what to do next,
+where a greyed-out button produces a support ticket. The salon's is gated on
+`salonCanRescheduleDirectly`, fetched **once for the list** rather than per row, and when off the
+row names the alternatives.
+
+In both, **Move comes before Cancel**. For a stylist off sick, moving keeps the customer and the
+revenue; cancelling loses both. Putting Cancel first makes the lossy option the default.
+
+**R6 — `requireNoSelfOverlap`.** The `excludeBookingId` that makes rescheduling possible also
+stops a booking's own items blocking each other, so a two-service booking could be moved onto one
+overlapping time with every individual check passing — a customer in two chairs at once. Checked
+after the availability pass and before any write. It refuses **same stylist only**: two services
+in parallel with different stylists is a real arrangement (a manicure while a colour develops),
+and refusing all overlap would break it.
+
+### Session 39 (Darshan/Cowork) — the first tests, and CI stops skipping them
+
+**46 tests across 4 files.** The first in this repository that assert anything about behaviour.
+
+**Why these four, and not "some coverage".** The choice was deliberate: test the code where being
+wrong is *silent, financial, and argued about with a real person*.
+
+| File | Tests | What it protects |
+|---|---:|---|
+| `CancellationTermsTest` | 18 | What a customer is charged, from terms frozen months earlier |
+| `BookingStatusTest` | 14 | Which moves are possible — mostly the ones that must stay impossible |
+| `MoneyTest` | 9 | The rounding rule that multiplies everyone's income |
+| `MaskPhoneTest` | 5 | The only thing between the salon desk and a customer list |
+
+All four are pure logic — no Spring, no database, milliseconds to run. That is what made them
+the right first tests rather than the easy ones.
+
+**What the tests are actually protecting is decisions, not arithmetic.** The arithmetic in
+`CancellationTerms` is four lines. The tests pin the sentences someone could "simplify" away in a
+refactor without noticing:
+
+- a salon cancellation is free **before** any policy is consulted — tested with the harshest
+  possible policy (100%) and the worst possible timing (after the appointment), so moving the
+  check below the band logic fails here
+- an unreadable snapshot charges **nothing** — null, `"{}"`, and malformed JSON all tested. If we
+  can't say what the customer agreed to, we can't claim they agreed to pay.
+- the clock runs on the **original** appointment, so rescheduling can't buy back a free
+  cancellation
+- a pre-Session-37 snapshot charges nothing — old bookings behave exactly as they did before the
+  feature existed
+- band boundaries are inclusive at the generous end: exactly 24 hours out is free, not late
+
+`BookingStatusTest` leans on negatives on purpose. Anyone adding a transition naturally tests
+that it works; nobody thinks to check that the impossible things are still impossible. It loops
+every terminal state × every target × every actor rather than spot-checking, and asserts that
+only the SYSTEM confirms — the most tempting shortcut in the machine, since nothing reaches
+CONFIRMED today.
+
+**`MaskPhoneTest` exists for the bug that looks like success.** If masking ever returns its
+input, nothing breaks, nothing logs, no other test fails — the numbers just appear, and keep
+appearing.
+
+**CI no longer skips tests.** `-DskipTests` has been in the workflow since Session 33, where the
+comment said it was *"honest rather than aspirational"* because there were no tests. That was
+true then and stopped being true this session — a comment explaining why something isn't done has
+a short shelf life.
+
+It couldn't just be deleted: every module ships a generated `*ApplicationTests` with a
+`@SpringBootTest` context load, and those need PostgreSQL, Kafka and Eureka. On a runner they'd
+fail for want of a database rather than for want of correctness, and **a red build caused by
+missing infrastructure is the fastest way to teach a team to ignore red builds.** So they're
+excluded by name in the root pom's surefire config, with the reason next to the exclusion and an
+instruction to delete it once Testcontainers exists. `bmp-app`'s ArchUnit/Modulith rules still
+run — they're static analysis and need no context.
+
+**Verified without a JDK** by re-implementing `percentBps`, `maskPhone` and the fee bands
+independently and running all 22 asserted values through both. Every one matched. Also checked
+brace/paren balance, package-vs-path, text-block placeholder counts against `.formatted()` args,
+and that `maskPhone` is package-private with the test in the same package — the method's
+visibility was **not** widened to make it testable.
+
+### Session 40 (Darshan/Cowork) — the customer journey had never worked
+
+Darshan asked me to confirm four things were done. Three were. Checking the fourth found
+something much larger.
+
+**The entire customer discovery journey has never worked against a real backend.**
+
+A sweep of every Zod schema against the backend record it parses found **four mismatches**, all
+on the path: browse → salon page → pick a stylist → pick a slot. `NearbySalonResponse` was
+`(id, name, distanceKm)`; `SalonSchema` demanded eight more fields, every one **required**. The
+parse throws on the first real response. Only "Confirm" — wired in Session 28 — worked.
+
+The fields mostly **did not exist in the database**. `salon` had seven columns: id, name, a
+PostGIS point, status, assignment strategy, two timestamps. Nothing anybody would browse by.
+
+**Why nobody found out, and why that's the real lesson.** `USE_MOCKS` defaults ON, and the mocks
+returned exactly the shape the client wanted — because they were written from the *client's
+assumptions* rather than the *server's contract*. **A mock that never has to agree with the
+server guarantees the two will diverge, and hides it while they do.** Session 38 found the same
+root cause in `getSlots`, and I treated it as a one-off. It wasn't.
+
+**What was built**
+
+| | |
+|---|---|
+| **V011** | `area`, `address`, `about`, `image_url`, `rating`, `review_count`, `salon_category` table, `salon_service.category`, `stylist.speciality` |
+| `GET /salons/{id}/detail` | Everything the salon page needs in ONE call — the conversion funnel doesn't get three spinners |
+| `GET /salons?category=` | The query the category child table exists for |
+| FE | Schemas rewritten to the real shape; **every render path fixed for null** |
+
+**Design calls worth keeping**
+
+- **NULL rating ≠ 0.** A new salon shown as "0.0 ★" reads as terrible rather than new, and that
+  cost lands on the salon least able to absorb it. `ratingLabel()` renders "New".
+- **`startingPricePaise` is derived, not stored.** A stored copy goes stale the moment an owner
+  edits a price.
+- **`imageHue` and `topRated` moved OFF the wire.** A hue is not a fact about a business; a badge
+  threshold is an editorial decision. Both are now computed in the app.
+- **A child table for categories, not `TEXT[]`.** Postgres arrays need Hibernate's array
+  JdbcType — an exotic type in a codebase with none — for a relation of five rows.
+- **Fixing the schema was only half.** Permitting null and then calling `.toFixed(1)` on it trades
+  a parse error for a crash. Six components were rewritten, and `MOCK_NEW_SALON` (a salon with
+  *nothing* filled in) now sits in the mock list so those branches are exercised in development
+  rather than by a real owner on their first day.
+
+**Also closed: the salon was never told about a booking.** `booking.created` reached the customer
+and nobody else — a salon only found out by having the desk open, which polls every 60 seconds.
+A booking made overnight was invisible. `booking_notify_email` / `_phone` live on the **salon**,
+not resolved from the owner's login: the owner is a person, the bookings inbox is a business
+function that must survive that person leaving. The customer's phone number is deliberately
+**not** in the alert — that stays behind the audited reveal, or every booking SMS becomes an
+unaudited copy of a customer's number in someone's phone.
+
+**`scripts/check-api-contracts.py`** — the sweep, committed and repeatable. Stdlib only, no node,
+no maven. It found four more mismatches on its first run, including one my own edit had just
+introduced, and one bug in itself (it couldn't see `.nullish()` inherited through `.extend()`).
+**35 schemas now match.** It's a local script, not CI: the repos are separate and neither
+workflow has the other checked out, so a CI job couldn't do this honestly.
+
+Also fixed in passing: `toResponse` and `near()` threw on a salon with a malformed `location` —
+and every salon created through signup gets placeholder coordinates (F3), so one bad row could
+have 500'd the endpoint bmp-booking calls on **every single booking**.
+
+Closes **F2** (signup collected `address` since Session 15 and discarded it).
+
+### Session 41 (Darshan/Cowork) — finishing V011, and two open doors
+
+Started by closing the loose end from Session 40 (signup collected `address`/`type` and still
+didn't send them). Ended somewhere else.
+
+**`PUT /api/v1/salons/{salonId}` had no `@PreAuthorize` at all — and accepted `status`.**
+
+So **any logged-in user could approve their own salon**, skipping moderation and becoming
+publicly bookable. They could also rename or relocate *any* salon by changing the id in the URL.
+Two gates now: the salon's own OWNER (the `principal.salonId().equals(#salonId)` expression every
+other salon-scoped endpoint uses), and `status` is rejected outright with a 403 — a salon
+approving itself isn't an authorization bug needing a narrower role, it's a field that must not
+be on the request.
+
+**Then the sweep for siblings found something worse.**
+
+`PUT /api/v1/reviews/{id}` was reachable **with no credential at all**. No `@PreAuthorize`, and
+bmp-review's `public-paths` contains `/api/v1/reviews/*` — added so a review could be *read*
+without logging in.
+
+> **public-paths are path-only and method-blind.** The pattern doesn't say "GET", it says "this
+> URL". A read that should be public silently publishes the write on the same path.
+
+Session 29 recorded the lesson as *"a path is not a permission"* after finding an open
+wallet-credit endpoint. This is the same lesson inverted, and the Session 29 sweep missed it
+because that sweep looked for endpoints with *no* public path — this one *looked* deliberately
+covered.
+
+The salon-reply endpoints needed a login and nothing more, so **any customer could post a public
+reply attributed to any salon**. Worse than editing a review: the salon can't see it happening
+and the customer has no reason to doubt it.
+
+**Fixing the annotation was only half.** `review` had no author column — nothing to compare a
+caller against — so `hasRole('CUSTOMER')` would still have meant *any* customer edits *anyone's*
+review, and it would have looked protected in review. V004 adds `author_user_id`, set from the
+token at creation. Pre-V004 rows are refused rather than allowed: an unattributable review is one
+nobody can prove they own, and defaulting to "allow" leaves the hole open for exactly the rows
+most likely to be someone else's.
+
+**New CI job: every write endpoint has `@PreAuthorize`.** POST/PUT/PATCH/DELETE, method or class
+level. GETs are exempt — plenty are legitimately public and flagging them all would produce noise
+that trains people to ignore the job. The exemption list is credential-establishing endpoints
+only (login, OTP, TOTP challenge, activation, OAuth, webhooks), each with a note on what *does*
+gate it, because adding to that list is adding an endpoint anyone on the internet can call.
+**Verified green against the current tree.**
+
+**Also shipped**
+
+- **Signup sends everything now** — area, address, categories, and the owner's own email/phone as
+  the salon's first booking-alert contact. Without that last one a new salon is never told about
+  a booking, which is the failure mode most invisible from the salon's side.
+- **`SalonProfilePanel`** — owners can edit their public identity and their alert contact. It
+  warns loudly when no alert contact is set, and is honest about the two things it can't do
+  (map pin, approval status).
+- **`Chip` in `@ui`** — four screens had rolled their own and drifted on padding. Four copies is
+  where a shared component stops being premature.
+- The contract checker caught my own new `SalonAdminSchema` as unmapped on its first run after
+  I added it. **36 schemas match.**
+
+### Session 42 (Darshan/Cowork) — the backend finally ran, and why yours didn't
+
+Darshan hit **Swagger errors and "some entities not created"** running locally. Root cause found
+and reproduced against a real PostgreSQL.
+
+**Maven can't run in the Cowork sandbox** — Maven Central is unreachable, there's no root to
+install a JDK, and Lombok can't be fetched. But a pip-shipped PostgreSQL *can* run, and that
+turned out to be enough to find the bug.
+
+**The cause: `bmp-app` poisons the database, and the damage outlives the container.**
+
+`docker-compose.yml`'s own header said *"the entire BMP backend is `docker compose up` + `mvn
+spring-boot:run -pl bmp-app`"*. That instruction predates the Session 5 microservices pivot and
+has been wrong ever since. `RUN_LOCALLY.md` §4 warns about it; the compose file itself did not.
+
+What running it does, verified step by step:
+
+1. bmp-app's migrations are frozen at the Session 5 monolith — **16 whole tables and 211 columns
+   short** of today's schema.
+2. They record themselves in the **default** `flyway_schema_history`. Every real service uses
+   its own `flyway_schema_history_<svc>`, so each still believes it has migrated nothing.
+3. Each service replays its own V001.. and immediately hits
+   `ERROR: relation "salon" already exists`. Flyway aborts.
+4. The service never finishes starting → `/swagger-ui` and `/v3/api-docs` error, and its tables
+   stay stale → **"entities not created"**.
+
+**8 of 8 services failed to boot** in the reproduction. And because `pgdata` is a named volume,
+`docker compose down` keeps the damage — only `down -v` clears it.
+
+**Fix:** `spring.flyway.enabled: false` in bmp-app, so a retired module can never lay a stale
+schema over a good one; plus the compose header rewritten to say what to run and what not to.
+**After the fix: all 9 services migrate cleanly on a fresh volume, and 0 entity columns are
+missing** — `ddl-auto: validate` would pass.
+
+**Verified for the first time, against a real database**
+
+| Check | Result |
+|---|---|
+| All 45 service migrations, in order | **clean** |
+| 578 `@Column` mappings across 72 entities | **every one resolves to a real column** |
+| The 11 new CHECK constraints (fee bands, rating, categories) | **11/11 behave as documented** |
+| All 365 Java files, against a real Java grammar | **parse clean** |
+
+**A mistake worth recording.** My first migration run reported *"55 applied, 0 failed"*. It was
+wrong: `psql()` writes errors to stderr and returns an empty string, so I read silence as
+success while 14 statements were failing — including `CREATE TABLE salon`. I only caught it
+because the entity check then showed every `Salon` column missing. The harness was rebuilt with
+`ON_ERROR_STOP=1` and exit codes, **and self-tested against a deliberately broken query before
+being trusted**.
+
+I also asserted a wrong root cause first — that nine services shared one
+`flyway_schema_history`. They don't; every service already sets `flyway.table`. My query simply
+hadn't printed that column. Checking the actual config disproved it in one command.
+
+**Still unverified:** everything only a compiler can tell you — signatures, generics, Lombok
+accessors, Spring wiring, and the 46 unit tests. `mvn verify` remains outstanding.
+
+---
+
+### Session 42b — 100 build errors, one cause
+
+Darshan ran the build. **100 errors** — which is javac's default `-Xmaxerrs`, so it stopped
+counting rather than stopping there. Every one traced to a single root cause:
+
+```
+cannot find symbol: method getId()
+location: variable b of type com.bmp.booking.entities.Booking
+```
+
+`Booking` is `@Getter` with per-field `@Setter`; its only hand-written methods are `touch()` and
+`applyDiscount()`. So `getId`, `getBookingRef`, `getCustomerName`, `setOriginalStart` — **all of
+them are Lombok's.** Checked all 15 reported-missing methods against the field list: every one is
+Lombok-generated, none is a real missing method.
+
+**Lombok wasn't running.** It was declared only as a `provided` dependency, leaving javac to
+*discover* it as an annotation processor. That discovery is the fragile part — it depends on the
+JDK, on `-proc` defaults (JDK 21+ warns; newer JDKs disable implicit processing outright), and on
+whether the IDE delegates to Maven or compiles with its own settings.
+
+**Fix:** an explicit `maven-compiler-plugin` `annotationProcessorPaths` entry in the root pom, at
+`${lombok.version}` so it stays pinned to what Boot 3.4.1 was tested against. No discovery step,
+identical behaviour under `mvn`, IntelliJ-delegated builds, and CI. **39 classes across 12
+modules** use Lombok and would all have failed the same way.
+
+**Why it looked like a hundred unrelated problems.** Once javac has that many errors it reports
+downstream symbols as unresolved too — hence the log also claiming `SlotLock`, `BookingEvents`,
+`BookingEventsRepository` and `com.bmp.booking.client.dto` were missing. All four are present, in
+the correct packages (verified: 347 files, zero package-vs-path mismatches). They were collateral,
+and chasing them would have been chasing smoke.
+
+Also fixed, the one real warning: `@Deprecated` on three `ItemRequest` record components. javac
+was right that it "has no effect" — `@Deprecated`'s `@Target` doesn't include `RECORD_COMPONENT`,
+so it was silently attaching to the constructor parameter, where it warns nobody. Removed rather
+than suppressed: those fields are deliberately *accepted and ignored*, so warning every caller
+would be noise, and the javadoc plus `BookingService.create` already say so. **A mechanism that
+looks like it warns and doesn't is worse than plain prose.**
+
+**If it still fails in IntelliJ**, IntelliJ is using its own builder rather than Maven:
+Settings → Build → Compiler → Annotation Processors → *Enable annotation processing*, and
+Build Tools → Maven → Runner → *Delegate IDE build to Maven*. Also check the Project SDK is
+**21** — Lombok 1.18.36 predates JDK 24/25 and fails on them however it's configured.
 
 ---
 

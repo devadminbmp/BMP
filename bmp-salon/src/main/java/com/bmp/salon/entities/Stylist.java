@@ -32,6 +32,17 @@ public class Stylist {
     private int totalReviews;
     @Column(name = "is_top_stylist", nullable = false)
     private boolean isTopStylist;
+
+    /**
+     * V011 (Session 40). "Colour specialist", "Bridal" — one line under the name in the picker.
+     *
+     * <p>The rating and review count already existed ({@code overallRating}, and
+     * {@code stylist_salon.salonRating} for this salon specifically). Only this was missing, and
+     * it is the field that turns a list of names into a reason to choose one.
+     */
+    // Plain field + explicit accessor below — this entity doesn't use Lombok.
+    @Column(name = "speciality", length = 120)
+    private String speciality;
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
@@ -54,4 +65,9 @@ public class Stylist {
     public int getTotalReviews() { return totalReviews; }
     public boolean isTopStylist() { return isTopStylist; }
     public Instant getCreatedAt() { return createdAt; }
+
+    // V011 (Session 40) — "Colour specialist", "Bridal". The line that turns a list of names
+    // into a reason to choose one.
+    public String getSpeciality() { return speciality; }
+    public void setSpeciality(String speciality) { this.speciality = speciality; }
 }

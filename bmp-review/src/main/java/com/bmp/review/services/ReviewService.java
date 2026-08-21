@@ -33,7 +33,7 @@ public class ReviewService {
     }
 
     @Transactional
-    public ReviewResponse create(UUID bookingId, CreateReviewRequest req) {
+    public ReviewResponse create(UUID bookingId, CreateReviewRequest req, UUID authorUserId) {
         // TODO(Phase 3 / inter-service): call bmp-booking-service (Feign) to confirm
         // booking.status == COMPLETED before allowing a review. Skipped in this
         // CRUD-first pass per the team's phased build order (CRUD now, inter-service later).
@@ -44,8 +44,28 @@ public class ReviewService {
         Review r = new Review(bookingId, req.salonId(), req.stylistId(), req.salonRating(),
                 req.stylistRating() == null ? 0 : req.stylistRating(), req.text(),
                 now.plus(EDIT_WINDOW), false, null);
+        // V004 (Session 40) — a review now knows who wrote it. Without this there was nothing to
+        // check on edit, so "only customers may edit" still meant "any customer may edit anyone's".
+        r.setAuthorUserId(authorUserId);
         r = reviews.save(r);
         return toResponse(r);
+    }
+
+    /**
+     * The salon in the JWT must be the salon on the review.
+     *
+     * <p>The role says what KIND of person you are; the {@code salonId} claim says WHICH salon.
+     * Only the second one keeps an owner out of another shop's reviews — the same pairing every
+     * salon-scoped endpoint in bmp-salon and bmp-booking uses.
+     */
+    private void requireOwnSalon(UUID reviewSalonId, UUID callerSalonId) {
+        if (callerSalonId == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "NO_SALON_SCOPE — your account isn't attached to a salon.");
+        }
+        if (!callerSalonId.equals(reviewSalonId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "REVIEW_BELONGS_TO_ANOTHER_SALON");
+        }
     }
 
     public ReviewResponse getById(UUID id) {
@@ -59,10 +79,41 @@ public class ReviewService {
                 page, size, p.getTotalElements());
     }
 
+    /**
+     * Edit a review, within its window, <b>by its author</b>.
+     *
+     * <h2>Session 40 — this was reachable with no credential at all</h2>
+     * No {@code @PreAuthorize}, and the path is matched by this service's public-paths entry
+     * {@code /api/v1/reviews/*} — which was written for the GET. public-paths are path-only and
+     * <b>method-blind</b>: the pattern doesn't say "GET", it says "this URL". So anyone on the
+     * internet could rewrite any review on the platform.
+     *
+     * <p>Session 29 recorded "a path is not a permission" after finding an open wallet-credit
+     * endpoint. This is the same lesson inverted: a path that should be open for one verb was
+     * open for all of them.
+     *
+     * @param callerUserId from the JWT, never the body
+     */
     @Transactional
-    public ReviewResponse update(UUID id, UpdateReviewRequest req) {
+    public ReviewResponse update(UUID id, UpdateReviewRequest req, UUID callerUserId) {
         Review r = reviews.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "REVIEW_NOT_FOUND"));
+
+        /*
+         * Pre-V004 rows have no author. Refused rather than allowed: an unattributable review is
+         * one nobody can prove they own, and defaulting to "allow" here would leave the original
+         * hole open for exactly the rows most likely to be someone else's.
+         */
+        if (r.getAuthorUserId() == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "REVIEW_HAS_NO_AUTHOR: this review predates authorship tracking and can't be "
+                    + "edited. Contact support.");
+        }
+        if (!r.getAuthorUserId().equals(callerUserId)) {
+            // Same 403 wording as a closed window on purpose — a different message here would let
+            // someone probe which review ids exist and who they belong to.
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "NOT_YOUR_REVIEW");
+        }
         if (Instant.now().isAfter(r.getEditLockedAt())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "REVIEW_EDIT_WINDOW_CLOSED");
         }
@@ -75,23 +126,36 @@ public class ReviewService {
         return toResponse(r);
     }
 
+    /**
+     * The salon's public reply. Session 40 added the check that it is <b>this</b> salon's.
+     *
+     * <p>Previously any authenticated user could post a reply attributed to any salon — a reply
+     * that renders publicly under the salon's name. Impersonating a business in its own reviews
+     * is a worse outcome than editing a review, because the salon can't see it happening and the
+     * customer has no reason to doubt it.
+     *
+     * @param callerSalonId from the JWT's salonId claim, never the body
+     */
     @Transactional
-    public SalonResponseDto createResponse(UUID reviewId, ResponseRequest req) {
-        reviews.findById(reviewId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "REVIEW_NOT_FOUND"));
+    public SalonResponseDto createResponse(UUID reviewId, ResponseRequest req, UUID callerSalonId) {
+        Review r = reviews.findById(reviewId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "REVIEW_NOT_FOUND"));
+        requireOwnSalon(r.getSalonId(), callerSalonId);
+
         SalonResponse resp = responses.findByReviewId(reviewId).orElse(null);
         if (resp != null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "RESPONSE_ALREADY_EXISTS");
         }
-        Review r = reviews.findById(reviewId).orElseThrow();
         resp = new SalonResponse(reviewId, r.getSalonId(), req.text());
         resp = responses.save(resp);
         return toResponseDto(resp);
     }
 
     @Transactional
-    public SalonResponseDto updateResponse(UUID reviewId, ResponseRequest req) {
+    public SalonResponseDto updateResponse(UUID reviewId, ResponseRequest req, UUID callerSalonId) {
         SalonResponse resp = responses.findByReviewId(reviewId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "RESPONSE_NOT_FOUND"));
+        requireOwnSalon(resp.getSalonId(), callerSalonId);
         if (Instant.now().isAfter(resp.getCreatedAt().plus(RESPONSE_WINDOW))) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "RESPONSE_EDIT_WINDOW_CLOSED");
         }

@@ -12,6 +12,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
@@ -21,10 +22,13 @@ public class SupportTicketService {
 
     private final SupportTicketRepository tickets;
     private final SupportMessageRepository messages;
+    private final PlatformSettingService settings;
 
-    public SupportTicketService(SupportTicketRepository tickets, SupportMessageRepository messages) {
+    public SupportTicketService(SupportTicketRepository tickets, SupportMessageRepository messages,
+                                PlatformSettingService settings) {
         this.tickets = tickets;
         this.messages = messages;
+        this.settings = settings;
     }
 
     @Transactional
@@ -39,6 +43,19 @@ public class SupportTicketService {
 
         SupportTicket t = new SupportTicket(ticketRef, req.raisedByType(), req.raisedById(), req.bookingId(),
                 req.category(), req.subject(), "open", "medium", null, null);
+
+        // Session 23: start the SLA clock.
+        //
+        // Without this, first_response_due_at is null on every ticket, the breach query matches
+        // nothing, and the console's "overdue" counter reads zero forever — while customers wait.
+        // A metric that is structurally incapable of being non-zero is worse than no metric,
+        // because people trust it.
+        //
+        // The window is configurable (platform_setting.support_first_response_hours) so it can
+        // be tightened as the team grows without a deploy.
+        long hours = settings.number(PlatformSettingService.SUPPORT_FIRST_RESPONSE_HOURS, 4);
+        t.setFirstResponseDueAt(Instant.now().plus(hours, ChronoUnit.HOURS));
+
         t = tickets.save(t);
         return toResponse(t, List.of());
     }

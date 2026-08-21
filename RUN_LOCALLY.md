@@ -10,6 +10,33 @@ API Gateway + Config Server + a monitoring dashboard), one shared PostgreSQL
 
 ---
 
+## 0. There are THREE repositories
+
+New here? Read this first — the backend alone doesn't give you anything to look at.
+
+| Repo | What it is | Runs on | Its own guide |
+|---|---|---|---|
+| **BMP** (this one) | The backend. 13 Spring Boot services. | 8080–8090, 8761, 8888 | this file |
+| **BMP-FE** | The customer app — web, Android, iOS from one Expo codebase. Customers, salon owners, managers, stylists. | 19000 (pass `--port 19000`) | `../BMP-FE/RUN_LOCALLY.md` |
+| **BMP-ADMIN** | The internal staff console — ops, support, moderation. BMP employees only. | 5180 | `../BMP-ADMIN/RUN_LOCALLY.md` |
+
+Clone them as **siblings** — the docs cross-reference each other with `../` paths:
+
+```
+BMP -PRJ/
+├── BMP/
+├── BMP-FE/
+└── BMP-ADMIN/
+```
+
+**Both frontends run on mock data by default and need no backend at all.** If you're doing UI
+work, start there and skip this entire document. You only need the backend running when you're
+changing something that crosses the API boundary.
+
+Who to sign in as, in every app: **`docs/TEST_CREDENTIALS.md`**.
+
+---
+
 ## 1. Required tools & versions
 
 Install these before doing anything else. Versions matter — an older JDK or an IDE
@@ -255,6 +282,35 @@ Eureka's own dashboard (useful to see who's registered) is at **http://localhost
 
 ---
 
+## 5b. Load the seed data
+
+An empty database technically works, but every screen in both frontends is blank and you can't
+tell "no data" from "broken query". Load the seed:
+
+```powershell
+docker exec -i bmp-postgres-1 psql -U bmp -d bmp < seed/dev-seed.sql
+```
+
+**Run this AFTER the services have started at least once**, so Flyway has created the schemas.
+Running it first fails with "relation does not exist", which is confusing rather than harmful.
+
+It's idempotent — every insert is `ON CONFLICT DO NOTHING`, so running it twice is harmless.
+Re-run it after every `docker compose down -v`.
+
+You get 6 users (2 customers, 2 salon owners, 1 manager, 1 stylist), 8 salons, 55 services and
+7 stylists — the **same ids, names and prices** as the frontend's mock dataset
+(`../BMP-FE/src/api/mocks/seed.ts`), so the app looks identical whether it's reading mocks or the
+real API. That is the point: a difference you see when you flip `EXPO_PUBLIC_USE_MOCKS` is a
+real difference, not noise.
+
+> **Why a file and not just typing data in?** `docker compose down -v` is something you'll do
+> every time a migration changes, and it wipes everything. Anything entered by hand is gone.
+> This file is the durable, version-controlled copy.
+
+Seeded logins are in `docs/TEST_CREDENTIALS.md` — all six use OTP `000000`.
+
+---
+
 ## 6. Ports & Swagger UI reference
 
 | Service | Port | Swagger UI | OpenAPI JSON |
@@ -282,9 +338,13 @@ client would go through (see `api-gateway`'s `application.yml` for the full rout
 
 ## 7. Logging in — how to get a bearer token
 
-There is **no fixed username/password**. Login is phone-number + OTP, handled entirely
-by `bmp-auth` (port 8081) — but for local dev there's a **static dev OTP** so you don't
-need any real SMS/WhatsApp/email provider (not wired up yet — see §9), and don't need
+> **Full credential reference for every role, in all three apps: `docs/TEST_CREDENTIALS.md`.**
+> This section covers the customer-side token flow. Staff console accounts work completely
+> differently — password + TOTP, a separate table, a separate signing key — see §10b.
+
+There is **no fixed username/password** on the customer side. Login is phone-number + OTP,
+handled entirely by `bmp-auth` (port 8081) — but for local dev there's a **static dev OTP** so
+you don't need any real SMS/WhatsApp/email provider (not wired up yet — see §9), and don't need
 to go dig a code out of a log.
 
 ### Step 1 — Request an OTP
@@ -369,14 +429,23 @@ curl http://localhost:8082/api/v1/users/0193... `
 button top-right, paste the raw access token (no `Bearer ` prefix needed — Swagger adds
 it), click Authorize, then "Try it out" on any endpoint.
 
-Most endpoints across most services are currently wide open in local dev (no token
-required) — only `bmp-auth`, **`bmp-user` (tightened in Session 13: every
-`/api/v1/users/**` call now needs a bearer token or the internal service key — end
-users can only access their own record)**, and any endpoint explicitly annotated with
-`@PreAuthorize` enforce a real check right now. That's an intentional, tracked interim
-state (see each service's `bmp.security.public-paths` in its `application.yml`), not a
-bug — the remaining services get the same treatment in the ongoing service-by-service
-pass.
+**Which services actually enforce authorization** (this changed a lot; the old "everything is
+open" note was out of date):
+
+| Service | State |
+|---|---|
+| bmp-auth | Enforced |
+| bmp-user | Enforced (Session 13) — you can only read your own record |
+| bmp-salon | Enforced on staff/owner endpoints via `@PreAuthorize` |
+| bmp-booking | **Enforced (Session 21).** Previously had *no authorization at all* — any customer could read and cancel any booking by id. |
+| bmp-rewards | **Enforced (Session 22).** `public-paths` previously fell back to `/**`, i.e. nothing was authenticated. |
+| bmp-admin | Enforced, on its own filter chain with a separate key and audience |
+| bmp-payment, bmp-review, bmp-notification | Still open — awaiting their own pass |
+
+Each service's `bmp.security.public-paths` in its `application.yml` is the source of truth. Note
+the trap that bit twice: the **code default in `CommonSecurityConfig` is `/**`**, so a service
+that simply doesn't set the property authenticates *nothing*. An omission fails open. Always set
+it explicitly.
 
 ---
 
@@ -415,6 +484,37 @@ All of the above are hardcoded **dev-only defaults** baked into each service's
 
 ---
 
+## 10b. The staff console (bmp-admin) — a completely separate login
+
+BMP employees don't log in with a phone and an OTP. They use the console (`BMP-ADMIN` repo,
+port 5180) against `bmp-admin` (port 8088), with **password + TOTP two-factor**, a **separate
+staff table** (`admin_schema.bmp_staff`), and a **separate JWT signing key**
+(`bmp.admin.jwt-secret`, not `bmp.auth.jwt-secret`).
+
+That last part is not redundancy. If staff and customer tokens shared a key, anything able to
+forge one could forge the other — compromising the consumer stack would hand over the console.
+
+**There is no default password.** `V003` seeds the superadmin with
+`password_hash = 'LOCKED-NO-PASSWORD-SET'`, which is not a bcrypt hash and can only fail
+verification. Claim it once:
+
+```powershell
+$env:BMP_ADMIN_BOOTSTRAP_EMAIL    = "devadmin.bmp@gmail.com"
+$env:BMP_ADMIN_BOOTSTRAP_PASSWORD = "<16+ chars from a password manager>"
+mvn -pl bmp-admin spring-boot:run
+# then REMOVE both variables
+```
+
+`StaffBootstrap` applies it **only if the account still has no usable password**, so the
+variables are inert on every later boot and cannot reset a live account. First sign-in forces
+2FA enrolment. Every other employee is created from the console and gets a one-time
+`BMP-XXXX-XXXX` activation code — the admin never sets or sees their password.
+
+Full walkthrough: `../BMP-ADMIN/RUN_LOCALLY.md`. You do **not** need any of this to explore the
+console — it runs on mock data with no backend.
+
+---
+
 ## 11. Stopping everything
 
 ```powershell
@@ -430,6 +530,80 @@ docker compose down -v       # stop containers AND wipe the DB volume
 
 ---
 
+## 11b. CI — what runs on every push
+
+`.github/workflows/ci.yml`, in each of the three repos. Added Session 33.
+
+| Repo | Job | What it answers |
+|---|---|---|
+| BMP | `mvn -B -ntp verify` | Do all 14 modules compile, **and do the tests pass?** |
+| BMP | public-paths guard | Did a service forget `bmp.security.public-paths`, or set it to `/**`? |
+| BMP | **write-auth guard** | Does every POST/PUT/PATCH/DELETE carry `@PreAuthorize`? *(Session 41)* |
+| BMP | migration warning | Was an already-released migration edited? (warns, doesn't fail) |
+| BMP-FE | `tsc --noEmit` + lint | Does it typecheck? |
+| BMP-FE | flag guard | Is `.env` committed? Does `auth.ts` reference `USE_MOCKS`? |
+| BMP-ADMIN | `tsc` + `vite build` | Does it typecheck AND build? |
+| BMP-ADMIN | demo/route guards | Is the mock-login block still gated? Do dashboard links point at real routes? |
+
+**Why it exists:** between Sessions 26 and 32, roughly thirty Java files were written or edited
+— a new Maven dependency, three migrations, two entities, a Feign client — and **none of it was
+ever compiled**, because the work happened somewhere with no JDK. The cost isn't the bugs; it's
+that they all arrive at once, usually the day before someone needs a demo.
+
+**Session 39: `-DskipTests` is gone.** That flag's comment used to say it was "honest rather than
+aspirational" because there were no tests. True when written, false the moment there were — a
+comment explaining why something isn't done has a short shelf life.
+
+**46 tests run**, all pure logic (milliseconds, no services):
+
+| File | Protects |
+|---|---|
+| `CancellationTermsTest` | What a customer is charged, from terms frozen months earlier |
+| `BookingStatusTest` | Which state transitions are possible — mostly the impossible ones |
+| `MoneyTest` | The half-up rounding rule that multiplies everyone's income |
+| `MaskPhoneTest` | The only thing between the salon desk and a customer list |
+
+**What does NOT run:** the generated `*ApplicationTests` context-load checks, excluded by name in
+the root pom's surefire config. They need PostgreSQL, Kafka and Eureka; on a runner they'd fail
+for want of a database rather than for want of correctness, and **a red build caused by missing
+infrastructure is the fastest way to teach a team to ignore red builds.** Delete that exclusion
+when Testcontainers exists — don't add a second profile.
+
+**Don't add `continue-on-error` to anything:** a red build people learn to ignore is worse than
+no build.
+
+Each non-compiler guard exists because the thing it checks has already gone wrong at least
+once. The public-paths one has fired **four times** (bmp-salon, payment, review, notification),
+leaving 52 endpoints reachable with no credential. The write-auth guard was added after Session 41
+found `PUT /api/v1/reviews/{id}` reachable **with no credential at all** — its path was covered by
+a `public-paths` entry written for the GET, and *those patterns are path-only and method-blind*.
+
+Every guard was verified green against the current tree before being committed — a check that
+fails on day one gets switched off on day two.
+
+### One thing CI can't do: the API contract check
+
+```bash
+python3 scripts/check-api-contracts.py        # assumes ../BMP-FE
+```
+
+Compares every frontend Zod schema against the Java record it parses. **Run it before touching an
+API shape on either side.** Stdlib only — no node, no maven, no excuse.
+
+It's a local script rather than a CI job because BMP and BMP-FE are separate repositories and
+neither workflow has the other checked out, so neither could do the comparison honestly.
+
+It exists because this went wrong **twice**: `getSlots` parsing a shape the server never sent
+(Session 38), then four discovery schemas asking for fields that didn't exist in the database at
+all (Session 40). Together they meant browse → salon page → pick a stylist → pick a slot had
+**never worked against a real backend** — invisible because `USE_MOCKS` defaults ON and the mocks
+were written from the client's assumptions rather than the server's contract.
+
+It currently scans `BMP-FE/src/api` only. **BMP-ADMIN's schemas are unchecked**, and that repo has
+already had one instance of the same bug.
+
+---
+
 ## 12. Troubleshooting
 
 | Symptom | Likely cause / fix |
@@ -441,3 +615,7 @@ docker compose down -v       # stop containers AND wipe the DB volume
 | Port already in use when starting a service | Something's still listening on that port from a previous run. Find it: `Get-NetTCPConnection -LocalPort <port> -State Listen`, then `Stop-Process -Id <pid> -Force`. |
 | Swagger UI loads but the endpoint list is empty / 500s | Make sure you rebuilt (`mvn -DskipTests install`) after pulling — a stale `.class` from before a dependency bump will misbehave. |
 | Machine grinds to a halt with everything running | 13 JVMs is heavy. Use `-Xmx256m` per service (§4), or only run the handful of services you're actually working on plus their direct dependencies. |
+| `DuplicateKeyException: found duplicate key bmp` on startup | Two top-level `bmp:` blocks in that service's `application.yml`. YAML mappings can't have duplicate keys. Merge them into one — and note the crash is the *good* outcome: YAML doesn't merge per-leaf, so a lenient parser would have let the second block silently replace the first one wholesale. Hit in `bmp-admin`, fixed Session 25. |
+| Console (5180) 404s on every request | The gateway needs the `/api/v1/admin/**` route predicate. Missing until Session 25 — pull and restart `api-gateway`. |
+| Frontend screens are all empty but nothing errors | You skipped the seed (§5b). |
+| `relation "user_schema.users" does not exist` when seeding | You ran the seed before the services created their schemas. Start them once, then seed. |

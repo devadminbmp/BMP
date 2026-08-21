@@ -242,11 +242,25 @@ public class AuthService {
                 }
                 case "stylist" -> {
                     String name = (req.name() == null || req.name().isBlank()) ? "New stylist" : req.name();
-                    salonServiceClient.createStylist(new CreateStylistRequest(name, userId));
+                    StylistDto stylist = salonServiceClient.createStylist(new CreateStylistRequest(name, userId));
                     // salonId stays null on purpose — stylist_salon links are the portable-
                     // identity join, a stylist isn't scoped to one salon the way owner/manager
                     // are. See StylistCrudService's own javadoc for why.
                     log.info("STYLIST signup: user={} portable stylist profile created (name='{}')", userId, name);
+
+                    // Session 17: an invite token is OPTIONAL for a stylist — unlike a manager,
+                    // who cannot exist without one. A stylist can sign up alone (their profile
+                    // is theirs, not a salon's), and a token simply attaches them to the salon
+                    // that invited them, in the same transaction as the profile creation.
+                    if (req.inviteToken() != null && !req.inviteToken().isBlank()) {
+                        ConsumeInviteResponse consumed = salonServiceClient.consumeInvite(
+                                new ConsumeInviteRequest(req.inviteToken(), req.phone(), userId.toString(),
+                                        stylist.id()));
+                        // NOTE: salonId is deliberately NOT set on the session. The link exists
+                        // in stylist_salon, but a stylist's JWT stays unscoped — see
+                        // resolveSalonScope, which excludes stylists for exactly this reason.
+                        log.info("STYLIST signup: user={} linked to salon={} via invite", userId, consumed.salonId());
+                    }
                 }
                 case "salon_owner" -> {
                     // Nothing to attach yet — the owner creates their salon afterward as an

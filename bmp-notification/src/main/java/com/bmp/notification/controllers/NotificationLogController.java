@@ -11,15 +11,35 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
 
-/** BMP-30: POST/GET notification_log — see NotificationLogService for scope notes. */
-@Tag(name = "Notifications", description = "notification_log CRUD. Real sends happen via NotificationDispatcher (Kafka consumer on bmp.events), not through this controller directly — this is the record-keeping API.")
+/**
+ * BMP-30: POST/GET notification_log — see NotificationLogService for scope notes.
+ *
+ * <h2>Session 29: SERVICE-ONLY, at class level</h2>
+ * bmp-notification declared no {@code public-paths}, so the {@code /**} code default applied
+ * and all seven endpoints were reachable with no token. That included
+ * {@code GET /notifications/log} — the whole table — and
+ * {@code GET /notifications/recipient/{userId}}, one person's entire message history.
+ *
+ * <p><b>This log is worse to leak than most of the tables it describes.</b> It records who was
+ * sent what, at which phone number and email address, and when: contact details joined to
+ * activity. A booking row tells you someone had a haircut; this tells you their number and that
+ * they were reminded about it on Tuesday.
+ *
+ * <p>Written to by {@code NotificationDispatcher} (the Kafka consumer) and read by staff tooling
+ * through bmp-admin, never by a browser or the app. There is no end-user role that belongs
+ * here at all, which is why the rule is at the class and not per-method — a method added later
+ * inherits the protection rather than needing to remember it.
+ */
+@Tag(name = "Notifications", description = "notification_log CRUD. SERVICE role only — contains contact details joined to activity. Real sends happen via NotificationDispatcher (Kafka consumer on bmp.events).")
 @RestController
 @RequestMapping("/api/v1/notifications")
+@PreAuthorize("hasRole('SERVICE')")
 public class NotificationLogController {
 
     private final NotificationLogService service;

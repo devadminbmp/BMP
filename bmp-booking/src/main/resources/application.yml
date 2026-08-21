@@ -52,18 +52,20 @@ eureka:
 
 bmp:
   # Session 6: shared JWT validation (com.bmp.common.security.CommonSecurityConfig).
-  # public-paths defaults to /** in code (CommonSecurityConfig) for services that haven't
-  # had their own authorization pass yet — endpoints that DO need a real role check use
-  # @PreAuthorize directly (see bmp-salon's SalonController/StaffController for the pattern).
   auth:
     jwt-secret: ${BMP_JWT_SECRET:dev-only-secret-change-in-real-environment-min-32-bytes-long}
   security:
     internal-service-key: ${BMP_INTERNAL_SERVICE_KEY:dev-only-internal-key-change-in-real-environment}
+    # Session 16: this service's authorization pass. public-paths previously fell back to the
+    # code default of /**, which meant NO authentication on any booking endpoint — the
+    # principal was always null and BookingController's ownership checks could not have run.
+    # Nothing about bookings is public: you must be logged in to see or touch one.
+    public-paths: >-
+      /actuator/health, /actuator/info,
+      /swagger-ui/**, /swagger-ui.html, /v3/api-docs/**
 
-# Session 7: actuator surface — health/info are public (see bmp.security.public-paths
-# default of /** for this service; tighten alongside that service's own authorization
-# pass). env/beans/heapdump are powerful; not yet gated per-path here since this service
-# hasn't had its Session 6-style authorization pass — flagged, not silently left open.
+# Session 7/16: actuator surface — only health and info are public now (see
+# bmp.security.public-paths above); env/beans/heapdump require a token like everything else.
 management:
   endpoints:
     web:

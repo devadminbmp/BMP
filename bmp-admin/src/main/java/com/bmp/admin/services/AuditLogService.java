@@ -28,13 +28,34 @@ public class AuditLogService {
 
     public void record(String actorType, UUID actorId, String action, String entityType, UUID entityId,
                         Map<String, Object> metadata, String ipAddress) {
+        record(actorType, actorId, action, entityType, entityId, metadata, ipAddress, null, null, null);
+    }
+
+    /**
+     * Session 20: records WHO the actor was (denormalised, so the entry stays readable after
+     * they leave) and WHY, for anything that exposes personal data.
+     *
+     * <p>Never throws. An audit write failing must not roll back the action it describes —
+     * that would mean a logging outage silently blocks support work. Losing an entry is bad;
+     * taking the console down is worse, and the error is logged loudly either way.
+     */
+    public void record(String actorType, UUID actorId, String action, String entityType, UUID entityId,
+                        Map<String, Object> metadata, String ipAddress,
+                        String actorEmail, String actorRole, String justification) {
         String metadataJson;
         try {
             metadataJson = mapper.writeValueAsString(metadata == null ? Map.of() : metadata);
         } catch (Exception e) {
             metadataJson = "{}";
         }
-        repo.save(new AuditLog(actorType, actorId, action, entityType, entityId, metadataJson, ipAddress));
+        try {
+            repo.save(new AuditLog(actorType, actorId, action, entityType, entityId, metadataJson,
+                    ipAddress, actorEmail, actorRole, justification));
+        } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger(AuditLogService.class).error(
+                    "AUDIT WRITE FAILED — action={} actor={} target={}/{}. The action itself "
+                    + "succeeded; this entry is lost.", action, actorEmail, entityType, entityId, e);
+        }
     }
 
     public List<AuditLogResponse> find(String entityType, UUID entityId) {

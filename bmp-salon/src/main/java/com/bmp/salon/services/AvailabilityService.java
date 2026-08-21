@@ -104,7 +104,8 @@ public class AvailabilityService implements AvailabilityApi {
     }
 
     @Override
-    public List<Slot> freeSlots(UUID salonId, UUID stylistId, LocalDate date, int durationMinutes) {
+    public List<Slot> freeSlots(UUID salonId, UUID stylistId, LocalDate date, int durationMinutes,
+                                 UUID excludeBookingId) {
         int granularity = salonPolicyRepo.findBySalonId(salonId)
                 .map(SalonPolicy::getSlotGranularityMinutes)
                 .orElse(15);
@@ -125,17 +126,18 @@ public class AvailabilityService implements AvailabilityApi {
         List<Interval> blocking = new ArrayList<>();
         blocking.addAll(breakAndLeaveWindows(stylistId, salonId, date));
         blocking.addAll(walkInWindows(stylistId, date));
-        blocking.addAll(bookingBusyWindows(stylistId, date));
+        blocking.addAll(bookingBusyWindows(stylistId, date, excludeBookingId));
 
         List<Interval> free = subtractAll(working, blocking);
         return sliceIntoSlots(free, granularity, durationMinutes, stylistId, date);
     }
 
     @Override
-    public List<Slot> freeSlotsAnyStylist(UUID salonId, LocalDate date, int durationMinutes) {
+    public List<Slot> freeSlotsAnyStylist(UUID salonId, LocalDate date, int durationMinutes,
+                                           UUID excludeBookingId) {
         List<Slot> all = new ArrayList<>();
         for (StylistSalon link : stylistSalonRepo.findBySalonIdAndStatus(salonId, "active")) {
-            all.addAll(freeSlots(salonId, link.getStylistId(), date, durationMinutes));
+            all.addAll(freeSlots(salonId, link.getStylistId(), date, durationMinutes, excludeBookingId));
         }
         return all;
     }
@@ -147,7 +149,7 @@ public class AvailabilityService implements AvailabilityApi {
         List<Interval> busy = new ArrayList<>();
         busy.addAll(breakAndLeaveWindows(stylistId, salonId, date));
         busy.addAll(walkInWindows(stylistId, date));
-        busy.addAll(bookingBusyWindows(stylistId, date));
+        busy.addAll(bookingBusyWindows(stylistId, date, null));
 
         for (Interval b : busy) {
             if (requested.overlaps(b)) {
@@ -213,8 +215,8 @@ public class AvailabilityService implements AvailabilityApi {
                 .toList();
     }
 
-    private List<Interval> bookingBusyWindows(UUID stylistId, LocalDate date) {
-        BusyWindowsResponse resp = bookingClient.getBusyWindows(stylistId, date);
+    private List<Interval> bookingBusyWindows(UUID stylistId, LocalDate date, UUID excludeBookingId) {
+        BusyWindowsResponse resp = bookingClient.getBusyWindows(stylistId, date, excludeBookingId);
         return resp.windows().stream()
                 .map(w -> new Interval(toMinutes(w.start()), toMinutes(w.end())))
                 .toList();

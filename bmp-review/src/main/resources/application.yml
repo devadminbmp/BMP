@@ -51,13 +51,41 @@ eureka:
     prefer-ip-address: true
 
 bmp:
-  # Session 6: shared JWT validation (com.bmp.common.security.CommonSecurityConfig).
-  # public-paths defaults to /** in code (CommonSecurityConfig) for services that haven't
-  # had their own authorization pass yet — endpoints that DO need a real role check use
-  # @PreAuthorize directly (see bmp-salon's SalonController/StaffController for the pattern).
   auth:
     jwt-secret: ${BMP_JWT_SECRET:dev-only-secret-change-in-real-environment-min-32-bytes-long}
   security:
+    # ═════════════════════════════════════════════════════════════════════════════════════════
+    # Session 29 authorization pass.
+    #
+    # READING reviews is public — they're on the guest-facing salon page, and a rating nobody
+    # can see is worthless to the marketplace.
+    #
+    # WRITING is not. Every write path now requires a token; who may write what is enforced
+    # per-endpoint. Before this the service had no public-paths, so all six endpoints were open
+    # and anyone could post, edit, or reply to any review without signing in.
+    #
+    # ⚠️ STILL OPEN, and worse than the config: nothing verifies the reviewer ever had a booking
+    # (ReviewService:37). Requiring a token stops anonymous spam; it does not stop a signed-up
+    # account reviewing a salon it never visited. That needs the Feign check to bmp-booking and
+    # is tracked in docs/PENDING_WORK.md §S3.
+    # ═════════════════════════════════════════════════════════════════════════════════════════
+    # SESSION 40 — READ THIS BEFORE ADDING A PATTERN HERE.
+    #
+    # These patterns are PATH-ONLY and METHOD-BLIND. `/api/v1/reviews/*` was added so a review
+    # could be read without logging in, and it silently opened `PUT /api/v1/reviews/{id}` to the
+    # entire internet — anyone could rewrite any review on the platform.
+    #
+    # Spring's permitAll here only decides whether AUTHENTICATION is required. Method security
+    # (@PreAuthorize) still runs, which is what now protects the writes on these same paths.
+    #
+    # So: a pattern here means "no login needed for this URL, whatever the verb". If only the GET
+    # should be open, the write MUST carry its own @PreAuthorize. Do not assume the pattern is
+    # read-only just because that was the intent.
+    public-paths: >-
+      /api/v1/salons/*/reviews,
+      /api/v1/reviews/*,
+      /actuator/health, /actuator/info,
+      /swagger-ui/**, /swagger-ui.html, /v3/api-docs/**
     internal-service-key: ${BMP_INTERNAL_SERVICE_KEY:dev-only-internal-key-change-in-real-environment}
 
 # Session 7: actuator surface — health/info are public (see bmp.security.public-paths

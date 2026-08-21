@@ -10,6 +10,31 @@ spring:
       ddl-auto: validate     # Flyway owns the schema, Hibernate only validates
     open-in-view: false
   flyway:
+    # ═══════════════════════════════════════════════════════════════════════════════════════
+    # DISABLED — Session 42. This module is RETIRED (see bmp-app/RETIRED.md).
+    # ═══════════════════════════════════════════════════════════════════════════════════════
+    # Running bmp-app against the dev database POISONS it, and the damage outlives the run
+    # because the `pgdata` volume survives `docker compose down` (only `-v` removes it).
+    #
+    # What happened, reproduced against a real PostgreSQL:
+    #
+    #   1. bmp-app's migrations are frozen at the Session 5 monolith. They create the tables
+    #      as they were then — missing 16 whole tables and 211 columns added since.
+    #   2. They record themselves in the DEFAULT `flyway_schema_history`. Every real service
+    #      uses its own `flyway_schema_history_<svc>`, so each one still believes it has
+    #      migrated nothing.
+    #   3. Each service then replays its own V001.. and immediately hits
+    #      `ERROR: relation "salon" already exists`. Flyway aborts.
+    #   4. The service never finishes starting -> /swagger-ui and /v3/api-docs error, and the
+    #      tables it owns stay stale -> "entities not created".
+    #
+    # 8 of 8 services failed to start in that test. Disabling Flyway here means bmp-app can
+    # no longer lay a stale schema over a good one, whatever anyone runs.
+    #
+    # If you are hitting this NOW, the database is already poisoned. Wipe it:
+    #     docker compose down -v && docker compose up -d
+    # `down` alone keeps the volume and keeps the problem.
+    enabled: false
     schemas: common_schema,user_schema,salon_schema,booking_schema,payment_schema,review_schema,rewards_schema,admin_schema,notification_schema
     create-schemas: true
 

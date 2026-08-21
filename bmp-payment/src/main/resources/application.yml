@@ -51,13 +51,23 @@ eureka:
     prefer-ip-address: true
 
 bmp:
-  # Session 6: shared JWT validation (com.bmp.common.security.CommonSecurityConfig).
-  # public-paths defaults to /** in code (CommonSecurityConfig) for services that haven't
-  # had their own authorization pass yet — endpoints that DO need a real role check use
-  # @PreAuthorize directly (see bmp-salon's SalonController/StaffController for the pattern).
   auth:
     jwt-secret: ${BMP_JWT_SECRET:dev-only-secret-change-in-real-environment-min-32-bytes-long}
   security:
+    # ═════════════════════════════════════════════════════════════════════════════════════════
+    # Session 29 authorization pass.
+    #
+    # NOTHING in this service is public. It handles money, and every endpoint either reads a
+    # payment order (which reveals what a customer paid and for what) or writes one.
+    #
+    # This service previously had no public-paths at all, so the /** default applied and all
+    # four endpoints were open — including PUT /payment-orders/{id}/status, a dev-only status
+    # setter that can mark a payment CAPTURED. On a public VM that is a way to confirm bookings
+    # without paying for them. It is now SERVICE-role only; see PaymentOrderController.
+    # ═════════════════════════════════════════════════════════════════════════════════════════
+    public-paths: >-
+      /actuator/health, /actuator/info,
+      /swagger-ui/**, /swagger-ui.html, /v3/api-docs/**
     internal-service-key: ${BMP_INTERNAL_SERVICE_KEY:dev-only-internal-key-change-in-real-environment}
 
 # Session 7: actuator surface — health/info are public (see bmp.security.public-paths

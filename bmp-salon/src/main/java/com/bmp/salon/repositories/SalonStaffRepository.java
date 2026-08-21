@@ -18,4 +18,8 @@ public interface SalonStaffRepository extends JpaRepository<SalonStaff, UUID> {
     List<SalonStaff> findBySalonId(UUID salonId);
 
     boolean existsBySalonIdAndUserId(UUID salonId, UUID userId);
+
+    /** Session 15 (owner team management): scoping the lookup by salon means an owner can
+     * never touch a seat that isn't theirs, even by guessing a staff id from another salon. */
+    Optional<SalonStaff> findByIdAndSalonId(UUID id, UUID salonId);
 }

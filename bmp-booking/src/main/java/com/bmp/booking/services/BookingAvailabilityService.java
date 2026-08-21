@@ -33,13 +33,21 @@ public class BookingAvailabilityService {
         this.lockRepo = lockRepo;
     }
 
-    public List<BusyWindow> getBusyWindows(UUID stylistId, LocalDate date) {
+    /**
+     * @param excludeBookingId Session 37. Null in the ordinary case; set when RESCHEDULING, so a
+     *                         booking doesn't collide with its own current slot. Moving a
+     *                         60-minute service from 11:00 to 11:30 would otherwise be refused
+     *                         because 11:00–12:00 is "busy" — with the very booking being moved.
+     *                         Everyone else's bookings stay visible, so this can never let a
+     *                         reschedule land on another customer.
+     */
+    public List<BusyWindow> getBusyWindows(UUID stylistId, LocalDate date, UUID excludeBookingId) {
         Instant dayStart = date.atStartOfDay(BmpTimeZone.ZONE).toInstant();
         Instant dayEnd = date.plusDays(1).atStartOfDay(BmpTimeZone.ZONE).toInstant();
 
         List<BusyWindow> windows = new ArrayList<>();
 
-        for (BookingServiceItem item : itemRepo.findBusyItemsForStylist(stylistId, dayStart, dayEnd)) {
+        for (BookingServiceItem item : itemRepo.findBusyItemsForStylist(stylistId, dayStart, dayEnd, excludeBookingId)) {
             LocalTime start = item.getServiceStart().atZone(BmpTimeZone.ZONE).toLocalTime();
             LocalTime end = item.getServiceEnd().atZone(BmpTimeZone.ZONE).toLocalTime();
             windows.add(new BusyWindow(start, end, "booking"));

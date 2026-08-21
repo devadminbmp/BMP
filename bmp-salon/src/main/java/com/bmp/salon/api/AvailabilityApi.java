@@ -31,10 +31,33 @@ import java.util.UUID;
 public interface AvailabilityApi {
 
     /** Free, bookable slots for a stylist on a date, given a total service duration. */
-    List<Slot> freeSlots(UUID salonId, UUID stylistId, LocalDate date, int durationMinutes);
+    default List<Slot> freeSlots(UUID salonId, UUID stylistId, LocalDate date, int durationMinutes) {
+        return freeSlots(salonId, stylistId, date, durationMinutes, null);
+    }
 
     /** "Any available" path: free slots across all active stylists of the salon. */
-    List<Slot> freeSlotsAnyStylist(UUID salonId, LocalDate date, int durationMinutes);
+    default List<Slot> freeSlotsAnyStylist(UUID salonId, LocalDate date, int durationMinutes) {
+        return freeSlotsAnyStylist(salonId, date, durationMinutes, null);
+    }
+
+    /**
+     * Session 37 — the reschedule variant.
+     *
+     * @param excludeBookingId a booking whose own slots should NOT count as busy. Null for every
+     *                         ordinary lookup; set only when that booking is being MOVED.
+     *
+     * <p>Without it, rescheduling doesn't work for the commonest case: shifting a 60-minute
+     * service from 11:00 to 11:30 asks "is 11:30–12:30 free?", and 11:00–12:00 is occupied — by
+     * the booking being moved. The customer would be told their own slot is taken.
+     *
+     * <p>Overloads with a defaulted 4-arg form rather than changing every call site, so the
+     * ordinary booking path is untouched and cannot accidentally start excluding something.
+     * Everyone else's bookings remain visible either way, so this can never let a reschedule
+     * land on another customer.
+     */
+    List<Slot> freeSlots(UUID salonId, UUID stylistId, LocalDate date, int durationMinutes, UUID excludeBookingId);
+
+    List<Slot> freeSlotsAnyStylist(UUID salonId, LocalDate date, int durationMinutes, UUID excludeBookingId);
 
     /** The &lt;5-second walk-in block. Called from the salon dashboard quick-add. */
     void blockWalkIn(UUID salonId, UUID stylistId, LocalDate date, LocalTime start, int durationMinutes);

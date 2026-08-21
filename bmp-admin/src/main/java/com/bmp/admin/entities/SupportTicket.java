@@ -53,6 +53,47 @@ public class SupportTicket {
     @Column(name = "resolved_at")
     private Instant resolvedAt;
 
+    // ---- V003: SLA tracking and requester contact -----------------------------------------
+
+    /**
+     * When a first reply is due.
+     *
+     * <p>This is the SLA that customers actually feel. Silence is what makes people angry —
+     * far more than a hard problem taking a while — so the queue sorts on this, not on
+     * resolution time.
+     */
+    @Setter
+    @Column(name = "first_response_due_at")
+    private Instant firstResponseDueAt;
+
+    /** Set by the first CUSTOMER-VISIBLE reply. An internal note is not a response. */
+    @Setter
+    @Column(name = "first_responded_at")
+    private Instant firstRespondedAt;
+
+    @Setter
+    @Column(name = "resolution_due_at")
+    private Instant resolutionDueAt;
+
+    /**
+     * Contact details for a requester with no account.
+     *
+     * <p>V002 assumed every ticket has a {@code raised_by_id}, but a walk-in complaint or an
+     * email from someone who never finished signing up has none — and without these the agent
+     * has no way to reply at all.
+     */
+    @Setter
+    @Column(name = "requester_email", length = 160)
+    private String requesterEmail;
+
+    @Setter
+    @Column(name = "requester_phone", length = 20)
+    private String requesterPhone;
+
+    @Setter
+    @Column(name = "salon_id")
+    private UUID salonId;
+
     protected SupportTicket() {} // JPA
 
     public SupportTicket(String ticketRef, String raisedByType, UUID raisedById, UUID bookingId, String category, String subject, String status, String priority, UUID assignedStaffId, Instant resolvedAt) {
