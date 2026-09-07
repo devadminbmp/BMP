@@ -24,6 +24,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  * Boot falls back to its own auto-generated-password HTTP Basic security on everything.
  */
 @SpringBootApplication
+// Session 54 — the booking check that makes a review mean something. See ReviewService.create.
+@org.springframework.cloud.openfeign.EnableFeignClients
 @EnableDiscoveryClient
 @ComponentScan(basePackages = {"com.bmp.review", "com.bmp.common"})
 @EntityScan(basePackages = {"com.bmp.review", "com.bmp.common"})

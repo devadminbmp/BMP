@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.util.List;
@@ -76,6 +77,36 @@ public final class BookingDtos {
         @NotNull UUID salonId, @NotNull UUID customerId,
         @NotEmpty List<@Valid ItemRequest> items,
         String couponCode
+    ) {}
+
+    /**
+     * A booking taken at the counter or over the phone. Session 52, V009.
+     *
+     * <h2>The customer's details are REQUIRED, and that is the point</h2>
+     * Darshan: <i>"we should compulsorily have their data in our database who are booking through
+     * the salon — remember, it's their own customer."</i> A walk-in used to leave a
+     * {@code walk_in_block} and nothing else; the salon's busiest source of trade was anonymous.
+     *
+     * <p>There is deliberately no {@code salonId} and no {@code salonCustomerId} field. The salon
+     * comes from the manager's token — a salonId here would let one salon write bookings into
+     * another's diary — and the customer record is created server-side from the name and phone,
+     * so the manager cannot attach a booking to a customer id they typed.
+     *
+     * <p>No {@code couponCode} either: coupons are redeemed against a BMP account's history, and
+     * there is no account here. Counter discounts are handled at the counter.
+     *
+     * @param items each carries its stylistId — Darshan: <i>"the manager should select the
+     *              stylist"</i>. {@code selectionType} may still be "any_available" if the desk
+     *              doesn't care, and the availability algorithm picks.
+     * @param notes optional, saved on the CUSTOMER record rather than the booking: "prefers
+     *              Anjali", "allergic to ammonia" — things true of the person, not of one visit.
+     */
+    public record CounterBookingRequest(
+        @NotEmpty List<@Valid ItemRequest> items,
+        @NotBlank @Size(max = 160) String customerName,
+        @NotBlank @Size(max = 20) String customerPhone,
+        @Size(max = 200) String customerEmail,
+        @Size(max = 1000) String notes
     ) {}
 
     public record ItemResponse(
@@ -205,6 +236,66 @@ public final class BookingDtos {
         String customerName, String customerPhone,
         UUID itemId, String serviceName, UUID assignedStylistId, String selectionType,
         Instant start, Instant end, int durationMinutes, long pricePaise, String itemStatus
+    ) {}
+
+    /**
+     * One appointment as the STYLIST sees it. Session 48.
+     *
+     * <h2>Why this is a separate record and not a flag on ScheduleEntryResponse</h2>
+     * Because a flag can be forgotten. {@code ScheduleEntryResponse} carries {@code customerId},
+     * {@code customerName}, {@code customerPhone} and {@code pricePaise}; if the stylist endpoint
+     * returned that type with some fields nulled, then every future change to the mapper — a new
+     * field, a refactor, someone "fixing" a null — could quietly start sending a stylist a phone
+     * number, and nothing would fail.
+     *
+     * <p><b>The fields simply do not exist here.</b> A leak would have to be added deliberately,
+     * as a visible edit to this record, rather than arriving by omission. That is the difference
+     * between a rule and a hope.
+     *
+     * <h2>What is deliberately absent, and why</h2>
+     * <ul>
+     *   <li><b>No customerId.</b> With it a stylist could call the customer-history endpoint. The
+     *       id is the key to everything else about that person.</li>
+     *   <li><b>No phone, no email.</b> A stylist has no reason to contact a customer outside the
+     *       salon, and giving them the means is how a salon's customers become a stylist's
+     *       customers. The salon's owner is who the customer trusted with their number.</li>
+     *   <li><b>No surname.</b> {@code customerFirstName} only — enough to greet the person in
+     *       your chair and to tell two 3pm bookings apart; not enough to find them.</li>
+     *   <li><b>No price.</b> No per-booking amount, no day total, no earnings. The salon's
+     *       takings are the owner's business.</li>
+     * </ul>
+     *
+     * @param customerFirstName first word of the booked name, or null for a walk-in with no name
+     * @param isMine true when this is the caller's own appointment. Present because a stylist may
+     *               reasonably see that the chair beside them is busy without seeing whose
+     *               customer it is — but this endpoint currently returns only their own rows, so
+     *               it is always true. Kept so the UI never has to guess.
+     */
+    public record StylistScheduleEntry(
+        UUID bookingId, String bookingRef, String bookingStatus,
+        String customerFirstName,
+        UUID itemId, String serviceName,
+        Instant start, Instant end, int durationMinutes, String itemStatus,
+        boolean isMine
+    ) {}
+
+    /**
+     * A stylist's day. Counts only — no revenue, by construction.
+     *
+     * <p>Compare {@link SalonDaySummaryResponse}, which carries {@code expectedRevenuePaise}.
+     * That number is the salon's, and a stylist seeing it would be one subtraction away from
+     * inferring their colleagues' takings.
+     */
+    public record StylistDayResponse(
+        java.time.LocalDate date,
+        int appointments, int completed, int cancelled,
+        int bookedMinutes,
+        List<StylistScheduleEntry> entries
+    ) {}
+
+    /** Paged stylist-safe bookings — upcoming or past. Same omissions as the entry type. */
+    public record PagedStylistBookings(
+        List<StylistScheduleEntry> content, int page, int size, long totalElements
     ) {}
 
     /**

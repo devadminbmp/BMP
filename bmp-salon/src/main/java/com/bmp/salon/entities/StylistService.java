@@ -52,4 +52,31 @@ public class StylistService {
     public UUID getServiceId() { return serviceId; }
     public int getActualDurationMinutes() { return actualDurationMinutes; }
     public Money getOverridePricePaise() { return overridePricePaise; }
+
+    /*
+     * ══════════════════════════════════════════════════════════════════════════════════════════
+     * SESSION 67 — THERE IS DELIBERATELY NO MUTATOR ON THIS ENTITY
+     * ══════════════════════════════════════════════════════════════════════════════════════════
+     * Session 66 added `updateOverrides(duration, price)` so an owner could tune how long a
+     * particular stylist takes. Darshan removed the concept:
+     *
+     *   "timing is standard for service and applicable all stylish"
+     *
+     * He is right. How long a haircut takes is a property of the haircut. Per-stylist timings do
+     * not capture a real distinction so much as manufacture one, and then require somebody to
+     * maintain stylists × services numbers forever — which nobody does, so they go stale and the
+     * booking algorithm starts sizing appointments off figures no one believes.
+     *
+     * So this row now carries no editable state at all. It is pure membership: this stylist does
+     * this service, or the row doesn't exist. `StylistCrudService.replaceServices` inserts and
+     * deletes; nothing updates.
+     *
+     * `actualDurationMinutes` and `overridePricePaise` remain as COLUMNS because the table is
+     * NOT NULL on the first and dropping columns is not something this codebase does casually.
+     * They are written once, from the service's own duration, and read by nothing. A later
+     * migration can remove them once no deployed build references the fields.
+     *
+     * If you are about to add a setter here: check whether the thing you want to vary is really a
+     * property of the stylist, or a property of the service they perform.
+     */
 }

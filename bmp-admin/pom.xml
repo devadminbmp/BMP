@@ -72,6 +72,14 @@
       <groupId>org.springframework.cloud</groupId>
       <artifactId>spring-cloud-starter-bus-kafka</artifactId>
     </dependency>
+    <!-- Support ticket attachments (SupportAttachmentService) need ObjectStorage. bmp-common
+         declares the S3 SDK as OPTIONAL so services that never touch files don't carry it;
+         bmp-admin opts in here the same way bmp-salon does. Version comes from the root BOM.
+         This dependency is also what activates StorageAutoConfiguration's @ConditionalOnClass. -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>s3</artifactId>
+    </dependency>
 </dependencies>
 
   <build>

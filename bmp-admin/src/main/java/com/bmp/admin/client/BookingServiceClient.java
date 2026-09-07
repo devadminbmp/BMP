@@ -36,10 +36,24 @@ public interface BookingServiceClient {
     @GetMapping("/api/v1/bookings/internal/search")
     List<SupportBooking> search(@RequestParam("q") String query);
 
+    /**
+     * One booking by id. Session 59.
+     *
+     * <p>Added for the goodwill cap — "never give back more than the customer paid" needs one
+     * booking's {@code finalAmountPaise} and {@code totalRefundedPaise}. It also closes the TODO in
+     * {@code RefundService}, which was pulling a customer's whole list to find one row.
+     */
+    @GetMapping("/api/v1/bookings/internal/{bookingId}")
+    SupportBooking getById(@PathVariable("bookingId") UUID bookingId);
+
     @GetMapping("/api/v1/bookings/internal/by-customer/{customerId}")
     List<SupportBooking> byCustomer(@PathVariable("customerId") UUID customerId);
 
     /** Platform-wide, by the salon's local calendar day — for the ops overview. */
+    /** Session 56 — one integer, so an agent sees "their 11th booking" without fifty objects. */
+    @GetMapping("/api/v1/bookings/internal/count-by-customer/{customerId}")
+    java.util.Map<String, Long> countByCustomer(@PathVariable("customerId") UUID customerId);
+
     @GetMapping("/api/v1/bookings/internal/count-today")
     long countToday();
 

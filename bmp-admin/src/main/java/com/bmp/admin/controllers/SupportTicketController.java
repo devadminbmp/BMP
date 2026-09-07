@@ -30,8 +30,30 @@ import java.util.UUID;
  * <p>Staff use {@link SupportDeskController} at {@code /api/v1/admin/support/**}, which runs
  * through the staff filter chain and audits everything.
  *
- * <p>TODO: fold the remaining useful bits into SupportDeskController and delete this, once the
- * console no longer needs a create-ticket path that predates it.
+ * <h2>Session 45: this controller finally has a caller, and it is the point of the design</h2>
+ * The TODO below said to delete this once nothing needed it. The opposite happened — it turned
+ * out to be exactly the right shape for the gap that mattered most.
+ *
+ * <p>Until Session 45 <b>nobody could open a support ticket at all</b>. The console could list,
+ * triage, reply to and close tickets; the SLA clock ran; five console pages were built. And no
+ * path existed by which a ticket could come into existence, in any of the three repos. A
+ * complete support desk with the phone line unplugged.
+ *
+ * <p>The obvious fix — let customers and owners POST here directly — is impossible and it is
+ * worth understanding why, because the constraint is what produced the design.
+ * {@link com.bmp.admin.security.AdminSecurityConfig} gives bmp-admin its own signing key and a
+ * {@code bmp-admin} audience claim, so a customer or salon-owner JWT is <em>rejected by this
+ * service by design</em>. That is a good property and not one to weaken for a feature.
+ *
+ * <p>So the user-facing door is {@code /api/v1/support} in <b>bmp-user</b>, which verifies the
+ * user's JWT, derives who they are from it, and calls the {@code /my/**} endpoints below over
+ * the internal service key. Which is precisely what a service-only ticket API is for.
+ *
+ * <h2>bmp-user says WHO; this service decides WHAT THEY MAY SEE</h2>
+ * Every {@code /my/**} endpoint takes a caller identity and re-checks ownership against
+ * {@code raised_by_id} / {@code salon_id} here, next to the data. bmp-user is trusted to
+ * authenticate; it is not trusted to authorise. If it were, a bug in one service's parameter
+ * handling would become a cross-tenant read of every support ticket on the platform.
  */
 @Tag(name = "Support Tickets (internal)", description = "Service-to-service ticket creation. Staff use /api/v1/admin/support/** instead — see SupportDeskController.")
 @RestController
@@ -76,5 +98,57 @@ public class SupportTicketController {
     public ResponseEntity<MessageResponse> addMessage(@PathVariable UUID ticketId,
                                                        @Valid @RequestBody CreateMessageRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.addMessage(ticketId, req));
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════════════════
+    // Session 45 — the requester's own view, called by bmp-user on behalf of a signed-in user.
+    // ═══════════════════════════════════════════════════════════════════════════════════════
+    //
+    // These return MyTicketResponse, never TicketResponse. The difference is not cosmetic:
+    // MyTicketResponse omits assignedStaffId (internal routing) and its thread CANNOT contain
+    // internal notes — the mapping filters them at the source rather than relying on a flag some
+    // future call site forgets to pass. See SupportTicketService.toMyTicket.
+    //
+    // `callerId` and `callerSalonId` are query parameters rather than body fields because two of
+    // the three are GETs. They come from bmp-user's verified JWT — never from an end user — and
+    // are re-checked against the ticket here regardless.
+
+    @Operation(summary = "Raise a ticket on behalf of a signed-in user",
+            description = "Identity fields are supplied by the calling service from a verified JWT. "
+                    + "Creates the ticket AND its first message from `description`.")
+    @PostMapping("/my")
+    public ResponseEntity<MyTicketResponse> raise(@Valid @RequestBody RaiseTicketRequest req) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.raise(req));
+    }
+
+    @Operation(summary = "List the tickets a user may see",
+            description = "Their own, plus — when callerSalonId is given — everything raised for "
+                    + "that salon, so an owner sees what their managers reported.")
+    @GetMapping("/my")
+    public List<MyTicketResponse> listMine(@RequestParam UUID callerId,
+                                            @RequestParam(required = false) UUID callerSalonId) {
+        return service.listMine(callerId, callerSalonId);
+    }
+
+    @Operation(summary = "Read one ticket and its thread, if this user may see it",
+            description = "404 rather than 403 when they may not — a 403 confirms the ticket exists.")
+    @GetMapping("/my/{ticketId}")
+    public MyTicketResponse getMine(@PathVariable UUID ticketId,
+                                     @RequestParam UUID callerId,
+                                     @RequestParam(required = false) UUID callerSalonId) {
+        return service.getMine(ticketId, callerId, callerSalonId);
+    }
+
+    @Operation(summary = "Reply to a ticket as the user",
+            description = "Reopens a ticket that was waiting on the user or already resolved, so "
+                    + "their reply returns to the queue agents actually watch. A CLOSED ticket is "
+                    + "refused with 409 — that is a finished conversation and a new problem "
+                    + "deserves its own SLA clock.")
+    @PostMapping("/my/{ticketId}/messages")
+    public ResponseEntity<MyTicketResponse> replyAsUser(@PathVariable UUID ticketId,
+                                                         @Valid @RequestBody UserReplyRequest req) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(
+                service.replyAsUser(ticketId, req.callerId(), req.callerSalonId(),
+                        req.senderType(), req.body()));
     }
 }

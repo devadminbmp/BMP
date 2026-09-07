@@ -26,6 +26,15 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  */
 @SpringBootApplication
 @EnableDiscoveryClient
+/*
+ * Session 48 — REQUIRED for the outbox relay, which is a @Scheduled poll.
+ *
+ * bmp-admin can reach OutboxPublisher (it is component-scanned above) but had neither this
+ * annotation nor bmp.outbox.relay.enabled, so anything published here would have been written to
+ * the outbox table, committed, and left there forever. That is exactly what happened to three
+ * other services in Session 47: the write succeeds, nothing is delivered, and nothing says so.
+ */
+@org.springframework.scheduling.annotation.EnableScheduling
 // Session 21: the console reads customers, salons, bookings and coupons from their owning
 // services rather than reaching into their tables — so every read a staff member performs
 // crosses one place where the audit entry is written.

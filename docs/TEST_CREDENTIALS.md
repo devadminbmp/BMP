@@ -32,17 +32,51 @@ backend.
 
 Requires: Postgres + `bmp-auth` + `bmp-user` (+ gateway + Eureka) running, and the seed applied.
 
-```bash
+```powershell
 docker compose up -d
 # let the services boot once so Flyway creates the schemas, then:
-docker exec -i bmp-postgres-1 psql -U bmp -d bmp < seed/dev-seed.sql
+docker cp seed\dev-seed.sql bmp-postgres-1:/tmp/dev-seed.sql
+docker exec bmp-postgres-1 psql -U bmp -d bmp -f /tmp/dev-seed.sql
 ```
 
-**The OTP is `000000` for every one of these accounts.**
+> Not `psql ... < file`: `<` is a **reserved operator** in PowerShell and fails before Docker
+> runs. See `seed/README.md`.
+
+Confirm it landed — six rows, `+919876500001` … `+919876500006`:
+
+```powershell
+docker exec bmp-postgres-1 psql -U bmp -d bmp -c "SELECT phone, name, default_role FROM user_schema.users ORDER BY phone;"
+```
+
+**The OTP is `000000` for these six accounts — and ONLY these six.**
+
 `bmp-auth`'s `application.yml` sets `dev-master-otp: ${BMP_DEV_MASTER_OTP:000000}`. The `@Value`
 in `AuthService` defaults to **blank (disabled)** — so the master OTP exists *only* because the
 YAML supplies it, and it disappears the moment you deploy with `BMP_DEV_MASTER_OTP=` set empty.
-Do that for anything internet-facing. Real codes still arrive by email regardless.
+Do that for anything internet-facing.
+
+> **Session 43 — `000000` no longer works for arbitrary numbers.**
+> It used to unlock *any* phone. Two problems with that. It was a master key to every account on
+> the platform, including real ones the moment any existed. And it meant the real delivery path —
+> generate → email → read → type — was never exercised locally, so the first genuine test of it
+> would have been in front of a customer.
+>
+> `bmp.auth.dev-master-otp-phones` now lists exactly the six numbers below. **Any other number,
+> including a new account you create while testing, gets a real emailed code.** That is the
+> intended way to test signup.
+>
+> `AuthService` **refuses to start** if `dev-master-otp` is set while the allowlist is empty — an
+> unrestricted master OTP should not be one forgotten config line away.
+
+**Codes are single-use now (V005).** Verifying spends the code; entering the same one twice gives
+`410 — This code has already been used`. Hit *Send code* again for a fresh one. This applies to
+`000000` too: a test account is still an account, and leaving it exempt would keep a second code
+path alive that behaves differently from production.
+
+**Email is the only live delivery channel.** SMS and WhatsApp are wired at the right call sites in
+`NotificationDispatcher` but send nothing — SMS is blocked on TRAI DLT registration, WhatsApp on a
+Business account plus template approval. Both are off by default
+(`bmp.notification.channels.*.enabled`). See `bmp-notification`'s `application.yml`.
 
 ### Seeded accounts (`../seed/dev-seed.sql`)
 

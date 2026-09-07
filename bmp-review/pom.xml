@@ -29,6 +29,15 @@
       <groupId>org.springframework.cloud</groupId>
       <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
     </dependency>
+    <!--
+      Session 54. bmp-review had NO outbound clients at all, which is exactly why its
+      "verify the booking before accepting a review" TODO stayed a TODO for eleven sessions:
+      there was no way to ask. See client/BookingServiceClient.
+    -->
+    <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-openfeign</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.flywaydb</groupId>
       <artifactId>flyway-database-postgresql</artifactId>

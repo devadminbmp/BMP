@@ -22,9 +22,14 @@ public final class RewardsDtos {
         Instant activeFrom, Instant activeTo, boolean allowsWalletStacking, Instant createdAt
     ) {}
 
-    public record ValidateCouponRequest(@NotBlank String code, @NotNull UUID userId, UUID salonId, @NotNull long subtotalPaise) {}
-
-    public record ValidateCouponResponse(boolean valid, UUID couponId, Long discountPaise, String commissionBase, String reason) {}
+    /*
+     * Session 55 — ValidateCouponRequest / ValidateCouponResponse are GONE along with the second
+     * coupon validator they served. Nothing constructs them any more; the quote path uses
+     * CouponQuoteRequest / CouponQuoteResponse in CouponAdminDtos.
+     *
+     * Deleted rather than deprecated on purpose. A leftover request record is an invitation to
+     * write a second validator against it, which is precisely how there came to be two.
+     */
 
     public record WalletResponse(UUID userId, long balancePaise, boolean isFrozen) {}
 

@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BMP dev authenticator</title>
+<!--
+  ════════════════════════════════════════════════════════════════════════════════════════════════
+   BMP DEV AUTHENTICATOR — the console's 2FA code, in a browser tab. Session 62.
+  ════════════════════════════════════════════════════════════════════════════════════════════════
+
+   WHY THIS EXISTS
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Console 2FA cannot be skipped — StaffAuthService routes an un-enrolled account into enrolment
+   rather than past it, on purpose: a bypass flag is the thing that eventually ships enabled. So a
+   developer with no authenticator app on their phone cannot sign in to their own local console.
+
+   `tools/totp.mjs` already solves that from a terminal. This solves it from the browser you are
+   already logging in with — open the tab, leave it open, copy the number. No terminal, no Node, no
+   PowerShell scoping to get wrong.
+
+   It is an AUTHENTICATOR, not a bypass. It computes the same RFC 6238 code from the same shared
+   secret an app would hold. Without the secret it gives you nothing.
+
+   HOW TO USE
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Double-click the file. It opens straight from disk — no server, no build, no dependencies.
+   The dev secret is pre-filled, so the code is on screen immediately.
+
+   ⚠ LOCAL DEVELOPMENT ONLY
+   ────────────────────────────────────────────────────────────────────────────────────────────────
+   Keeping a TOTP secret somewhere a script can read it defeats the point of a SECOND factor — the
+   whole idea is that it lives somewhere the first factor doesn't. That trade is fine for a
+   throwaway secret committed to a dev repo, and is not fine for anything else.
+
+   Never paste a real staff member's secret in here. If you want to, what you actually want is a
+   phone.
+  ════════════════════════════════════════════════════════════════════════════════════════════════
+-->
+<style>
+  :root {
+    --bg: #0f1b2d;
+    --card: #ffffff;
+    --ink: #0c1626;
+    --muted: #64748b;
+    --accent: #2f4b7c;
+    --warn: #b45309;
+    --warn-bg: #fff7ed;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg); color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: 24px;
+  }
+  .card {
+    background: var(--card); border-radius: 20px; padding: 32px;
+    width: 100%; max-width: 460px; box-shadow: 0 24px 60px rgba(0,0,0,.35);
+  }
+  h1 { margin: 0 0 4px; font-size: 20px; }
+  .sub { margin: 0 0 24px; color: var(--muted); font-size: 14px; }
+  label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  input {
+    width: 100%; padding: 12px 14px; font: inherit; font-family: ui-monospace, monospace;
+    border: 1px solid #d5dced; border-radius: 12px; letter-spacing: .04em;
+  }
+  input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(47,75,124,.15); }
+  .codewrap { text-align: center; margin: 28px 0 8px; }
+  /*
+    Monospace and wide tracking, deliberately. This number is READ OFF A SCREEN AND RETYPED under
+    time pressure, so 0/O and 1/l have to be unmistakable and the digits have to be countable at a
+    glance. A proportional font here costs a re-entry every few logins.
+  */
+  #code {
+    font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 52px; font-weight: 700; letter-spacing: .16em;
+    cursor: pointer; user-select: all; line-height: 1.1;
+  }
+  #code.stale { color: #cbd5e1; }
+  .bar { height: 6px; background: #e8edf6; border-radius: 3px; overflow: hidden; margin-top: 14px; }
+  .bar > div { height: 100%; background: var(--accent); transition: width .95s linear; }
+  .meta { text-align: center; color: var(--muted); font-size: 13px; margin-top: 10px; min-height: 20px; }
+  .warn {
+    margin-top: 26px; padding: 12px 14px; border-radius: 12px;
+    background: var(--warn-bg); border: 1px solid #fdba74; color: var(--warn); font-size: 12.5px;
+  }
+  .err { color: #b91c1c; font-size: 13px; margin-top: 8px; min-height: 18px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>BMP dev authenticator</h1>
+    <p class="sub">Two-factor codes for the local staff console.</p>
+
+    <label for="secret">Base32 secret (or an otpauth:// URI)</label>
+    <input id="secret" spellcheck="false" autocomplete="off"
+           value="YKWFL6SICQZYDPCVN6UGLS4BYQOH5WQK">
+    <div class="err" id="err"></div>
+
+    <div class="codewrap">
+      <div id="code" title="Click to copy">------</div>
+      <div class="bar"><div id="bar" style="width:100%"></div></div>
+      <div class="meta" id="meta">&nbsp;</div>
+    </div>
+
+    <div class="warn">
+      <strong>Local development only.</strong> This holds the second factor next to the first,
+      which is exactly what 2FA exists to prevent. Fine for a secret committed to a dev repo;
+      never paste a real staff member's secret here.
+    </div>
+  </div>
+
+<script>
+'use strict';
+
+/*
+ * Parameters MUST match TotpService on the server: HMAC-SHA1, 6 digits, 30-second step.
+ * Changing any one of them produces codes the server rejects, and the failure looks like a wrong
+ * secret rather than a wrong algorithm — which is a genuinely nasty afternoon.
+ */
+const DIGITS = 6;
+const STEP = 30;
+const B32 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+/** Base32 -> bytes, RFC 4648 without padding. Tolerates lowercase, spaces and '='. */
+function base32Decode(input) {
+  const clean = input.toUpperCase().replace(/[\s=]/g, '');
+  let bits = 0, value = 0;
+  const out = [];
+  for (const ch of clean) {
+    const idx = B32.indexOf(ch);
+    if (idx === -1) {
+      throw new Error(`"${ch}" isn't Base32. A TOTP secret uses A–Z and 2–7 only — if yours has ` +
+                      `0, 1 or 8 in it, it was probably copied by eye.`);
+    }
+    value = (value << 5) | idx;
+    bits += 5;
+    if (bits >= 8) { out.push((value >>> (bits - 8)) & 0xff); bits -= 8; }
+  }
+  if (!out.length) throw new Error('That secret decoded to nothing.');
+  return new Uint8Array(out);
+}
+
+/** Pull the secret out of an otpauth:// URI, or return the input unchanged. */
+function extractSecret(raw) {
+  const s = raw.trim();
+  if (!s.startsWith('otpauth://')) return s;
+  const m = s.match(/[?&]secret=([^&]+)/i);
+  if (!m) throw new Error('That looks like an otpauth:// URI but carries no secret= parameter.');
+  return m[1];
+}
+
+/** RFC 4226 §5.3 — HMAC-SHA1 over the counter, dynamic truncation, modulo 10^digits. */
+async function codeForStep(keyBytes, step) {
+  const key = await crypto.subtle.importKey(
+    'raw', keyBytes, { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+
+  // 8-byte big-endian counter. Written as two 32-bit halves rather than BigInt: the value is only
+  // ever ~1.8 billion, and this keeps the file dependency-free and readable.
+  const counter = new ArrayBuffer(8);
+  const view = new DataView(counter);
+  view.setUint32(0, Math.floor(step / 2 ** 32));
+  view.setUint32(4, step >>> 0);
+
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, counter));
+  const off = sig[sig.length - 1] & 0x0f;
+  const bin = ((sig[off] & 0x7f) << 24) | ((sig[off + 1] & 0xff) << 16) |
+              ((sig[off + 2] & 0xff) << 8) | (sig[off + 3] & 0xff);
+  return String(bin % 10 ** DIGITS).padStart(DIGITS, '0');
+}
+
+const $secret = document.getElementById('secret');
+const $code = document.getElementById('code');
+const $bar = document.getElementById('bar');
+const $meta = document.getElementById('meta');
+const $err = document.getElementById('err');
+
+let keyBytes = null;
+
+function readSecret() {
+  $err.textContent = '';
+  try {
+    keyBytes = base32Decode(extractSecret($secret.value));
+  } catch (e) {
+    keyBytes = null;
+    $err.textContent = e.message;
+    $code.textContent = '------';
+    $bar.style.width = '0%';
+    $meta.textContent = '';
+  }
+}
+
+async function tick() {
+  if (!keyBytes) return;
+  const now = Math.floor(Date.now() / 1000);
+  const step = Math.floor(now / STEP);
+  const left = STEP - (now % STEP);
+
+  $code.textContent = await codeForStep(keyBytes, step);
+  $bar.style.width = (left / STEP * 100) + '%';
+
+  /*
+   * The countdown is the point, not decoration.
+   *
+   * The server accepts ±1 step, so a code lives ~90 seconds — but one shown with two seconds left
+   * still gets typed too slowly by a person reading it off a screen. Greying it out below five
+   * seconds turns "it says my code is wrong" into "ah, wait for the next one", which is the
+   * difference between a bug report and a pause.
+   */
+  const stale = left <= 5;
+  $code.classList.toggle('stale', stale);
+  $meta.textContent = stale
+    ? 'about to change — wait for the next one'
+    : `${left}s left · click the code to copy`;
+}
+
+$code.addEventListener('click', () => {
+  const text = $code.textContent.trim();
+  if (!/^\d{6}$/.test(text)) return;
+  navigator.clipboard?.writeText(text).then(() => {
+    const prev = $meta.textContent;
+    $meta.textContent = 'copied';
+    setTimeout(() => { $meta.textContent = prev; }, 900);
+  }).catch(() => { /* clipboard blocked on file:// in some browsers — selecting still works */ });
+});
+
+$secret.addEventListener('input', () => { readSecret(); tick(); });
+
+readSecret();
+tick();
+setInterval(tick, 1000);
+</script>
+</body>
+</html>

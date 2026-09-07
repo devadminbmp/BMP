@@ -29,4 +29,21 @@ public interface UserServiceClient {
      * (Instagram-style soft deactivation — see bmp-user's UserService.reactivate). */
     @PostMapping("/api/v1/users/{userId}/reactivate")
     UserDto reactivateUser(@PathVariable("userId") java.util.UUID userId);
+
+    /**
+     * Session 65 — apply a self-service contact change, once its code has been confirmed.
+     *
+     * <p>Null means "leave this one alone". Sending an empty string would CLEAR the field, and
+     * clearing the email on a platform whose login codes go by email locks the person out for
+     * good — so ContactChangeService passes null, never "".
+     *
+     * <p>Same endpoint bmp-admin calls for a support-performed change. One writer for one
+     * invariant: bmp-user re-canonicalises the phone and re-checks uniqueness against
+     * {@code uk_users_phone} regardless of which service asked.
+     */
+    record ChangeContactRequest(String phone, String email) {}
+
+    @org.springframework.web.bind.annotation.PatchMapping("/api/v1/users/{userId}/contact")
+    UserDto changeContact(@PathVariable("userId") java.util.UUID userId,
+                           @RequestBody ChangeContactRequest req);
 }

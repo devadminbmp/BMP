@@ -17,18 +17,41 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Staff management — the master admin's screen for creating and controlling employee accounts.
+ * Staff management — creating and controlling console employee accounts.
  *
- * <p><b>Superadmin only</b>, enforced twice: {@code @PreAuthorize} here, and again inside
- * {@link StaffAdminService}. Creating accounts is the power that grants every other power — an
- * ops admin who could create accounts could create a superadmin, making the whole role
- * hierarchy decorative. A permission that consequential shouldn't rest on one annotation being
- * remembered on one method.
+ * <h2>Session 65: ops admins run the desk, the owner runs the admins</h2>
+ * This was superadmin-only. It is now superadmin AND ops admin, because a platform where only one
+ * person can suspend a departing support agent is a platform where that agent keeps their access
+ * until that person is free — and "wait for the founder" is not an offboarding procedure.
+ *
+ * <p>What has NOT changed is the ceiling. An ops admin may create, suspend and re-credential the
+ * desk (support agents and leads, finance, read-only) and may do none of those to another ops admin
+ * or to the owner. Creating accounts is the power that grants every other power: an ops admin who
+ * could mint a superadmin could log in as one, and the hierarchy would be decorative.
+ *
+ * <h2>The annotation cannot express the real rule</h2>
+ * {@code @PreAuthorize} here only proves the caller is one of the two roles that may be on this
+ * screen at all. It CANNOT answer the actual question — "may this caller act on THIS account?" —
+ * because that depends on the target's role, which is unknown until the row is loaded. So the
+ * decision lives in {@code StaffAccountScope}, called by {@link StaffAdminService} after the load.
+ * Widening the annotation without that service check would have handed ops the whole screen.
  */
-@Tag(name = "Staff management", description = "Superadmin only. Create employee accounts, change their status, and re-issue credentials. The admin never sets anyone's password.")
+@Tag(name = "Staff management", description = "Ops admin and the platform owner. Ops manages the support desk; only the owner can touch admin accounts. Nobody ever sets another person's password.")
 @RestController
 @RequestMapping("/api/v1/admin/staff")
-@PreAuthorize("hasRole('SUPER_ADMIN')")
+/*
+ * Session 65 — SUPPORT_LEAD added, and the annotation is doing even less than before.
+ *
+ * A support manager may HIRE onto their own desk and END-DATE a leaver, and may not suspend,
+ * restore or re-credential anybody. None of that is expressible here: this annotation cannot see
+ * the target's role, and after Session 65 it cannot see the requested STATUS either. It proves
+ * only that the caller is senior enough to be on this screen at all.
+ *
+ * The three real rules live in StaffAccountScope — requireCanCreate, requireCanSetStatus,
+ * requireCanManage — and are called by StaffAdminService after the row is loaded. Widening this
+ * annotation without those would have handed the desk the whole screen.
+ */
+@PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','OPS_ADMIN','SUPPORT_LEAD')")
 public class StaffAdminController {
 
     private final StaffAdminService staffAdmin;
@@ -75,6 +98,57 @@ public class StaffAdminController {
             @AuthenticationPrincipal StaffPrincipal caller,
             HttpServletRequest http) {
         return staffAdmin.changeStatus(staffId, req, caller, clientIp(http));
+    }
+
+    @Operation(
+        summary = "Correct a staff member's name, phone or work email",
+        description = """
+            Fixes the three columns that were previously write-once. A typo in somebody's email             used to mean deleting the account and starting again — and since the email is how             they sign in, the typo was usually discovered when they could not.
+
+            TWO AUTHORITIES ON ONE FORM. Name and phone need `team:edit`, so a support manager             can correct their own agents. The EMAIL needs `account:manage_staff` and is ops and             above, because it is the sign-in address rather than a contact detail — changing it             decides who can get into the account.
+
+            Changing the email ENDS EVERY SESSION for that account. It is not a credential             reset: they sign in again at the new address with the same password. Reissue is the             separate, stronger action below.
+
+            Omitted fields are left alone. If you may change only some of what you sent, the             whole request is refused rather than half-applied.""")
+    @PutMapping("/{staffId}/identity")
+    public StaffProfile updateIdentity(
+            @PathVariable UUID staffId,
+            @Valid @RequestBody StaffIdentityRequest req,
+            @AuthenticationPrincipal StaffPrincipal caller,
+            HttpServletRequest http) {
+        return staffAdmin.updateIdentity(staffId, req, caller, clientIp(http));
+    }
+
+    @Operation(
+        summary = "Change somebody's role — promote or demote",
+        description = """
+            The powers half of "edit profiles of admins and their powers". A role used to be             write-once, so promoting a support agent meant deleting the account and making a new             one — losing their leave history, audit trail and email login. In practice nobody was             ever promoted.
+
+            You must outrank BOTH their current role AND the new one. The second check is the one             that matters: without it an admin could promote somebody to main admin and then sign             in as them, which is a privilege escalation dressed as an HR action.
+
+            EVERY SESSION FOR THAT PERSON ENDS. Permissions live in the access token, so a             demotion that left their token alive would leave the removed powers working for up to             fifteen minutes — and a demotion is usually the moment somebody's judgement is in             question.
+
+            Their support tier moves with the role, and a reason is required.""")
+    @PutMapping("/{staffId}/role")
+    public StaffProfile changeRole(
+            @PathVariable UUID staffId,
+            @Valid @RequestBody StaffRoleChangeRequest req,
+            @AuthenticationPrincipal StaffPrincipal caller,
+            HttpServletRequest http) {
+        return staffAdmin.changeRole(staffId, req.role(), req.reason(), caller, clientIp(http));
+    }
+
+    @Operation(
+        summary = "What every role can do",
+        description = """
+            The permission set behind each role, and whether YOU can assign it.
+
+            Read-only, and that is the design rather than a missing feature. BMP grants permissions             per ROLE, never per person: a per-user matrix sounds flexible and becomes impossible to             reason about — after a year nobody can answer "who can issue refunds?" without a             database query, and access reviews quietly stop happening. Seven roles a human can hold             in their head is worth more. When a role genuinely does not fit, the answer is a new             role, decided deliberately, in code, with a migration.
+
+            Every rung is returned including ones above you, so the picker can SHOW what a main             admin is without letting you create one.""")
+    @GetMapping("/roles")
+    public List<RolePowers> rolePowers(@AuthenticationPrincipal StaffPrincipal caller) {
+        return staffAdmin.rolePowers(caller);
     }
 
     @Operation(

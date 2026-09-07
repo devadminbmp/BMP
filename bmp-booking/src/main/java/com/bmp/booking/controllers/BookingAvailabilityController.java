@@ -42,4 +42,30 @@ public class BookingAvailabilityController {
                                             @RequestParam(required = false) UUID excludeBookingId) {
         return new BusyWindowsResponse(service.getBusyWindows(stylistId, date, excludeBookingId));
     }
+
+    /**
+     * Every stylist's busy windows for one salon-day, in ONE call. Session 52.
+     *
+     * <p>Replaces N calls to {@code /busy-windows} — one per stylist — which is what made the
+     * availability picker slow. bmp-salon sends its team's ids because slot_lock has no salon
+     * column; the item side is filtered by salon directly.
+     */
+    @Operation(summary = "[internal] Busy windows for a whole salon on a date",
+               description = "One call instead of one per stylist. A stylist with nothing booked "
+                   + "is absent from the map, not present with an empty list.")
+    @GetMapping("/busy-windows/salon")
+    @PreAuthorize("hasRole('SERVICE')")
+    public SalonBusyWindowsResponse salonBusyWindows(
+            @RequestParam UUID salonId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false) java.util.List<UUID> stylistIds,
+            @RequestParam(required = false) UUID excludeBookingId) {
+        return new SalonBusyWindowsResponse(service.getBusyWindowsForSalon(
+                salonId, date, stylistIds == null ? java.util.List.of() : stylistIds,
+                excludeBookingId));
+    }
+
+    /** Keyed by stylist id. Jackson serialises the UUID keys as strings, which Feign reverses. */
+    public record SalonBusyWindowsResponse(
+            java.util.Map<UUID, java.util.List<com.bmp.booking.dto.BookingDtos.BusyWindow>> byStylist) {}
 }

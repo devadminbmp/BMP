@@ -39,6 +39,12 @@ public class StaffService {
     private final StaffInvitesRepository invites;
     private final StylistSalonRepository stylistSalons;
     private final UserServiceClient users;
+    /** V025 (Session 51) — a suspended stylist may not redeem an invite. */
+    private final StylistSuspensionGuard suspensions;
+    /** V028 (Session 65) — for the salon's NAME in the invite email. "A salon" is not an invitation. */
+    private final com.bmp.salon.repositories.SalonRepository salons;
+    /** V028 (Session 65) — emailing the invite code. See {@link #createInvite}. */
+    private final com.bmp.common.outbox.OutboxPublisher outbox;
     private final SecureRandom random = new SecureRandom();
 
     private static final int INVITE_TTL_HOURS = 48;
@@ -48,11 +54,17 @@ public class StaffService {
     private static final String ROLE_MANAGER = "MANAGER";
 
     public StaffService(SalonStaffRepository staff, StaffInvitesRepository invites,
-                        StylistSalonRepository stylistSalons, UserServiceClient users) {
+                        StylistSalonRepository stylistSalons, UserServiceClient users,
+                        StylistSuspensionGuard suspensions,
+                        com.bmp.salon.repositories.SalonRepository salons,
+                        com.bmp.common.outbox.OutboxPublisher outbox) {
+        this.salons = salons;
+        this.outbox = outbox;
         this.staff = staff;
         this.invites = invites;
         this.stylistSalons = stylistSalons;
         this.users = users;
+        this.suspensions = suspensions;
     }
 
     /**
@@ -71,11 +83,63 @@ public class StaffService {
         String role = req.roleOrDefault();
         String token = randomToken();
         Instant expiresAt = Instant.now().plus(INVITE_TTL_HOURS, ChronoUnit.HOURS);
+        String email = req.emailOrNull();   // blank and absent are the same thing — no address
         StaffInvites entry = new StaffInvites(salonId, req.phone(), token, "pending", expiresAt,
-                role, req.inviteeName());
+                role, req.inviteeName(), email);
         entry = invites.save(entry);
-        log.info("Invite issued: salonId={} role={} phone={} expiresAt={}", salonId, role, req.phone(), expiresAt);
+
+        // NOTE the token is NOT logged. It is a credential until redeemed or expired, and an
+        // invite code sitting in an application log is an invite code anybody with log access can
+        // redeem. The id is enough to correlate.
+        log.info("Invite issued: salonId={} inviteId={} role={} phone={} email={} expiresAt={}",
+                salonId, entry.getId(), role, req.phone(), email == null ? "none" : "supplied", expiresAt);
+
+        if (email != null) {
+            emailTheCode(entry);
+        }
         return toInviteResponse(entry);
+    }
+
+    /**
+     * Send the code to the address the owner gave us, and record that we did. V028 (Session 65).
+     *
+     * <h2>Non-fatal, deliberately, and loud</h2>
+     * The invite is already saved and is the thing that matters — the owner can still read the
+     * code off their screen and pass it on, which is exactly how this worked before today. Rolling
+     * back a valid invitation because a mail server was slow would be absurd.
+     *
+     * <p>But it is logged at ERROR and {@code emailed_at} stays NULL, and those two facts are the
+     * whole design: an owner looking at "invited, not joined yet" needs to be able to tell
+     * "delivered, waiting on them" from "never went — you still have to send this yourself". A
+     * timestamp written optimistically before the send would answer that question wrongly in
+     * precisely the case where the answer matters.
+     */
+    private void emailTheCode(StaffInvites entry) {
+        try {
+            String salonName = salons.findById(entry.getSalonId())
+                    .map(com.bmp.salon.entities.Salon::getName)
+                    .orElse("A salon on BMP");
+
+            outbox.publish(new com.bmp.common.events.StaffInviteIssued(
+                    entry.getId(), entry.getSalonId(), salonName, entry.getRole(),
+                    entry.getInviteeName(), entry.getInviteeEmail(), entry.getPhone(),
+                    entry.getToken(), entry.getExpiresAt()));
+
+            /*
+             * Marked here rather than on a delivery receipt, and the distinction is worth being
+             * honest about: this records "we handed it to the outbox", not "it landed in an inbox".
+             * The outbox is transactional and retried, so a published event is a strong promise —
+             * but a bounced address will not come back and clear this. The owner remains the
+             * fallback channel, which is why the pending list says "sent" and never "delivered".
+             */
+            entry.markEmailed();
+            invites.save(entry);
+            log.info("Invite {} queued for email delivery to the address on file.", entry.getId());
+        } catch (Exception e) {
+            log.error("Invite {} was created but could not be emailed ({}). The code is valid and "
+                    + "the owner can still share it by hand — emailed_at stays null so the UI says so.",
+                    entry.getId(), e.toString());
+        }
     }
 
     @Transactional
@@ -101,15 +165,55 @@ public class StaffService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "stylistId is required to consume a STYLIST invite");
             }
-            if (stylistSalons.findBySalonIdAndStylistId(salonId, req.stylistId()).isPresent()) {
+            /*
+             * Session 48 — ONE SALON AT A TIME.
+             *
+             * V021 added a unique index over ACTIVE links, so a stylist already working elsewhere
+             * cannot be linked here. Without this check the insert below would still be attempted
+             * and fail with a raw constraint violation: a 500 mentioning
+             * uq_stylist_one_active_salon, to somebody who just clicked a link in an invite email.
+             *
+             * Note the comment that used to sit here said a stylist "can work at more than one
+             * salon over time". That is still true — and it is what the alumni rows record. What
+             * changed is that "over time" is now enforced to mean sequentially, not at once.
+             */
+            // V025 — barred from the platform. An invite is one of four routes onto a team, and
+            // an unenforced route is the whole suspension undone.
+            suspensions.assertNotSuspended(req.stylistId(), "invite redemption");
+
+            for (StylistSalon other : stylistSalons.findByStylistId(req.stylistId())) {
+                if (other.isActive() && !other.getSalonId().equals(salonId)) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT,
+                            "STYLIST_AT_ANOTHER_SALON: this stylist already works at another salon "
+                            + "on BMP. They need to leave there first — from their own profile — "
+                            + "before this invite can be accepted.");
+                }
+            }
+
+            StylistSalon existing = stylistSalons.findBySalonIdAndStylistId(salonId, req.stylistId())
+                    .orElse(null);
+            if (existing != null && existing.isActive()) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "ALREADY_LINKED_TO_SALON");
             }
-            // A stylist_salon link, NOT a salon_staff seat: a stylist is never salon-scoped in
-            // their JWT. They can work at more than one salon over time and their profile and
-            // reviews travel with them — that's the portable-identity model this table exists
-            // to express. is_available_today starts true so they're bookable on day one.
-            stylistSalons.save(new StylistSalon(req.stylistId(), salonId, "active", null, 0, true,
-                    Instant.now(), null));
+
+            if (existing != null) {
+                // An alumnus of THIS salon, coming back. Reuse the row so their rating and review
+                // count here survive; a fresh insert would reset both to zero and would now also
+                // leave two rows for one employment.
+                existing.setStatus(StylistSalon.ACTIVE);
+                existing.setLeftAt(null);
+                existing.setIsAvailableToday(true);
+                stylistSalons.save(existing);
+                log.info("Stylist {} REJOINED salon {} via invite — previous link reactivated.",
+                        req.stylistId(), salonId);
+            } else {
+                // A stylist_salon link, NOT a salon_staff seat: a stylist is never salon-scoped in
+                // their JWT. Their profile and reviews travel with them — that's the portable
+                // identity model this table exists to express. is_available_today starts true so
+                // they're bookable on day one.
+                stylistSalons.save(new StylistSalon(req.stylistId(), salonId, StylistSalon.ACTIVE,
+                        null, 0, true, Instant.now(), null));
+            }
             invite.setStatus("accepted");
             log.info("STYLIST invite consumed: salonId={} stylistId={} userId={}", salonId, req.stylistId(), userId);
             return new ConsumeInviteResponse(salonId, "stylist");
@@ -129,6 +233,19 @@ public class StaffService {
     @Transactional
     public void addOwner(UUID salonId, UUID ownerUserId) {
         staff.save(new SalonStaff(salonId, ownerUserId, "OWNER"));
+    }
+
+    /**
+     * Does this user already OWN a salon? Session 48.
+     *
+     * <p>Deliberately narrower than {@link #lookupByUserId}, which returns the newest staff row of
+     * any role. Using that for the create-salon guard would stop a stylist or a manager from ever
+     * opening their own place — a real person with a real reason, blocked by a check meant for
+     * duplicates. Owner rows only.
+     */
+    public boolean ownsASalon(UUID userId) {
+        return staff.findByUserId(userId).stream()
+                .anyMatch(s -> "owner".equalsIgnoreCase(s.getRole()));
     }
 
     public Optional<StaffLookupResponse> lookupByUserId(UUID userId) {
@@ -353,6 +470,9 @@ public class StaffService {
 
     private InviteResponse toInviteResponse(StaffInvites e) {
         return new InviteResponse(e.getId(), e.getSalonId(), e.getPhone(), e.getToken(), e.getStatus(),
-                e.getExpiresAt(), e.getRole(), e.getInviteeName());
+                e.getExpiresAt(), e.getRole(), e.getInviteeName(),
+                // V028 — both, so the pending list can distinguish "no address given" (owner must
+                // pass the code on) from "sent" (they have it) from "address given, send failed".
+                e.getInviteeEmail(), e.getEmailedAt());
     }
 }

@@ -1,0 +1,715 @@
+﻿BMP local secrets loaded: email=smtp (devadmin.bmp@gmail.com)
+Loaded local-secrets.ps1
+
+  EMAIL: REAL DELIVERY (smtp as devadmin.bmp@gmail.com)
+
+Starting bmp-salon ...
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -------------------< in.bemyprofessional:bmp-salon >--------------------
+[INFO] Building BMP :: bmp-salon-service (independent Spring Boot service, port 8083) 0.1.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot:3.4.1:run (default-cli) > test-compile @ bmp-salon >>>
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ bmp-salon ---
+[INFO] Copying 5 resources from src\main\resources to target\classes
+[INFO] Copying 26 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ bmp-salon ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ bmp-salon ---
+[INFO] skip non existing resourceDirectory C:\BMP -PRJ\BMP\bmp-salon\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.13.0:testCompile (default-testCompile) @ bmp-salon ---
+[INFO] Nothing to compile - all classes are up to date.
+[INFO] 
+[INFO] <<< spring-boot:3.4.1:run (default-cli) < test-compile @ bmp-salon <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot:3.4.1:run (default-cli) @ bmp-salon ---
+[INFO] Attaching agents: []
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.4.1)
+
+2026-09-06T02:41:36.194+05:30  INFO 40340 --- [bmp-salon-service] [           main] com.bmp.salon.BmpSalonApplication        : Starting BmpSalonApplication using Java 21.0.11 with PID 40340 (C:\BMP -PRJ\BMP\bmp-salon\target\classes started by Lenovo in C:\BMP -PRJ\BMP\bmp-salon)
+2026-09-06T02:41:36.195+05:30  INFO 40340 --- [bmp-salon-service] [           main] com.bmp.salon.BmpSalonApplication        : No active profile set, falling back to 1 default profile: "default"
+2026-09-06T02:41:36.231+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.c.c.c.ConfigServerConfigDataLoader   : Fetching config from server at : http://localhost:8888
+2026-09-06T02:41:36.231+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.c.c.c.ConfigServerConfigDataLoader   : Located environment: name=bmp-salon-service, profiles=[default], label=null, version=e49a1a5dcfcb36643a08d9529e85f702a6d4d502, state=
+2026-09-06T02:41:36.940+05:30  INFO 40340 --- [bmp-salon-service] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-09-06T02:41:37.093+05:30  INFO 40340 --- [bmp-salon-service] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 145 ms. Found 19 JPA repository interfaces.
+2026-09-06T02:41:37.642+05:30  INFO 40340 --- [bmp-salon-service] [           main] faultConfiguringBeanFactoryPostProcessor : No bean named 'errorChannel' has been explicitly defined. Therefore, a default PublishSubscribeChannel will be created.
+2026-09-06T02:41:37.649+05:30  INFO 40340 --- [bmp-salon-service] [           main] faultConfiguringBeanFactoryPostProcessor : No bean named 'integrationHeaderChannelRegistry' has been explicitly defined. Therefore, a default DefaultHeaderChannelRegistry will be created.
+2026-09-06T02:41:37.761+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.cloud.context.scope.GenericScope     : BeanFactory id=dbb4daf3-6e2c-3f8e-b557-1fc229fd873c
+2026-09-06T02:41:38.355+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8083 (http)
+2026-09-06T02:41:38.368+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-09-06T02:41:38.369+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.34]
+2026-09-06T02:41:38.438+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-09-06T02:41:38.438+05:30  INFO 40340 --- [bmp-salon-service] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 2204 ms
+2026-09-06T02:41:38.779+05:30  INFO 40340 --- [bmp-salon-service] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-09-06T02:41:38.912+05:30  INFO 40340 --- [bmp-salon-service] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@4a1c14a6
+2026-09-06T02:41:38.914+05:30  INFO 40340 --- [bmp-salon-service] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-09-06T02:41:38.938+05:30  INFO 40340 --- [bmp-salon-service] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:postgresql://localhost:5432/bmp (PostgreSQL 16.4)
+2026-09-06T02:41:39.014+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 27 migrations (execution time 00:00.043s)
+2026-09-06T02:41:39.051+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "common_schema": 026
+2026-09-06T02:41:39.065+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.f.core.internal.command.DbMigrate      : Migrating schema "common_schema" to version "027 - one salon per owner"
+2026-09-06T02:41:39.141+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.f.core.internal.command.DbMigrate      : Successfully applied 1 migration to schema "common_schema", now at version v027 (execution time 00:00.053s)
+2026-09-06T02:41:39.225+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-09-06T02:41:39.281+05:30  INFO 40340 --- [bmp-salon-service] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.6.4.Final
+2026-09-06T02:41:39.311+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-09-06T02:41:39.526+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-09-06T02:41:39.597+05:30  INFO 40340 --- [bmp-salon-service] [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 16.4
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-09-06T02:41:40.494+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-09-06T02:41:40.544+05:30  INFO 40340 --- [bmp-salon-service] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-09-06T02:41:40.874+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-09-06T02:41:41.643+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.c.openfeign.FeignClientFactoryBean   : For 'bmp-booking-service' URL not provided. Will try picking an instance via load-balancing.
+2026-09-06T02:41:41.917+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.c.openfeign.FeignClientFactoryBean   : For 'bmp-user-service' URL not provided. Will try picking an instance via load-balancing.
+2026-09-06T02:41:42.126+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.c.openfeign.FeignClientFactoryBean   : For 'bmp-admin-service' URL not provided. Will try picking an instance via load-balancing.
+2026-09-06T02:41:44.396+05:30  WARN 40340 --- [bmp-salon-service] [           main] s.a.a.h.a.internal.utils.ApacheUtils     : NoSuchMethodException was thrown when disabling normalizeUri. This indicates you are using an old version (< 4.5.8) of Apache http client. It is recommended to use http client version >= 4.5.9 to avoid the breaking change introduced in apache client 4.5.7 and the latency in exception handling. See https://github.com/aws/aws-sdk-java/issues/1919 for more information
+2026-09-06T02:41:44.566+05:30  INFO 40340 --- [bmp-salon-service] [           main] com.bmp.common.storage.S3ObjectStorage   : Object storage ready: bucket 'bmp-media' at http://localhost:9000
+2026-09-06T02:41:46.684+05:30  WARN 40340 --- [bmp-salon-service] [           main] .s.s.UserDetailsServiceAutoConfiguration : 
+
+Using generated security password: 7e6afe5c-86d0-4464-a75b-665bb959b469
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-09-06T02:41:46.706+05:30  INFO 40340 --- [bmp-salon-service] [           main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
+2026-09-06T02:41:46.807+05:30  WARN 40340 --- [bmp-salon-service] [           main] thorizationManagerRequestMatcherRegistry : One of the patterns in [/api/v1/salons, /api/v1/salons/*, /api/v1/salons/*/detail, # Session 51 — the customer's salon page already shows a composed opening-hours line from # exactly these rows. Serving them structured reveals nothing new, and the owner's editor # needs to READ them: only the PUT existed, so any editor would have opened blank and # saving would have replaced real hours with a form default. /api/v1/salons/*/hours, /api/v1/salons/*/services, /api/v1/salons/*/photos, /api/v1/salons/*/reviews, /api/v1/salons/*/stylists, /api/v1/stylists/*, /api/v1/availability/slots, /api/v1/availability/slots/any, # Session 52 — the batched "who's free today" the picker uses. Same disclosure as the two # above (who works here, and when they're free); it exists because doing it per-stylist was # the source of the lag. Method-blind like every entry here, but the only write on # /api/v1/availability is /walk-in, which is a different path and keeps its @PreAuthorize. /api/v1/availability/salon-day, /actuator/health, /actuator/info, /swagger-ui/**, /swagger-ui.html, /v3/api-docs/**] is missing a leading slash. This is discouraged; please include the leading slash in all your request matcher patterns. In future versions of Spring Security, leaving out the leading slash will result in an exception.
+2026-09-06T02:41:47.641+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 10 endpoints beneath base path '/actuator'
+2026-09-06T02:41:49.184+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.c.s.m.DirectWithAttributesChannel    : Channel 'bmp-salon-service.springCloudBusInput' has 1 subscriber(s).
+2026-09-06T02:41:49.760+05:30  INFO 40340 --- [bmp-salon-service] [           main] DiscoveryClientOptionalArgsConfiguration : Eureka HTTP Client uses RestTemplate.
+2026-09-06T02:41:49.836+05:30  WARN 40340 --- [bmp-salon-service] [           main] iguration$LoadBalancerCaffeineWarnLogger : Spring Cloud LoadBalancer is currently working with the default cache. While this cache implementation is useful for development and tests, it's recommended to use Caffeine cache in production.You can switch to using Caffeine cache, by adding it and org.springframework.cache.caffeine.CaffeineCacheManager to the classpath.
+2026-09-06T02:41:50.074+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.i.endpoint.EventDrivenConsumer       : Adding {logging-channel-adapter:_org.springframework.integration.errorLogger} as a subscriber to the 'errorChannel' channel
+2026-09-06T02:41:50.074+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.i.channel.PublishSubscribeChannel    : Channel 'bmp-salon-service.errorChannel' has 1 subscriber(s).
+2026-09-06T02:41:50.074+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.i.endpoint.EventDrivenConsumer       : started bean '_org.springframework.integration.errorLogger'
+2026-09-06T02:41:50.093+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.c.n.eureka.InstanceInfoFactory       : Setting initial instance status as: STARTING
+2026-09-06T02:41:50.120+05:30  INFO 40340 --- [bmp-salon-service] [           main] com.netflix.discovery.DiscoveryClient    : Initializing Eureka in region us-east-1
+2026-09-06T02:41:50.123+05:30  INFO 40340 --- [bmp-salon-service] [           main] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-09-06T02:41:50.131+05:30  INFO 40340 --- [bmp-salon-service] [           main] com.netflix.discovery.DiscoveryClient    : Disable delta property : false
+2026-09-06T02:41:50.131+05:30  INFO 40340 --- [bmp-salon-service] [           main] com.netflix.discovery.DiscoveryClient    : Single vip registry refresh property : null
+2026-09-06T02:41:50.131+05:30  INFO 40340 --- [bmp-salon-service] [           main] com.netflix.discovery.DiscoveryClient    : Force full registry fetch : false
+2026-09-06T02:41:50.131+05:30  INFO 40340 --- [bmp-salon-service] [           main] com.netflix.discovery.DiscoveryClient    : Application is null : false
+2026-09-06T02:41:50.131+05:30  INFO 40340 --- [bmp-salon-service] [           main] com.netflix.discovery.DiscoveryClient    : Registered Applications size is zero : true
+2026-09-06T02:41:50.131+05:30  INFO 40340 --- [bmp-salon-service] [           main] com.netflix.discovery.DiscoveryClient    : Application version is -1: true
+2026-09-06T02:41:50.131+05:30  INFO 40340 --- [bmp-salon-service] [           main] com.netflix.discovery.DiscoveryClient    : Getting all instance registry info from the eureka server
+2026-09-06T02:41:50.518+05:30  INFO 40340 --- [bmp-salon-service] [           main] com.netflix.discovery.DiscoveryClient    : The response status is 200
+2026-09-06T02:41:50.521+05:30  INFO 40340 --- [bmp-salon-service] [           main] com.netflix.discovery.DiscoveryClient    : Starting heartbeat executor: renew interval is: 30
+2026-09-06T02:41:50.524+05:30  INFO 40340 --- [bmp-salon-service] [           main] c.n.discovery.InstanceInfoReplicator     : InstanceInfoReplicator onDemand update allowed rate per min is 4
+2026-09-06T02:41:50.526+05:30  INFO 40340 --- [bmp-salon-service] [           main] com.netflix.discovery.DiscoveryClient    : Discovery Client initialized at timestamp 1788642710526 with initial instances count: 10
+2026-09-06T02:41:50.552+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.c.n.e.s.EurekaServiceRegistry        : Registering application BMP-SALON-SERVICE with eureka with status UP
+2026-09-06T02:41:50.553+05:30  INFO 40340 --- [bmp-salon-service] [           main] com.netflix.discovery.DiscoveryClient    : Saw local status change event StatusChangeEvent [timestamp=1788642710553, current=UP, previous=STARTING]
+2026-09-06T02:41:50.555+05:30  INFO 40340 --- [bmp-salon-service] [foReplicator-%d] com.netflix.discovery.DiscoveryClient    : DiscoveryClient_BMP-SALON-SERVICE/Darshan.mshome.net:bmp-salon-service:8083: registering service...
+2026-09-06T02:41:50.623+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8083 (http) with context path '/'
+2026-09-06T02:41:50.629+05:30  INFO 40340 --- [bmp-salon-service] [           main] .s.c.n.e.s.EurekaAutoServiceRegistration : Updating port to 8083
+2026-09-06T02:41:50.644+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.c.s.binder.DefaultBinderFactory      : Creating binder: kafka
+2026-09-06T02:41:50.644+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.c.s.binder.DefaultBinderFactory      : Constructing binder child context for kafka
+2026-09-06T02:41:50.651+05:30  INFO 40340 --- [bmp-salon-service] [foReplicator-%d] com.netflix.discovery.DiscoveryClient    : DiscoveryClient_BMP-SALON-SERVICE/Darshan.mshome.net:bmp-salon-service:8083 - registration status: 204
+2026-09-06T02:41:51.258+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.c.s.binder.DefaultBinderFactory      : Caching the binder: kafka
+2026-09-06T02:41:51.352+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.a.k.clients.admin.AdminClientConfig    : AdminClientConfig values: 
+	auto.include.jmx.reporter = true
+	bootstrap.controllers = []
+	bootstrap.servers = [localhost:9092]
+	client.dns.lookup = use_all_dns_ips
+	client.id = 
+	connections.max.idle.ms = 300000
+	default.api.timeout.ms = 60000
+	enable.metrics.push = true
+	metadata.max.age.ms = 300000
+	metadata.recovery.strategy = none
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	receive.buffer.bytes = 65536
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retries = 2147483647
+	retry.backoff.max.ms = 1000
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = PLAINTEXT
+	security.providers = null
+	send.buffer.bytes = 131072
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+
+2026-09-06T02:41:51.617+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka version: 3.8.1
+2026-09-06T02:41:51.617+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka commitId: 70d6ff42debf7e17
+2026-09-06T02:41:51.617+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka startTimeMs: 1788642711614
+2026-09-06T02:41:52.292+05:30  INFO 40340 --- [bmp-salon-service] [| adminclient-1] o.a.kafka.common.utils.AppInfoParser     : App info kafka.admin.client for adminclient-1 unregistered
+2026-09-06T02:41:52.297+05:30  INFO 40340 --- [bmp-salon-service] [| adminclient-1] o.apache.kafka.common.metrics.Metrics    : Metrics scheduler closed
+2026-09-06T02:41:52.297+05:30  INFO 40340 --- [bmp-salon-service] [| adminclient-1] o.apache.kafka.common.metrics.Metrics    : Closing reporter org.apache.kafka.common.metrics.JmxReporter
+2026-09-06T02:41:52.297+05:30  INFO 40340 --- [bmp-salon-service] [| adminclient-1] o.apache.kafka.common.metrics.Metrics    : Metrics reporters closed
+2026-09-06T02:41:52.310+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.a.k.clients.consumer.ConsumerConfig    : ConsumerConfig values: 
+	allow.auto.create.topics = true
+	auto.commit.interval.ms = 100
+	auto.include.jmx.reporter = true
+	auto.offset.reset = latest
+	bootstrap.servers = [localhost:9092]
+	check.crcs = true
+	client.dns.lookup = use_all_dns_ips
+	client.id = consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-1
+	client.rack = 
+	connections.max.idle.ms = 540000
+	default.api.timeout.ms = 60000
+	enable.auto.commit = false
+	enable.metrics.push = true
+	exclude.internal.topics = true
+	fetch.max.bytes = 52428800
+	fetch.max.wait.ms = 500
+	fetch.min.bytes = 1
+	group.id = anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0
+	group.instance.id = null
+	group.protocol = classic
+	group.remote.assignor = null
+	heartbeat.interval.ms = 3000
+	interceptor.classes = []
+	internal.leave.group.on.close = true
+	internal.throw.on.fetch.stable.offset.unsupported = false
+	isolation.level = read_uncommitted
+	key.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+	max.partition.fetch.bytes = 1048576
+	max.poll.interval.ms = 300000
+	max.poll.records = 500
+	metadata.max.age.ms = 300000
+	metadata.recovery.strategy = none
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	partition.assignment.strategy = [class org.apache.kafka.clients.consumer.RangeAssignor, class org.apache.kafka.clients.consumer.CooperativeStickyAssignor]
+	receive.buffer.bytes = 65536
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retry.backoff.max.ms = 1000
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = PLAINTEXT
+	security.providers = null
+	send.buffer.bytes = 131072
+	session.timeout.ms = 45000
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+	value.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+
+2026-09-06T02:41:52.353+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.a.k.c.t.i.KafkaMetricsCollector        : initializing Kafka metrics collector
+2026-09-06T02:41:52.400+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka version: 3.8.1
+2026-09-06T02:41:52.400+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka commitId: 70d6ff42debf7e17
+2026-09-06T02:41:52.400+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka startTimeMs: 1788642712400
+2026-09-06T02:41:52.420+05:30  INFO 40340 --- [bmp-salon-service] [           main] org.apache.kafka.clients.Metadata        : [Consumer clientId=consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-1, groupId=anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0] Cluster ID: 5L6g3nShT-eMCtK--X86sw
+2026-09-06T02:41:52.423+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-1, groupId=anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0] Resetting generation and member id due to: consumer pro-actively leaving the group
+2026-09-06T02:41:52.423+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-1, groupId=anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0] Request joining group due to: consumer pro-actively leaving the group
+2026-09-06T02:41:52.428+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.apache.kafka.common.metrics.Metrics    : Metrics scheduler closed
+2026-09-06T02:41:52.428+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.apache.kafka.common.metrics.Metrics    : Closing reporter org.apache.kafka.common.metrics.JmxReporter
+2026-09-06T02:41:52.428+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.apache.kafka.common.metrics.Metrics    : Closing reporter org.apache.kafka.common.telemetry.internals.ClientTelemetryReporter
+2026-09-06T02:41:52.428+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.apache.kafka.common.metrics.Metrics    : Metrics reporters closed
+2026-09-06T02:41:52.431+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.a.kafka.common.utils.AppInfoParser     : App info kafka.consumer for consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-1 unregistered
+2026-09-06T02:41:52.475+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.c.stream.binder.BinderErrorChannel   : Channel 'kafka-1606786627.springCloudBusInput.errors' has 1 subscriber(s).
+2026-09-06T02:41:52.477+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.c.stream.binder.BinderErrorChannel   : Channel 'kafka-1606786627.springCloudBusInput.errors' has 0 subscriber(s).
+2026-09-06T02:41:52.477+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.c.stream.binder.BinderErrorChannel   : Channel 'kafka-1606786627.springCloudBusInput.errors' has 1 subscriber(s).
+2026-09-06T02:41:52.477+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.s.c.stream.binder.BinderErrorChannel   : Channel 'kafka-1606786627.springCloudBusInput.errors' has 2 subscriber(s).
+2026-09-06T02:41:52.494+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.a.k.clients.consumer.ConsumerConfig    : ConsumerConfig values: 
+	allow.auto.create.topics = true
+	auto.commit.interval.ms = 100
+	auto.include.jmx.reporter = true
+	auto.offset.reset = latest
+	bootstrap.servers = [localhost:9092]
+	check.crcs = true
+	client.dns.lookup = use_all_dns_ips
+	client.id = consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-2
+	client.rack = 
+	connections.max.idle.ms = 540000
+	default.api.timeout.ms = 60000
+	enable.auto.commit = false
+	enable.metrics.push = true
+	exclude.internal.topics = true
+	fetch.max.bytes = 52428800
+	fetch.max.wait.ms = 500
+	fetch.min.bytes = 1
+	group.id = anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0
+	group.instance.id = null
+	group.protocol = classic
+	group.remote.assignor = null
+	heartbeat.interval.ms = 3000
+	interceptor.classes = []
+	internal.leave.group.on.close = true
+	internal.throw.on.fetch.stable.offset.unsupported = false
+	isolation.level = read_uncommitted
+	key.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+	max.partition.fetch.bytes = 1048576
+	max.poll.interval.ms = 300000
+	max.poll.records = 500
+	metadata.max.age.ms = 300000
+	metadata.recovery.strategy = none
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	partition.assignment.strategy = [class org.apache.kafka.clients.consumer.RangeAssignor, class org.apache.kafka.clients.consumer.CooperativeStickyAssignor]
+	receive.buffer.bytes = 65536
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retry.backoff.max.ms = 1000
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = PLAINTEXT
+	security.providers = null
+	send.buffer.bytes = 131072
+	session.timeout.ms = 45000
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+	value.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+
+2026-09-06T02:41:52.494+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.a.k.c.t.i.KafkaMetricsCollector        : initializing Kafka metrics collector
+2026-09-06T02:41:52.500+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka version: 3.8.1
+2026-09-06T02:41:52.500+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka commitId: 70d6ff42debf7e17
+2026-09-06T02:41:52.500+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka startTimeMs: 1788642712500
+2026-09-06T02:41:52.504+05:30  INFO 40340 --- [bmp-salon-service] [           main] o.a.k.c.c.internals.LegacyKafkaConsumer  : [Consumer clientId=consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-2, groupId=anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0] Subscribed to topic(s): springCloudBus
+2026-09-06T02:41:52.510+05:30  INFO 40340 --- [bmp-salon-service] [           main] s.i.k.i.KafkaMessageDrivenChannelAdapter : started org.springframework.integration.kafka.inbound.KafkaMessageDrivenChannelAdapter@235acf30
+2026-09-06T02:41:52.523+05:30  INFO 40340 --- [bmp-salon-service] [container-0-C-1] org.apache.kafka.clients.Metadata        : [Consumer clientId=consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-2, groupId=anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0] Cluster ID: 5L6g3nShT-eMCtK--X86sw
+2026-09-06T02:41:52.523+05:30  INFO 40340 --- [bmp-salon-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-2, groupId=anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-09-06T02:41:52.525+05:30  INFO 40340 --- [bmp-salon-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-2, groupId=anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0] (Re-)joining group
+2026-09-06T02:41:52.541+05:30  INFO 40340 --- [bmp-salon-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-2, groupId=anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0] Request joining group due to: need to re-join with the given member-id: consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-2-df399374-a6a9-4ed3-81e9-d10b9176c68e
+2026-09-06T02:41:52.542+05:30  INFO 40340 --- [bmp-salon-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-2, groupId=anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0] (Re-)joining group
+2026-09-06T02:41:52.570+05:30  INFO 40340 --- [bmp-salon-service] [           main] com.bmp.salon.BmpSalonApplication        : Started BmpSalonApplication in 18.0 seconds (process running for 18.514)
+2026-09-06T02:41:53.523+05:30  INFO 40340 --- [bmp-salon-service] [pool-3-thread-1] o.a.k.clients.consumer.ConsumerConfig    : ConsumerConfig values: 
+	allow.auto.create.topics = true
+	auto.commit.interval.ms = 5000
+	auto.include.jmx.reporter = true
+	auto.offset.reset = latest
+	bootstrap.servers = [localhost:9092]
+	check.crcs = true
+	client.dns.lookup = use_all_dns_ips
+	client.id = consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-3
+	client.rack = 
+	connections.max.idle.ms = 540000
+	default.api.timeout.ms = 60000
+	enable.auto.commit = true
+	enable.metrics.push = true
+	exclude.internal.topics = true
+	fetch.max.bytes = 52428800
+	fetch.max.wait.ms = 500
+	fetch.min.bytes = 1
+	group.id = anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0
+	group.instance.id = null
+	group.protocol = classic
+	group.remote.assignor = null
+	heartbeat.interval.ms = 3000
+	interceptor.classes = []
+	internal.leave.group.on.close = true
+	internal.throw.on.fetch.stable.offset.unsupported = false
+	isolation.level = read_uncommitted
+	key.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+	max.partition.fetch.bytes = 1048576
+	max.poll.interval.ms = 300000
+	max.poll.records = 500
+	metadata.max.age.ms = 300000
+	metadata.recovery.strategy = none
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	partition.assignment.strategy = [class org.apache.kafka.clients.consumer.RangeAssignor, class org.apache.kafka.clients.consumer.CooperativeStickyAssignor]
+	receive.buffer.bytes = 65536
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retry.backoff.max.ms = 1000
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = PLAINTEXT
+	security.providers = null
+	send.buffer.bytes = 131072
+	session.timeout.ms = 45000
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+	value.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+
+2026-09-06T02:41:53.523+05:30  INFO 40340 --- [bmp-salon-service] [pool-3-thread-1] o.a.k.c.t.i.KafkaMetricsCollector        : initializing Kafka metrics collector
+2026-09-06T02:41:53.534+05:30  INFO 40340 --- [bmp-salon-service] [pool-3-thread-1] o.a.kafka.common.utils.AppInfoParser     : Kafka version: 3.8.1
+2026-09-06T02:41:53.534+05:30  INFO 40340 --- [bmp-salon-service] [pool-3-thread-1] o.a.kafka.common.utils.AppInfoParser     : Kafka commitId: 70d6ff42debf7e17
+2026-09-06T02:41:53.534+05:30  INFO 40340 --- [bmp-salon-service] [pool-3-thread-1] o.a.kafka.common.utils.AppInfoParser     : Kafka startTimeMs: 1788642713534
+2026-09-06T02:41:53.550+05:30  INFO 40340 --- [bmp-salon-service] [pool-3-thread-1] org.apache.kafka.clients.Metadata        : [Consumer clientId=consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-3, groupId=anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0] Cluster ID: 5L6g3nShT-eMCtK--X86sw
+2026-09-06T02:41:53.579+05:30  INFO 40340 --- [bmp-salon-service] [pool-3-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-3, groupId=anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-09-06T02:41:53.599+05:30  INFO 40340 --- [bmp-salon-service] [pool-3-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-3, groupId=anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0] Found no committed offset for partition springCloudBus-0
+2026-09-06T02:44:58.976+05:30  WARN 40340 --- [bmp-salon-service] [   scheduling-1] com.zaxxer.hikari.pool.PoolBase          : HikariPool-1 - Failed to validate connection org.postgresql.jdbc.PgConnection@4a1c14a6 (This connection has been closed.). Possibly consider using a shorter maxLifetime value.
+2026-09-06T02:44:58.983+05:30  WARN 40340 --- [bmp-salon-service] [   scheduling-1] o.h.engine.jdbc.spi.SqlExceptionHelper   : SQL Error: 0, SQLState: 08003
+2026-09-06T02:44:58.984+05:30 ERROR 40340 --- [bmp-salon-service] [   scheduling-1] o.h.engine.jdbc.spi.SqlExceptionHelper   : HikariPool-1 - Connection is not available, request timed out after 184450ms (total=2, active=0, idle=2, waiting=0)
+2026-09-06T02:44:58.984+05:30 ERROR 40340 --- [bmp-salon-service] [   scheduling-1] o.h.engine.jdbc.spi.SqlExceptionHelper   : This connection has been closed.
+2026-09-06T02:44:58.991+05:30 ERROR 40340 --- [bmp-salon-service] [   scheduling-1] o.s.s.s.TaskUtils$LoggingErrorHandler    : Unexpected error occurred in scheduled task
+
+org.springframework.transaction.CannotCreateTransactionException: Could not open JPA EntityManager for transaction
+	at org.springframework.orm.jpa.JpaTransactionManager.doBegin(JpaTransactionManager.java:466) ~[spring-orm-6.2.1.jar:6.2.1]
+	at org.springframework.transaction.support.AbstractPlatformTransactionManager.startTransaction(AbstractPlatformTransactionManager.java:532) ~[spring-tx-6.2.1.jar:6.2.1]
+	at org.springframework.transaction.support.AbstractPlatformTransactionManager.getTransaction(AbstractPlatformTransactionManager.java:405) ~[spring-tx-6.2.1.jar:6.2.1]
+	at org.springframework.transaction.interceptor.TransactionAspectSupport.createTransactionIfNecessary(TransactionAspectSupport.java:639) ~[spring-tx-6.2.1.jar:6.2.1]
+	at org.springframework.transaction.interceptor.TransactionAspectSupport.invokeWithinTransaction(TransactionAspectSupport.java:374) ~[spring-tx-6.2.1.jar:6.2.1]
+	at org.springframework.transaction.interceptor.TransactionInterceptor.invoke(TransactionInterceptor.java:119) ~[spring-tx-6.2.1.jar:6.2.1]
+	at org.springframework.aop.framework.ReflectiveMethodInvocation.proceed(ReflectiveMethodInvocation.java:184) ~[spring-aop-6.2.1.jar:6.2.1]
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:727) ~[spring-aop-6.2.1.jar:6.2.1]
+	at com.bmp.common.kafka.OutboxKafkaRelay$$SpringCGLIB$$0.relay(<generated>) ~[bmp-common-0.1.0-SNAPSHOT.jar:0.1.0-SNAPSHOT]
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103) ~[na:na]
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[na:na]
+	at org.springframework.scheduling.support.ScheduledMethodRunnable.runInternal(ScheduledMethodRunnable.java:130) ~[spring-context-6.2.1.jar:6.2.1]
+	at org.springframework.scheduling.support.ScheduledMethodRunnable.lambda$run$2(ScheduledMethodRunnable.java:124) ~[spring-context-6.2.1.jar:6.2.1]
+	at io.micrometer.observation.Observation.observe(Observation.java:498) ~[micrometer-observation-1.14.2.jar:1.14.2]
+	at org.springframework.scheduling.support.ScheduledMethodRunnable.run(ScheduledMethodRunnable.java:124) ~[spring-context-6.2.1.jar:6.2.1]
+	at org.springframework.scheduling.config.Task$OutcomeTrackingRunnable.run(Task.java:85) ~[spring-context-6.2.1.jar:6.2.1]
+	at org.springframework.scheduling.support.DelegatingErrorHandlingRunnable.run(DelegatingErrorHandlingRunnable.java:54) ~[spring-context-6.2.1.jar:6.2.1]
+	at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572) ~[na:na]
+	at java.base/java.util.concurrent.FutureTask.runAndReset(FutureTask.java:358) ~[na:na]
+	at java.base/java.util.concurrent.ScheduledThreadPoolExecutor$ScheduledFutureTask.run(ScheduledThreadPoolExecutor.java:305) ~[na:na]
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144) ~[na:na]
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642) ~[na:na]
+	at java.base/java.lang.Thread.run(Thread.java:1583) ~[na:na]
+Caused by: org.hibernate.exception.JDBCConnectionException: Unable to acquire JDBC Connection [HikariPool-1 - Connection is not available, request timed out after 184450ms (total=2, active=0, idle=2, waiting=0)] [n/a]
+	at org.hibernate.exception.internal.SQLExceptionTypeDelegate.convert(SQLExceptionTypeDelegate.java:51) ~[hibernate-core-6.6.4.Final.jar:6.6.4.Final]
+	at org.hibernate.exception.internal.StandardSQLExceptionConverter.convert(StandardSQLExceptionConverter.java:58) ~[hibernate-core-6.6.4.Final.jar:6.6.4.Final]
+	at org.hibernate.engine.jdbc.spi.SqlExceptionHelper.convert(SqlExceptionHelper.java:108) ~[hibernate-core-6.6.4.Final.jar:6.6.4.Final]
+	at org.hibernate.engine.jdbc.spi.SqlExceptionHelper.convert(SqlExceptionHelper.java:94) ~[hibernate-core-6.6.4.Final.jar:6.6.4.Final]
+	at org.hibernate.resource.jdbc.internal.LogicalConnectionManagedImpl.acquireConnectionIfNeeded(LogicalConnectionManagedImpl.java:129) ~[hibernate-core-6.6.4.Final.jar:6.6.4.Final]
+	at org.hibernate.resource.jdbc.internal.LogicalConnectionManagedImpl.getPhysicalConnection(LogicalConnectionManagedImpl.java:156) ~[hibernate-core-6.6.4.Final.jar:6.6.4.Final]
+	at org.hibernate.resource.jdbc.internal.LogicalConnectionManagedImpl.getConnectionForTransactionManagement(LogicalConnectionManagedImpl.java:286) ~[hibernate-core-6.6.4.Final.jar:6.6.4.Final]
+	at org.hibernate.resource.jdbc.internal.LogicalConnectionManagedImpl.begin(LogicalConnectionManagedImpl.java:294) ~[hibernate-core-6.6.4.Final.jar:6.6.4.Final]
+	at org.hibernate.resource.transaction.backend.jdbc.internal.JdbcResourceLocalTransactionCoordinatorImpl$TransactionDriverControlImpl.begin(JdbcResourceLocalTransactionCoordinatorImpl.java:232) ~[hibernate-core-6.6.4.Final.jar:6.6.4.Final]
+	at org.hibernate.engine.transaction.internal.TransactionImpl.begin(TransactionImpl.java:83) ~[hibernate-core-6.6.4.Final.jar:6.6.4.Final]
+	at org.springframework.orm.jpa.vendor.HibernateJpaDialect.beginTransaction(HibernateJpaDialect.java:176) ~[spring-orm-6.2.1.jar:6.2.1]
+	at org.springframework.orm.jpa.JpaTransactionManager.doBegin(JpaTransactionManager.java:420) ~[spring-orm-6.2.1.jar:6.2.1]
+	... 22 common frames omitted
+Caused by: java.sql.SQLTransientConnectionException: HikariPool-1 - Connection is not available, request timed out after 184450ms (total=2, active=0, idle=2, waiting=0)
+	at com.zaxxer.hikari.pool.HikariPool.createTimeoutException(HikariPool.java:686) ~[HikariCP-5.1.0.jar:na]
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:179) ~[HikariCP-5.1.0.jar:na]
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:144) ~[HikariCP-5.1.0.jar:na]
+	at com.zaxxer.hikari.HikariDataSource.getConnection(HikariDataSource.java:127) ~[HikariCP-5.1.0.jar:na]
+	at org.hibernate.engine.jdbc.connections.internal.DatasourceConnectionProviderImpl.getConnection(DatasourceConnectionProviderImpl.java:126) ~[hibernate-core-6.6.4.Final.jar:6.6.4.Final]
+	at org.hibernate.internal.NonContextualJdbcConnectionAccess.obtainConnection(NonContextualJdbcConnectionAccess.java:46) ~[hibernate-core-6.6.4.Final.jar:6.6.4.Final]
+	at org.hibernate.resource.jdbc.internal.LogicalConnectionManagedImpl.acquireConnectionIfNeeded(LogicalConnectionManagedImpl.java:126) ~[hibernate-core-6.6.4.Final.jar:6.6.4.Final]
+	... 29 common frames omitted
+Caused by: org.postgresql.util.PSQLException: This connection has been closed.
+	at org.postgresql.jdbc.PgConnection.checkClosed(PgConnection.java:1009) ~[postgresql-42.7.4.jar:42.7.4]
+	at org.postgresql.jdbc.PgConnection.setNetworkTimeout(PgConnection.java:1724) ~[postgresql-42.7.4.jar:42.7.4]
+	at com.zaxxer.hikari.pool.PoolBase.setNetworkTimeout(PoolBase.java:562) ~[HikariCP-5.1.0.jar:na]
+	at com.zaxxer.hikari.pool.PoolBase.isConnectionDead(PoolBase.java:169) ~[HikariCP-5.1.0.jar:na]
+	at com.zaxxer.hikari.pool.HikariPool.getConnection(HikariPool.java:168) ~[HikariCP-5.1.0.jar:na]
+	... 34 common frames omitted
+
+2026-09-06T02:45:03.816+05:30  INFO 40340 --- [bmp-salon-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-2, groupId=anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0] Successfully joined group with generation Generation{generationId=1, memberId='consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-2-df399374-a6a9-4ed3-81e9-d10b9176c68e', protocol='range'}
+2026-09-06T02:45:03.835+05:30  INFO 40340 --- [bmp-salon-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-2, groupId=anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0] Finished assignment for group at generation 1: {consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-2-df399374-a6a9-4ed3-81e9-d10b9176c68e=Assignment(partitions=[springCloudBus-0])}
+2026-09-06T02:45:04.035+05:30  INFO 40340 --- [bmp-salon-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-2, groupId=anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0] Successfully synced group in generation Generation{generationId=1, memberId='consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-2-df399374-a6a9-4ed3-81e9-d10b9176c68e', protocol='range'}
+2026-09-06T02:45:04.036+05:30  INFO 40340 --- [bmp-salon-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-2, groupId=anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0] Notifying assignor about the new Assignment(partitions=[springCloudBus-0])
+2026-09-06T02:45:04.041+05:30  INFO 40340 --- [bmp-salon-service] [container-0-C-1] k.c.c.i.ConsumerRebalanceListenerInvoker : [Consumer clientId=consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-2, groupId=anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0] Adding newly assigned partitions: springCloudBus-0
+2026-09-06T02:45:04.081+05:30  INFO 40340 --- [bmp-salon-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-2, groupId=anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0] Found no committed offset for partition springCloudBus-0
+2026-09-06T02:45:04.100+05:30  INFO 40340 --- [bmp-salon-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-2, groupId=anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0] Found no committed offset for partition springCloudBus-0
+2026-09-06T02:45:04.243+05:30  INFO 40340 --- [bmp-salon-service] [container-0-C-1] o.a.k.c.c.internals.SubscriptionState    : [Consumer clientId=consumer-anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0-2, groupId=anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0] Resetting offset for partition springCloudBus-0 to position FetchPosition{offset=0, offsetEpoch=Optional.empty, currentLeader=LeaderAndEpoch{leader=Optional[localhost:9092 (id: 1 rack: null)], epoch=0}}.
+2026-09-06T02:45:04.444+05:30  INFO 40340 --- [bmp-salon-service] [container-0-C-1] o.s.c.s.b.k.KafkaMessageChannelBinder$2  : anonymous.228bbc9e-ad56-4ebb-98e6-e6cb2ed7c4b0: partitions assigned: [springCloudBus-0]
+2026-09-06T02:45:08.309+05:30  WARN 40340 --- [bmp-salon-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=3m29s427ms69µs400ns).
+2026-09-06T02:45:13.027+05:30  INFO 40340 --- [bmp-salon-service] [nio-8083-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-09-06T02:45:13.028+05:30  INFO 40340 --- [bmp-salon-service] [nio-8083-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-09-06T02:45:13.111+05:30  INFO 40340 --- [bmp-salon-service] [nio-8083-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 82 ms
+2026-09-06T02:45:13.376+05:30  INFO 40340 --- [bmp-salon-service] [binder-health-1] o.a.k.clients.consumer.ConsumerConfig    : ConsumerConfig values: 
+	allow.auto.create.topics = true
+	auto.commit.interval.ms = 5000
+	auto.include.jmx.reporter = true
+	auto.offset.reset = latest
+	bootstrap.servers = [localhost:9092]
+	check.crcs = true
+	client.dns.lookup = use_all_dns_ips
+	client.id = consumer-null-4
+	client.rack = 
+	connections.max.idle.ms = 540000
+	default.api.timeout.ms = 60000
+	enable.auto.commit = false
+	enable.metrics.push = true
+	exclude.internal.topics = true
+	fetch.max.bytes = 52428800
+	fetch.max.wait.ms = 500
+	fetch.min.bytes = 1
+	group.id = null
+	group.instance.id = null
+	group.protocol = classic
+	group.remote.assignor = null
+	heartbeat.interval.ms = 3000
+	interceptor.classes = []
+	internal.leave.group.on.close = true
+	internal.throw.on.fetch.stable.offset.unsupported = false
+	isolation.level = read_uncommitted
+	key.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+	max.partition.fetch.bytes = 1048576
+	max.poll.interval.ms = 300000
+	max.poll.records = 500
+	metadata.max.age.ms = 300000
+	metadata.recovery.strategy = none
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	partition.assignment.strategy = [class org.apache.kafka.clients.consumer.RangeAssignor, class org.apache.kafka.clients.consumer.CooperativeStickyAssignor]
+	receive.buffer.bytes = 65536
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retry.backoff.max.ms = 1000
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = PLAINTEXT
+	security.providers = null
+	send.buffer.bytes = 131072
+	session.timeout.ms = 45000
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+	value.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+
+2026-09-06T02:45:13.378+05:30  INFO 40340 --- [bmp-salon-service] [binder-health-1] o.a.k.c.t.i.KafkaMetricsCollector        : initializing Kafka metrics collector
+2026-09-06T02:45:13.384+05:30  INFO 40340 --- [bmp-salon-service] [binder-health-1] o.a.kafka.common.utils.AppInfoParser     : Kafka version: 3.8.1
+2026-09-06T02:45:13.384+05:30  INFO 40340 --- [bmp-salon-service] [binder-health-1] o.a.kafka.common.utils.AppInfoParser     : Kafka commitId: 70d6ff42debf7e17
+2026-09-06T02:45:13.384+05:30  INFO 40340 --- [bmp-salon-service] [binder-health-1] o.a.kafka.common.utils.AppInfoParser     : Kafka startTimeMs: 1788642913384
+2026-09-06T02:45:13.394+05:30  INFO 40340 --- [bmp-salon-service] [binder-health-1] org.apache.kafka.clients.Metadata        : [Consumer clientId=consumer-null-4, groupId=null] Cluster ID: 5L6g3nShT-eMCtK--X86sw

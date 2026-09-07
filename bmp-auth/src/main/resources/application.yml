@@ -87,12 +87,26 @@ bmp:
     # `aud`) and the verifier will need to accept a LIST — flagged in AuthService/CONTEXT.
     google-client-id: ${BMP_GOOGLE_CLIENT_ID:379818619052-ns0mpj0hf4uucc48d21f9us7uqsr6gvb.apps.googleusercontent.com}
     # Dev convenience ONLY — this profile is what runs with no SPRING_PROFILES_ACTIVE
-    # set, i.e. every local dev machine. Lets any dev log in as any phone number with
-    # this fixed code instead of digging the real OTP out of bmp-notification's console
-    # log every time. Deliberately absent from application-staging.yml/application-prod.yml
-    # — @Value("${bmp.auth.dev-master-otp:}") in AuthService defaults to blank (disabled)
-    # when this key isn't set at all, so it never activates outside local dev.
+    # set, i.e. every local dev machine. Lets a dev log in as a FIXED TEST PERSONA with
+    # this code instead of digging the real OTP out of an inbox every time. Deliberately
+    # absent from application-staging.yml/application-prod.yml — @Value defaults to blank
+    # (disabled) when the key isn't set at all, so it never activates outside local dev.
     dev-master-otp: ${BMP_DEV_MASTER_OTP:000000}
+    #
+    # Session 43 — WHICH numbers the master OTP may unlock.
+    #
+    # It used to unlock ANY number. That's a master key to every account, and it also meant
+    # the real path (generate -> email -> read -> type) was never exercised locally, so the
+    # first real test of it would have been in front of a customer.
+    #
+    # These are exactly the six personas in seed/dev-seed.sql. Any other number — including
+    # a new account you create while testing — goes down the real emailed-OTP path.
+    #   ...001 customer   ...002 customer   ...003 owner (Lumiere)
+    #   ...004 manager    ...005 stylist    ...006 owner (Aura)
+    #
+    # AuthService REFUSES TO START if dev-master-otp is set and this list is empty — an
+    # unrestricted master OTP should never be reachable by forgetting a line of config.
+    dev-master-otp-phones: ${BMP_DEV_MASTER_OTP_PHONES:+919876500001,+919876500002,+919876500003,+919876500004,+919876500005,+919876500006}
   security:
     internal-service-key: ${BMP_INTERNAL_SERVICE_KEY:dev-only-internal-key-change-in-real-environment}
     # Session 14: the token-ISSUING endpoints are public (they can't require a token you

@@ -48,6 +48,17 @@ public interface UserServiceClient {
     @GetMapping("/api/v1/users")
     ResponseEntity<UserDto> getUserByPhone(@RequestParam("phone") String phone);
 
+    /**
+     * Session 65 — the same lookup by email.
+     *
+     * <p>A salon inviting a stylist has one identifier or the other, rarely both. Returning
+     * ResponseEntity rather than the bare DTO so a 404 is a value the caller can branch on:
+     * "no account with that email" is a NORMAL answer here (it means "invite them by code
+     * instead"), not an exception.
+     */
+    @GetMapping("/api/v1/users/by-email")
+    ResponseEntity<UserDto> getUserByEmail(@RequestParam("email") String email);
+
     @GetMapping("/api/v1/users/{userId}/roles")
     List<RoleDto> listRoles(@PathVariable("userId") UUID userId);
 

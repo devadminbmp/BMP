@@ -23,4 +23,7 @@ Thumbs.db
 # Local secrets — real SMTP/API credentials for local dev. NEVER committed; each dev
 # keeps their own copy. See local-secrets.example.ps1 for the template.
 local-secrets.ps1
+# Session 47: the properties variant, read directly by Spring regardless of how the JVM was
+# launched (IntelliJ run configs do not inherit PowerShell $env: vars). Same secret, same rule.
+local-secrets.properties
 *.local.ps1

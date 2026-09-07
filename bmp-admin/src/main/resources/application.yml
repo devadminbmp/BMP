@@ -21,6 +21,31 @@ spring:
       kafka:
         binder:
           brokers: ${BMP_KAFKA_BOOTSTRAP:localhost:9092}
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  # Session 63 — EXPLICIT STRING SERIALIZERS. Do not delete; this is not boilerplate.
+  #
+  # Spring Cloud Bus's Kafka binder (KafkaBinderEnvironmentPostProcessor) silently DEFAULTS
+  # spring.kafka's serializers to ByteArraySerializer when nothing sets them. OutboxKafkaRelay
+  # uses KafkaTemplate<String,String> and sends the event type as the key, so without this it
+  # fails on every message with:
+  #
+  #     Can't convert key of class java.lang.String to class
+  #     org.apache.kafka.common.serialization.ByteArraySerializer specified in key.serializer
+  #
+  # This was diagnosed and fixed in bmp-auth in Session 16 — and ONLY in bmp-auth. The outbox
+  # table is SHARED (common_schema.outbox) and every service with bmp.outbox.relay.enabled polls
+  # it, so an `otp.requested` row written by bmp-auth is routinely picked up by whichever relay
+  # polls first. Five services were failing on other services' events and burning the attempt
+  # counter, until bmp-auth's relay happened to win a poll.
+  #
+  # Worth stating: a shared table means shared configuration requirements. Fixing the service
+  # where a bug was NOTICED is not the same as fixing the service where it LIVES.
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  kafka:
+    bootstrap-servers: ${BMP_KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
   datasource:
     # Local default (docker-compose) unless overridden — set these 4 env vars to point
     # at a shared cloud instance instead (e.g. your Neon dev branch) without editing this file.
@@ -44,6 +69,16 @@ spring:
     baseline-on-migrate: true
 
 bmp:
+  # ═══════════════════════════════════════════════════════════════════════════════════════════
+  # Session 48: the outbox → Kafka relay. Needed for support-reply notifications.
+  # ═══════════════════════════════════════════════════════════════════════════════════════════
+  # OutboxKafkaRelay is @ConditionalOnProperty(havingValue = "true") with NO matchIfMissing, so
+  # omitting this key does not disable a feature loudly — the bean is simply never created and
+  # nothing anywhere says so. Requires @EnableScheduling on the application class (added in the
+  # same session) because the relay is a scheduled poll.
+  outbox:
+    relay:
+      enabled: ${BMP_OUTBOX_RELAY_ENABLED:true}
   security:
     # Session 20: this service's authorization pass. Previously fell back to the code default
     # of /**, which meant NO authentication on anything here. Only the login handshake and

@@ -40,13 +40,29 @@ public class ConsoleUserService {
     private final com.bmp.admin.client.AuthServiceClient auth;
     private final PiiMasker masker;
     private final AuditLogService audit;
+    /** Session 56 — the per-customer booking count on the user detail view. */
+    private final com.bmp.admin.client.BookingServiceClient bookings;
+
+    /**
+     * Session 65 — the authority matrix, for IRREVERSIBLE actions.
+     *
+     * <p>Account editing is governed by AccountScope (a permission per tier of account). Erasure is
+     * governed by V010's matrix, which says something AccountScope cannot: support and support
+     * managers are at ZERO for {@code user.anonymise} and must escalate to ops. Two rules, and the
+     * one that was actually consulted was the permissive one — see removeAccount.
+     */
+    private final AuthorityService authority;
 
     public ConsoleUserService(UserServiceClient users, com.bmp.admin.client.AuthServiceClient auth,
-                              PiiMasker masker, AuditLogService audit) {
+                              PiiMasker masker, AuditLogService audit,
+                              com.bmp.admin.client.BookingServiceClient bookings,
+                              AuthorityService authority) {
         this.users = users;
         this.auth = auth;
         this.masker = masker;
         this.audit = audit;
+        this.bookings = bookings;
+        this.authority = authority;
     }
 
     /**
@@ -88,7 +104,9 @@ public class ConsoleUserService {
     public UserSummaryResponse getById(UUID userId) {
         UserServiceClient.UserDto user = users.getUserById(userId).getBody();
         if (user == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND");
-        return toSummary(user);
+        // ONE user, so the booking count is one extra call — see toSummary's note on why the
+        // list path deliberately skips it.
+        return toSummary(user, true);
     }
 
     /**
@@ -174,8 +192,251 @@ public class ConsoleUserService {
      * someone genuinely locked out without triggering a login attempt the customer didn't ask
      * for.
      */
+    public void clearOtpLockout(UUID userId, String reason, StaffPrincipal caller) {
+        var target = requireUser(userId);
+        com.bmp.admin.security.AccountScope.requireCanManage(caller, target.defaultRole(), userId);
+        requireReason(reason);
+
+        auth.unlock(userId);
+
+        audit.record("bmp_staff", caller.staffId(), "OTP_LOCKOUT_CLEARED", "user", userId,
+                java.util.Map.of("targetRole", String.valueOf(target.defaultRole())),
+                null, caller.email(), caller.role(), reason);
+
+        log.warn("OTP lockout CLEARED by {} for {} ({}) — reason: {}",
+                caller.email(), userId, target.defaultRole(), reason);
+    }
+
+    /**
+     * Change a user's phone and/or email. Session 65.
+     *
+     * <h2>Changing the phone is a security event, not an edit</h2>
+     * The phone IS the login identity. After this the old number cannot sign in and the new one
+     * can — which is the whole point, and also precisely how an account is stolen if the request
+     * was never verified. The authority check below decides whether this staff member may act on
+     * this KIND of account; whether the person on the phone is who they claim is a judgement the
+     * agent makes, and the required reason is what makes that judgement reviewable afterwards.
+     */
+    public void changeContact(UUID userId, String phone, String email, String reason,
+                               StaffPrincipal caller) {
+        var target = requireUser(userId);
+        com.bmp.admin.security.AccountScope.requireCanManage(caller, target.defaultRole(), userId);
+        requireReason(reason);
+
+        users.changeContact(userId, new UserServiceClient.ChangeContactRequest(phone, email));
+
+        /*
+         * Old AND new in the audit entry.
+         *
+         * "Phone changed" is not reviewable. "Phone changed from X to Y by this agent, because the
+         * customer called and said they had lost the number" is — and it is the only record that
+         * survives if the change turns out to have been social engineering.
+         */
+        audit.record("bmp_staff", caller.staffId(), "ACCOUNT_CONTACT_CHANGED", "user", userId,
+                java.util.Map.of(
+                        "oldPhone", String.valueOf(target.phone()),
+                        "newPhone", String.valueOf(phone),
+                        "oldEmail", String.valueOf(target.email()),
+                        "newEmail", String.valueOf(email),
+                        "targetRole", String.valueOf(target.defaultRole())),
+                null, caller.email(), caller.role(), reason);
+
+        log.warn("Account contact CHANGED by {} for {} ({}) — reason: {}",
+                caller.email(), userId, target.defaultRole(), reason);
+    }
+
+    /**
+     * Block: reversible, and deliberately so. Bookings and history are untouched.
+     *
+     * <h2>Two calls, because a block has two halves</h2>
+     * {@code users.block} stops the login door. {@code auth.revokeSessions} closes the sessions
+     * that are open RIGHT NOW — without it, somebody already signed in carries on working until
+     * their refresh token expires days later, which for the case a block is usually for is the
+     * only window that mattered.
+     *
+     * <p>Order matters: block FIRST. If the revoke fails, the account is still blocked and the
+     * sessions die at the next refresh. Revoking first and then failing to block would log the
+     * person out and let them straight back in — the worst of both.
+     *
+     * <h2>This used to call deactivate(), and that is why it did nothing</h2>
+     * bmp-auth reactivates a deactivated account on the owner's next OTP login. The button
+     * worked, the audit entry was written, and the block lifted itself. See bmp-user V006.
+     */
+    public void blockAccount(UUID userId, String reason, StaffPrincipal caller) {
+        var target = requireUser(userId);
+        com.bmp.admin.security.AccountScope.requireCanManage(caller, target.defaultRole(), userId);
+        requireReason(reason);
+
+        users.block(userId, new UserServiceClient.BlockRequest(caller.staffId(), reason));
+
+        try {
+            auth.revokeSessions(userId);
+        } catch (Exception e) {
+            /*
+             * Swallowed, and loudly. The block itself has committed — throwing now would report
+             * failure for an action that succeeded, and an agent who believes the block failed
+             * will try again and hit ALREADY_BLOCKED.
+             *
+             * The consequence of landing here is bounded: bmp-auth refuses the refresh anyway, so
+             * the session ends at its next renewal instead of immediately.
+             */
+            log.error("Account {} was BLOCKED but its live sessions could not be revoked. The block "
+                    + "holds; existing sessions will end at their next refresh instead of now.", userId, e);
+        }
+
+        audit.record("bmp_staff", caller.staffId(), "ACCOUNT_BLOCKED", "user", userId,
+                java.util.Map.of("targetRole", String.valueOf(target.defaultRole())),
+                null, caller.email(), caller.role(), reason);
+        log.warn("Account BLOCKED by {}: {} ({}) — {}", caller.email(), userId, target.defaultRole(), reason);
+    }
+
+    /**
+     * Lift a block.
+     *
+     * <p>Same authority as applying one: whoever can stop somebody must be able to un-stop them,
+     * or a mistaken block becomes a permanent one that needs a more senior person to undo — and
+     * agents faced with that stop blocking anybody, which is its own failure.
+     *
+     * <p>The reason is required here too. "Why was this lifted" is the question asked when the
+     * account goes on to do the thing it was blocked for.
+     */
+    public void unblockAccount(UUID userId, String reason, StaffPrincipal caller) {
+        var target = requireUser(userId);
+        com.bmp.admin.security.AccountScope.requireCanManage(caller, target.defaultRole(), userId);
+        requireReason(reason);
+
+        users.unblock(userId);
+
+        audit.record("bmp_staff", caller.staffId(), "ACCOUNT_UNBLOCKED", "user", userId,
+                java.util.Map.of("targetRole", String.valueOf(target.defaultRole())),
+                null, caller.email(), caller.role(), reason);
+        log.warn("Account UNBLOCKED by {}: {} ({}) — {}", caller.email(), userId, target.defaultRole(), reason);
+    }
+
+    /**
+     * Remove: ANONYMISE, not delete.
+     *
+     * <p>A hard delete would take the person's bookings with them, and those bookings are the
+     * SALON's record of work it performed and was paid for. bmp-user's anonymise clears the
+     * identifying fields and keeps the row — both the correct reading of a DPDP erasure and the
+     * only version a salon can operate with.
+     *
+     * <p>Irreversible: bmp-user refuses to reactivate an anonymised row. Hence WARN, and hence the
+     * reason being mandatory.
+     */
+    public void removeAccount(UUID userId, String reason, StaffPrincipal caller) {
+        var target = requireUser(userId);
+        com.bmp.admin.security.AccountScope.requireCanManage(caller, target.defaultRole(), userId);
+
+        /*
+         * ── TWO RULES DISAGREED, AND THE PERMISSIVE ONE WAS WINNING. Session 65, a real hole. ───
+         *
+         * AccountScope says "you may administer a CUSTOMER account" and a support agent holds
+         * account:manage_customer, so this method let a support agent PERMANENTLY ANONYMISE a
+         * customer. bmp-user refuses to reactivate an anonymised row: there is no undo.
+         *
+         * Meanwhile V010's authority matrix has said the opposite since Session 58:
+         *
+         *     user.anonymise   support_agent  0 → ops_admin
+         *                      support_lead   0 → ops_admin
+         *                      ops_admin      unbounded
+         *
+         * Zero with an approver means "may REQUEST, may never perform". Nothing consulted it here,
+         * so the matrix was documentation and AccountScope was the enforcement — the classic shape
+         * where two copies of one rule drift and the looser copy is the one that runs.
+         *
+         * Asking the matrix makes it the single source of truth for irreversible actions. Note the
+         * order: AccountScope FIRST (may you touch this KIND of account at all), then the matrix
+         * (may your role do this PARTICULAR irreversible thing). Both are required; neither alone
+         * is the answer.
+         *
+         * Value 0 because erasure has no amount. The 0-vs-NULL ceiling distinction still routes
+         * correctly — see AuthorityService.check.
+         */
+        AuthorityService.Decision erasure = authority.check("user.anonymise", caller.role(), 0L);
+        if (!erasure.allowed()) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN,
+                    erasure.needsApproval()
+                        ? "Removing an account is permanent and your role can't do it directly. "
+                          + "Raise it with " + humanApprover(erasure.approverRole()) + "."
+                        : erasure.reason());
+        }
+
+        requireReason(reason);
+
+        users.anonymise(userId, reason);
+
+        audit.record("bmp_staff", caller.staffId(), "ACCOUNT_REMOVED", "user", userId,
+                java.util.Map.of("targetRole", String.valueOf(target.defaultRole())),
+                null, caller.email(), caller.role(), reason);
+        log.warn("Account REMOVED (anonymised) by {}: {} ({}) — {}",
+                caller.email(), userId, target.defaultRole(), reason);
+    }
+
+    /** Role codes are for storage; a refusal a human reads should name a team. */
+    private static String humanApprover(String role) {
+        if (role == null) return "an ops admin";
+        return switch (role) {
+            case "support_lead" -> "a support manager";
+            case "ops_admin" -> "an ops admin";
+            case "admin" -> "an admin";
+            case "super_admin" -> "the main admin";
+            case "finance_admin" -> "finance";
+            default -> role.replace('_', ' ');
+        };
+    }
+
+    private UserServiceClient.UserDto requireUser(UUID userId) {
+        var body = users.getUserById(userId).getBody();
+        if (body == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.NOT_FOUND, "No such account.");
+        }
+        return body;
+    }
+
+    /**
+     * A reason is required by the APPLICATION, not the schema.
+     *
+     * <p>The audit table accepts null because migrations and system actions write rows too. A human
+     * blocking somebody's account is not one of those cases — and the reason is the only part of
+     * the entry that explains the decision to whoever reads it six months later.
+     */
+    private void requireReason(String reason) {
+        if (reason == null || reason.trim().length() < 5) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Say why — this is written to the audit log and read back later.");
+        }
+    }
+
     public void unlock(UUID userId, JustifiedActionRequest req, StaffPrincipal caller, String ip) {
         requirePiiCapableRole(caller);
+
+        /*
+         * ── THE SAME EFFECT VIA TWO DOORS, AND THIS ONE WAS THE WEAKER. Session 65. ────────────
+         *
+         * `clearOtpLockout` and this method both end in `auth.unlock(userId)` — identical effect,
+         * different names, different audit actions, and until now different authorisation:
+         *
+         *   clearOtpLockout   AccountScope.requireCanManage  — knows WHOSE account it is
+         *   unlock            requirePiiCapableRole only     — knows only that you handle PII
+         *
+         * requirePiiCapableRole passes any support agent. AccountScope would refuse that same
+         * agent on a SALON OWNER's or an ADMIN's account. So the weaker door let support unlock
+         * accounts the stronger door exists to protect — and the weaker door is the one the console
+         * actually calls, because clearOtpLockout was never wired to a button.
+         *
+         * This is the same shape as the erasure hole found earlier this session: two copies of one
+         * decision, drifted, and the permissive copy is the one in the code path. Both doors now
+         * ask the same question. They keep their separate audit actions on purpose — "OTP lockout
+         * cleared" and "account unlocked" read differently in a log, and the distinction is real
+         * even though the mechanism is not.
+         */
+        var target = requireUser(userId);
+        com.bmp.admin.security.AccountScope.requireCanManage(caller, target.defaultRole(), userId);
+
         try {
             auth.unlock(userId);
         } catch (Exception e) {
@@ -229,11 +490,37 @@ public class ConsoleUserService {
     }
 
     private UserSummaryResponse toSummary(UserServiceClient.UserDto u) {
+        return toSummary(u, false);
+    }
+
+    /**
+     * @param withBookingCount ask bmp-booking how many bookings this person has made.
+     *
+     * <h2>Why it is a parameter and not always on</h2>
+     * This method renders both a LIST and a single user. On a list it is called once per row, and
+     * a remote call per row is how a fifty-row page becomes fifty round trips — the reason the
+     * original TODO concluded it was "not worth a second call per row". That reasoning was right
+     * for the list and wrong for the detail view, where it is one call and real context: "this is
+     * their eleventh booking" changes how an agent handles a complaint.
+     *
+     * <p>So: off for lists, on for one user.
+     */
+    private UserSummaryResponse toSummary(UserServiceClient.UserDto u, boolean withBookingCount) {
+        Long bookingCount = null;
+        if (withBookingCount) {
+            try {
+                var body = bookings.countByCustomer(u.id());
+                bookingCount = body == null ? null : body.get("total");
+            } catch (Exception e) {
+                // Non-fatal, and deliberately so: an agent looking at a user during an incident
+                // needs the screen, not the trivia. Null renders as "—" rather than an error.
+                log.warn("Could not read the booking count for user {} ({}) — the profile is "
+                        + "shown without it.", u.id(), e.toString());
+            }
+        }
         return new UserSummaryResponse(
                 u.id(), u.name(), masker.phone(u.phone()), masker.email(u.email()),
                 u.defaultRole(), u.isVerified(), u.deactivatedAt(), u.createdAt(),
-                // TODO(bmp-booking): a per-customer booking count. Useful context for an agent
-                // ("this is their eleventh booking"), not worth a second call per row yet.
-                null);
+                bookingCount);
     }
 }

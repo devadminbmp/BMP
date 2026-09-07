@@ -16,6 +16,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -50,9 +51,23 @@ import java.util.UUID;
 public class BookingController {
 
     private final BookingService service;
+    /** Session 48 — the stylist-income aggregation. A read-only query, no service layer needed. */
+    private final com.bmp.booking.repositories.BookingServiceItemRepository items;
 
-    public BookingController(BookingService service) {
+    /** Session 48 — resolving a stylist's userId to their profile + salon. See stylistScope. */
+    private final com.bmp.booking.client.SalonAvailabilityClient salonClient;
+
+    /** Session 52 — the counter/phone booking flow. See CounterBookingService for the ordering. */
+    private final com.bmp.booking.services.CounterBookingService counter;
+
+    public BookingController(BookingService service,
+                              com.bmp.booking.repositories.BookingServiceItemRepository items,
+                              com.bmp.booking.client.SalonAvailabilityClient salonClient,
+                              com.bmp.booking.services.CounterBookingService counter) {
         this.service = service;
+        this.items = items;
+        this.salonClient = salonClient;
+        this.counter = counter;
     }
 
     // ---- customer-facing -----------------------------------------------------------------
@@ -179,6 +194,42 @@ public class BookingController {
     // That's not a shortcut — it means there is no parameter to tamper with, so one salon's
     // manager cannot read another salon's day by editing a URL.
 
+    /**
+     * The counter takes a booking. Session 52.
+     *
+     * <h2>What this replaces</h2>
+     * Darshan: <i>"suppose any customer calls the manager or comes to walk in, then the manager
+     * should update it in the portal and the manager should select the stylist… we should
+     * compulsorily have their data in our database."</i>
+     *
+     * <p>The only tool the desk had was {@code POST /api/v1/availability/walk-in}, which takes the
+     * stylist's time off the calendar and records nothing else — no customer, no services, no
+     * price, no invoice, no history. That endpoint stays, because "block this stylist for 20
+     * minutes, no booking" is still a real thing a desk needs; this is the other, bigger case.
+     *
+     * <h2>Owner or manager of THIS salon</h2>
+     * The salon comes from {@code requireSalonScope(caller)} — the token — so there is nothing in
+     * the request to tamper with. Stylists are excluded for the same reason they are excluded from
+     * walk-in blocks: taking bookings and holding customer contact details is the desk's job.
+     *
+     * <p>The booking comes back CONFIRMED with an invoice already raised, because the customer is
+     * standing there and will pay at the counter. See {@code BookingService.createCounter}.
+     */
+    @Operation(
+        summary = "Take a booking at the counter or over the phone",
+        description = "Owner or manager of THIS salon. Creates (or matches) the salon's own customer record from the name and phone — a counter booking cannot be taken anonymously — then books through the same price resolution, slot validation and policy snapshot an app booking uses. Returns CONFIRMED with an invoice raised; there is no online payment order because the money is taken at the desk.")
+    @PreAuthorize("hasAnyRole('SALON_OWNER','MANAGER')")
+    @PostMapping("/counter")
+    public ResponseEntity<BookingResponse> counterBooking(
+            @Valid @RequestBody CounterBookingRequest req,
+            @AuthenticationPrincipal AuthenticatedUser caller) {
+        UUID salonId = requireSalonScope(caller);
+        BookingResponse created = counter.take(salonId, req.items(),
+                req.customerName(), req.customerPhone(), req.customerEmail(), req.notes(),
+                caller.userId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
     @Operation(
         summary = "The salon's day — schedule + summary",
         description = "Service blocks for one LOCAL calendar day (Asia/Kolkata), ordered by start time, plus counts and expected revenue. Optionally filtered to one stylist. Flattened to items on purpose: a booking of two services at two times with two stylists is two rows here. Cancelled bookings are included so a manager can see a slot freed up; the summary excludes them from revenue.")
@@ -194,15 +245,79 @@ public class BookingController {
         return service.salonDay(salonId, day, stylistId);
     }
 
-    @Operation(summary = "The salon's booking history", description = "Paged, newest first, optionally filtered by status. The day view is for working a shift; this is for looking things up afterwards.")
+    /**
+     * Session 44 — the history now filters.
+     *
+     * <p>{@code stylistId} answers "how has Ravi's month been?", and matches bookings a stylist
+     * worked <b>any part of</b> (the stylist is on the item; one booking can span two chairs).
+     *
+     * <p>{@code search} matches the customer's name or the booking reference. It deliberately
+     * does <b>not</b> match phone numbers — V006 refused an index on {@code customer_phone}
+     * because phone lookup is an effective customer-enumeration tool and belongs in bmp-admin
+     * where it is audited. Searching by name here grants the salon nothing it doesn't already
+     * read off its own desk; searching by phone would.
+     */
+    @Operation(
+        summary = "Booking history for your salon, with filters",
+        description = "Newest first, by when the booking was MADE. `stylistId` narrows to one "
+            + "stylist's work; `search` matches customer name or booking reference (not phone). "
+            + "Everything is scoped to the caller's own salon, taken from the token — never a "
+            + "parameter.")
     @GetMapping("/salon")
     @PreAuthorize("hasAnyRole('SALON_OWNER','MANAGER')")
     public PagedBookings salonList(
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) UUID stylistId,
+            @RequestParam(required = false) String search,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal AuthenticatedUser caller) {
-        return service.salonList(requireSalonScope(caller), status, page, size);
+        return service.salonList(requireSalonScope(caller), status, stylistId, search, page, size);
+    }
+
+    /** One stylist's completed work over the window. Money in PAISE, like everything else. */
+    public record StylistIncomeRow(UUID stylistId, long totalPaise, long completedCount) {}
+
+    @Operation(
+        summary = "Income per stylist",
+        description = """
+            The value of COMPLETED work per stylist, over a date range, for the caller's own salon.
+
+            Precisely: the sum of each item's frozen snapshot price, for items whose own status is 'completed', by the time the service STARTED. Not billed, not collected, and not the stylist's pay — BMP does not process payments yet, so this is what was done, not what changed hands.
+
+            Owner only. A manager can see the schedule; who earns what is the owner's business.""")
+    @GetMapping("/salon/stylist-income")
+    @PreAuthorize("hasRole('SALON_OWNER')")
+    public List<StylistIncomeRow> stylistIncome(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @AuthenticationPrincipal AuthenticatedUser caller) {
+
+        UUID salonId = requireSalonScope(caller);
+        if (to.isBefore(from)) {
+            // A backwards range silently returns nothing, and "nobody earned anything" is a
+            // uniquely bad thing to be confidently wrong about.
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "RANGE_INVALID: 'to' must not be before 'from'.");
+        }
+
+        /*
+         * Half-open [from 00:00, to+1 00:00) in the SALON's timezone, so "1st to 31st" includes
+         * the whole of the 31st. Using `to` as the exclusive bound directly would silently drop
+         * the last day — the classic off-by-one in every date-range report, and one nobody
+         * notices because the number still looks reasonable.
+         */
+        var zone = com.bmp.common.time.BmpTimeZone.ZONE;
+        Instant start = from.atStartOfDay(zone).toInstant();
+        Instant end = to.plusDays(1).atStartOfDay(zone).toInstant();
+
+        return items.sumCompletedByStylist(salonId, start, end).stream()
+                .map(r -> new StylistIncomeRow(
+                        (UUID) r[0],
+                        r[1] == null ? 0L : ((Number) r[1]).longValue(),
+                        r[2] == null ? 0L : ((Number) r[2]).longValue()))
+                .sorted(java.util.Comparator.comparingLong(StylistIncomeRow::totalPaise).reversed())
+                .toList();
     }
 
     @Operation(
@@ -282,6 +397,25 @@ public class BookingController {
         UUID salonId = requireSalonScope(caller);
         requireSameSalon(bookingId, salonId);
         return service.reschedule(bookingId, req, true, caller.userId());
+    }
+
+    /**
+     * A counter customer's visits to this salon. Session 52.
+     *
+     * <p>Salon-scoped from the token like every other salon-actor read, so the path id alone
+     * cannot reach another salon's customer. Managers get it as well as owners: "when was she
+     * last in?" is a front-desk question, which is the same reasoning as the history tab.
+     */
+    @Operation(summary = "One counter customer's visits here",
+               description = "Owner or manager of THIS salon. For customers in the salon's own book (V026) — people with no BMP account. Bookings made through the app use /salon/customer/{customerId} instead; the two ids are different things and are deliberately not interchangeable.")
+    @PreAuthorize("hasAnyRole('SALON_OWNER','MANAGER')")
+    @GetMapping("/salon/counter-customer/{salonCustomerId}")
+    public PagedBookings counterCustomerBookings(
+            @PathVariable UUID salonCustomerId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @AuthenticationPrincipal AuthenticatedUser caller) {
+        return service.salonCustomerBookings(requireSalonScope(caller), salonCustomerId, page, size);
     }
 
     /**
@@ -407,6 +541,92 @@ public class BookingController {
      * has a null claim — that's a 409, not a 403: they're allowed to be here, there's just
      * nothing to show yet, and saying so is more useful than "forbidden".
      */
+    // ══ the stylist's own schedule ════════════════════════════════════════════════════════════
+    //
+    // Session 48.
+    //
+    // THE BUG THIS FIXES. The stylist dashboard called /bookings/salon/day, which is
+    // hasAnyRole('SALON_OWNER','MANAGER'). Every real stylist got a 403 and the screen only ever
+    // worked against mocks. The tempting one-line fix — add STYLIST to that annotation — would
+    // have handed every stylist the customer's full name, masked phone (revealable via
+    // /reveal-contact, also on that role list) and the price of every booking in the salon.
+    //
+    // THE SHAPE OF THE FIX. Separate endpoints, returning a type that has no field for any of
+    // those, scoped to ids the caller cannot choose.
+
+    /**
+     * Resolve the CALLER to their own stylist id and salon.
+     *
+     * <h2>Why there is no {@code stylistId} parameter anywhere below</h2>
+     * This is the entire access-control story for these three endpoints. A stylist's JWT carries
+     * userId and role but no salonId, so the scope has to come from somewhere — and the one place
+     * it must not come from is the request. A {@code ?stylistId=} parameter, however carefully
+     * validated at first, is a permanent invitation to read a colleague's day, complete with the
+     * names of their customers.
+     *
+     * <p>Instead bmp-salon answers "who is this login?" from the userId the token asserts. The
+     * caller has no input.
+     *
+     * @throws ResponseStatusException 409 when they aren't on a team — a real state after
+     *         self-registering, and "there's nothing to show yet" is more useful than "forbidden"
+     */
+    private com.bmp.booking.client.SalonAvailabilityClient.StylistIdentity stylistScope(
+            AuthenticatedUser caller) {
+        if (caller == null || caller.userId() == null) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "NO_CALLER");
+        }
+        var me = salonClient.stylistByUser(caller.userId());
+        if (me.salonId() == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "NOT_AT_A_SALON — a salon has to add you to their team before you have a "
+                    + "schedule. You can send them a request from your profile.");
+        }
+        return me;
+    }
+
+    @Operation(
+        summary = "My day (stylist)",
+        description = "The caller's OWN appointments for one local day, plus counts and minutes "
+            + "booked. Carries no customer id, phone, email or surname, and NO money of any "
+            + "kind — the response type has no fields for them. The stylist is resolved from "
+            + "your token; there is no id parameter to change.")
+    @PreAuthorize("hasRole('STYLIST')")
+    @GetMapping("/stylist/day")
+    public StylistDayResponse stylistDay(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @AuthenticationPrincipal AuthenticatedUser caller) {
+        var me = stylistScope(caller);
+        // "Today" in the salon's timezone, not the server's — same rule as the manager's day.
+        LocalDate day = date != null ? date : LocalDate.now(BmpTimeZone.ZONE);
+        return service.stylistDay(me.salonId(), me.stylistId(), day);
+    }
+
+    @Operation(
+        summary = "My upcoming appointments (stylist)",
+        description = "Forward queue, soonest first. Cancelled and completed excluded — a queue "
+            + "of things that aren't happening is a queue people stop trusting.")
+    @PreAuthorize("hasRole('STYLIST')")
+    @GetMapping("/stylist/upcoming")
+    public PagedStylistBookings stylistUpcoming(@RequestParam(defaultValue = "0") int page,
+                                                 @RequestParam(defaultValue = "20") int size,
+                                                 @AuthenticationPrincipal AuthenticatedUser caller) {
+        var me = stylistScope(caller);
+        return service.stylistUpcoming(me.salonId(), me.stylistId(), page, Math.min(size, 100));
+    }
+
+    @Operation(
+        summary = "My past appointments (stylist)",
+        description = "The work I've done at this salon, newest first. Same omissions: no "
+            + "customer contact details, no amounts.")
+    @PreAuthorize("hasRole('STYLIST')")
+    @GetMapping("/stylist/history")
+    public PagedStylistBookings stylistHistory(@RequestParam(defaultValue = "0") int page,
+                                                @RequestParam(defaultValue = "20") int size,
+                                                @AuthenticationPrincipal AuthenticatedUser caller) {
+        var me = stylistScope(caller);
+        return service.stylistHistory(me.salonId(), me.stylistId(), page, Math.min(size, 100));
+    }
+
     private UUID requireSalonScope(AuthenticatedUser caller) {
         if (caller == null || caller.salonId() == null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "NO_SALON_SCOPE — create a salon first");

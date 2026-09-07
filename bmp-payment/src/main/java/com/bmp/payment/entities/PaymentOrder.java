@@ -56,11 +56,87 @@ public class PaymentOrder {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    // ══ V004 (Session 50) ═════════════════════════════════════════════════════════════════════
+
+    /** Whose {@code salonSharePaise} this is. Without it a payout needs a cross-service join. */
+    @Column(name = "salon_id")
+    private UUID salonId;
+
+    /**
+     * The RATE that produced {@link #commissionPaise}, frozen with it.
+     *
+     * <p>Before V004 this service used a hardcoded 1200 bps for every salon while
+     * {@code salon_policy.commission_bps} held a per-partner rate an admin had negotiated — so
+     * the platform could agree 8%, display 8%, and charge 12%. Recording the rate next to the
+     * amount makes a past split explainable rather than merely recomputable against today's rate.
+     */
+    @Column(name = "commission_bps")
+    private Integer commissionBps;
+
+    /** {@code pay_XXXX} — the reference on the customer's bank statement. Set at capture. */
+    @Setter
+    @Column(name = "gateway_payment_id", length = 64)
+    private String gatewayPaymentId;
+
+    /** Verbatim from the gateway. "It didn't work" is the commonest support contact. */
+    @Setter
+    @Column(name = "failure_reason", length = 300)
+    private String failureReason;
+
+    /** Set once, when the gateway order is opened. */
+    public void attachGatewayOrder(String gatewayOrderId) {
+        if (this.razorpayOrderId != null) {
+            throw new IllegalStateException("GATEWAY_ORDER_ALREADY_SET: this order is already "
+                    + this.razorpayOrderId + " — a second one would let a customer pay twice.");
+        }
+        this.razorpayOrderId = gatewayOrderId;
+    }
+
+    /**
+     * The money arrived.
+     *
+     * <h2>Idempotent, because gateways deliver at least once</h2>
+     * A redelivered webhook must not move {@code payment_captured_at} — that timestamp is the
+     * legal record of when the transaction happened, and overwriting it with the retry's arrival
+     * time quietly falsifies it. Returns false when this was a repeat, so the caller knows not to
+     * write a second ledger entry or confirm the booking again.
+     *
+     * @return true if this call actually captured; false if it was already captured
+     */
+    public boolean capture(String gatewayPaymentId, Instant capturedAt) {
+        if ("captured".equals(this.status)) return false;
+        this.status = "captured";
+        this.gatewayPaymentId = gatewayPaymentId;
+        this.paymentCapturedAt = capturedAt;
+        this.failureReason = null;
+        return true;
+    }
+
+    /** The payment failed. Not terminal — the customer may try again on the same order. */
+    public void fail(String reason) {
+        if ("captured".equals(this.status)) {
+            throw new IllegalStateException("ALREADY_CAPTURED: refusing to mark a captured "
+                    + "payment as failed — the money is here.");
+        }
+        this.status = "failed";
+        this.failureReason = reason;
+    }
+
+    public boolean isCaptured() { return "captured".equals(status); }
+
     protected PaymentOrder() {} // JPA
 
-    public PaymentOrder(UUID bookingId, String razorpayOrderId, String idempotencyKey, Money amountPaise, Money commissionPaise, Money salonSharePaise, String razorpayRawWebhook, Instant paymentCapturedAt, String status) {
+    /**
+     * @param commissionBps the salon's OWN rate, from salon_policy — never a platform constant
+     */
+    public PaymentOrder(UUID bookingId, UUID salonId, Integer commissionBps,
+                         String razorpayOrderId, String idempotencyKey, Money amountPaise,
+                         Money commissionPaise, Money salonSharePaise, String razorpayRawWebhook,
+                         Instant paymentCapturedAt, String status) {
         this.id = UuidV7.generate();
         this.bookingId = bookingId;
+        this.salonId = salonId;
+        this.commissionBps = commissionBps;
         this.razorpayOrderId = razorpayOrderId;
         this.idempotencyKey = idempotencyKey;
         this.amountPaise = amountPaise;

@@ -77,10 +77,24 @@ public class CouponIssuePolicy {
         }
         return new Limits(
                 false,
+                /*
+                 * Session 55 — the ceilings a support desk runs at, matching what comparable
+                 * consumer apps give a front-line agent. All four are `coupon_policy` rows, so
+                 * changing them is a data change with an audit trail, not a deploy:
+                 *
+                 *   ₹500 flat · 20% · 30 days · 50 recipients
+                 *
+                 * RECIPIENTS WAS 1, which quietly made a documented requirement impossible:
+                 * "coupons can be given to a group of people or individuals, mainly by support or
+                 * ops when they raise for a refund". One recipient is not a group — an agent
+                 * settling a salon-wide outage for forty customers had to escalate every single
+                 * one. Above any of these, the agent escalates to an ops admin, which is what the
+                 * refusal messages say.
+                 */
                 policyLong("support_max_flat_paise", 50_000L),
                 (int) policyLong("support_max_percent_bps", 2000L),
                 (int) policyLong("support_max_validity_days", 30L),
-                (int) policyLong("support_max_recipients", 1L),
+                (int) policyLong("support_max_recipients", 50L),
                 true);
     }
 

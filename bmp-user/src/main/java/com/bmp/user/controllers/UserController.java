@@ -60,6 +60,14 @@ public class UserController {
         return service.getByPhone(phone);
     }
 
+    @Operation(summary = "[internal] Look up a user by email",
+               description = "Service-only, same reasoning as the phone lookup: arbitrary email\u2192profile resolution is an enumeration risk. Session 65 \u2014 added so a salon can invite a stylist by email as well as by phone.")
+    @GetMapping("/by-email")
+    @PreAuthorize("hasRole('SERVICE')")
+    public UserResponse getByEmail(@RequestParam String email) {
+        return service.getByEmail(email);
+    }
+
     @Operation(summary = "Update profile fields — self or internal only", description = "name, gender, age, email, photo, hair type/length. Phone is immutable (identity key).")
     @PutMapping("/{userId}")
     @PreAuthorize("hasRole('SERVICE') or principal.userId() == #userId")
@@ -81,6 +89,26 @@ public class UserController {
     @PreAuthorize("hasRole('SERVICE')")
     public UserResponse reactivate(@PathVariable UUID userId) {
         return service.reactivate(userId);
+    }
+
+    /**
+     * Erase a user's personal data. {@code ROLE_SERVICE} only. Session 56.
+     *
+     * <h2>Why no human role may call this</h2>
+     * It is irreversible and it destroys data. The legitimate path is a data-deletion request in
+     * the admin console, which verifies the request came from the account holder, records who
+     * actioned it and when, and then calls this. A staff member with a URL should not be able to
+     * erase somebody on a whim, and a customer should not be able to erase somebody else at all.
+     *
+     * <p>Idempotent — a retried compliance job gets 200, not a 409.
+     */
+    @Operation(summary = "[internal] Anonymise an account (irreversible)",
+               description = "SERVICE only, called by bmp-admin when a verified deletion request is actioned. Clears name, email, gender, age, photo and hair profile, and replaces the phone with a non-dialable tombstone that frees the real number for future signup. The id survives so past bookings and invoices still resolve. The account can never be reactivated afterwards.")
+    @PostMapping("/{userId}/anonymise")
+    @PreAuthorize("hasRole('SERVICE')")
+    public UserResponse anonymise(@PathVariable UUID userId,
+                                   @RequestParam(required = false) String reason) {
+        return service.anonymise(userId, reason);
     }
 
     // ---- roles ----
@@ -137,5 +165,55 @@ public class UserController {
     public ResponseEntity<Void> clearOnboardingState(@PathVariable UUID userId) {
         service.clearOnboardingState(userId);
         return ResponseEntity.noContent().build();
+    }
+    /** Change phone and/or email. Null leaves a field unchanged. */
+    public record ChangeContactRequest(String phone, String email) {}
+
+    /**
+     * Administered contact change. Session 65.
+     *
+     * <p>ROLE_SERVICE only — bmp-admin is the caller, because that is where the staff member is
+     * authenticated, where AccountScope decides whether their role may touch THIS account, and
+     * where the audit entry is written. bmp-user knows nothing about staff roles and should not
+     * start learning: it owns the users table, not the question of who may change it.
+     */
+    @Operation(summary = "[internal] Change a user's phone and/or email",
+               description = "Called by bmp-admin after an authority check. Changing the phone changes who can log in.")
+    @PatchMapping("/{userId}/contact")
+    @PreAuthorize("hasRole('SERVICE')")
+    public UserResponse changeContact(@PathVariable UUID userId,
+                                       @RequestBody ChangeContactRequest req) {
+        return service.changeContact(userId, req.phone(), req.email());
+    }
+
+    /**
+     * @param staffId who is doing it, for the row. bmp-user takes this on trust from bmp-admin
+     *                because only bmp-admin can authenticate a staff member — and the call is
+     *                ROLE_SERVICE, so nothing outside the mesh can reach it.
+     */
+    public record BlockRequest(UUID staffId, String reason) {}
+
+    /**
+     * Block sign-in. Session 65.
+     *
+     * <h2>Separate from /deactivate, and it has to be</h2>
+     * {@code /deactivate} is the person's own "I want a break", and bmp-auth undoes it on their
+     * next login. Routing a staff block through it produced a block that lifted itself. This
+     * endpoint writes {@code blocked_at}, which nothing reverses automatically.
+     */
+    @Operation(summary = "[internal] Block an account",
+               description = "Reversible via /unblock. Unlike /deactivate, a successful login does NOT clear it.")
+    @PostMapping("/{userId}/block")
+    @PreAuthorize("hasRole('SERVICE')")
+    public UserResponse block(@PathVariable UUID userId, @RequestBody BlockRequest req) {
+        return service.block(userId, req.staffId(), req.reason());
+    }
+
+    @Operation(summary = "[internal] Lift a block",
+               description = "Does not reactivate a self-deactivated account — that stays the person's own decision.")
+    @PostMapping("/{userId}/unblock")
+    @PreAuthorize("hasRole('SERVICE')")
+    public UserResponse unblock(@PathVariable UUID userId) {
+        return service.unblock(userId);
     }
 }

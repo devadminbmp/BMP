@@ -33,6 +33,11 @@
          release line compatible with Spring Boot 3.4.x, needed for Eureka + Gateway. -->
     <spring-cloud.version>2024.0.0</spring-cloud.version>
     <jjwt.version>0.12.6</jjwt.version>
+    <!-- Session 44: image upload. The AWS SDK is used to talk to MinIO in dev and to real
+         S3/R2/Spaces in production — all of which speak the S3 API, which is the entire reason
+         this is the SDK rather than a MinIO-specific client. Swapping providers is four config
+         values in bmp-salon's application.yml, not a dependency change. -->
+    <aws-sdk.version>2.28.16</aws-sdk.version>
   </properties>
 
   <modules>
@@ -70,6 +75,16 @@
         <groupId>org.springframework.cloud</groupId>
         <artifactId>spring-cloud-dependencies</artifactId>
         <version>${spring-cloud.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <!-- Session 44: BOM so every module agrees on one AWS SDK version. The SDK's modules
+           are tightly coupled to each other; mixing versions produces NoSuchMethodError at
+           runtime rather than a build failure, which is the worst place to find out. -->
+      <dependency>
+        <groupId>software.amazon.awssdk</groupId>
+        <artifactId>bom</artifactId>
+        <version>${aws-sdk.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>

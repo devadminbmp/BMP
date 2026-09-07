@@ -64,10 +64,17 @@ bmp:
     # per-endpoint. Before this the service had no public-paths, so all six endpoints were open
     # and anyone could post, edit, or reply to any review without signing in.
     #
-    # ⚠️ STILL OPEN, and worse than the config: nothing verifies the reviewer ever had a booking
-    # (ReviewService:37). Requiring a token stops anonymous spam; it does not stop a signed-up
-    # account reviewing a salon it never visited. That needs the Feign check to bmp-booking and
-    # is tracked in docs/PENDING_WORK.md §S3.
+    # ✅ CLOSED IN SESSION 54. This block used to read: "STILL OPEN, and worse than the config:
+    # nothing verifies the reviewer ever had a booking. Requiring a token stops anonymous spam; it
+    # does not stop a signed-up account reviewing a salon it never visited."
+    #
+    # ReviewService.requireReviewable now calls bmp-booking and refuses unless the booking exists,
+    # belongs to the caller, is COMPLETED, and finished within 90 days. The salon and stylist on
+    # the review are taken from the BOOKING, not from the request body — trusting those let a
+    # genuine customer attach a genuine review to a salon they never visited.
+    #
+    # Note that /api/v1/bookings/*/review is NOT in the public-paths below and must never be: it
+    # is a write, and these patterns are method-blind.
     # ═════════════════════════════════════════════════════════════════════════════════════════
     # SESSION 40 — READ THIS BEFORE ADDING A PATTERN HERE.
     #

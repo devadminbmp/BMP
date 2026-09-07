@@ -132,4 +132,38 @@ public interface RewardsServiceClient {
                         @RequestParam("staffId") UUID staffId,
                         @RequestParam("staffEmail") String staffEmail,
                         @RequestParam("staffRole") String staffRole);
+
+    // ── Referral programme. Session 64. ─────────────────────────────────────────────────────────
+    /*
+     * What the platform pays for a referral, and whether each side is switched on.
+     *
+     * Changing this applies to referrals made AFTERWARDS only — amounts are frozen onto the
+     * referral row at attribution, so a rate cut cannot retroactively shrink a promise already made
+     * to somebody who has already told their friend about us. Stated here as well as in
+     * bmp-rewards because this is where the console reads it, and it is the property a reader will
+     * most naturally assume the opposite of.
+     */
+    record ReferralProgramView(
+            java.util.UUID id,
+            long referrerRewardPaise, long refereeRewardPaise,
+            boolean referrerEnabled, boolean refereeEnabled,
+            long referrerPayoutPaise, long refereePayoutPaise,
+            boolean effectivelyOff,
+            java.time.Instant effectiveFrom, String changedByEmail, String note,
+            java.time.Instant createdAt) {}
+
+    record PublishReferralProgram(
+            long referrerRewardPaise, long refereeRewardPaise,
+            boolean referrerEnabled, boolean refereeEnabled,
+            java.time.Instant effectiveFrom,
+            java.util.UUID staffId, String staffEmail, String note) {}
+
+    @GetMapping("/api/v1/internal/referral-program/current")
+    ReferralProgramView currentReferralProgram();
+
+    @GetMapping("/api/v1/internal/referral-program/history")
+    java.util.List<ReferralProgramView> referralProgramHistory();
+
+    @PostMapping("/api/v1/internal/referral-program")
+    ReferralProgramView publishReferralProgram(@RequestBody PublishReferralProgram req);
 }

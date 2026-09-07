@@ -31,9 +31,11 @@ import java.util.UUID;
  * somewhere, {@code requireSalonScope} proves it's here. Availability decides who can be booked
  * and when — it isn't something a manager at another salon should be able to touch.
  *
- * <p>Stylists cannot yet edit their own hours. Their JWT is deliberately not salon-scoped
- * (portable identity), so "is this stylist allowed to edit THIS salon's copy of their hours"
- * needs a lookup this pass doesn't build. Flagged, not silently skipped.
+ * <p>Stylists cannot EDIT their own hours — that is the salon's roster, not theirs. But since
+ * Session 66 they can READ them: see {@code StylistSelfHoursController}. Darshan, on setting a
+ * stylist to 10am-7pm and finding nothing on their side: "your taking working hours and stylist
+ * dashboard doesnt have reflect on it". The person expected at the chair could not see the shift
+ * they were expected for, which is not a defensible thing for a rota to do.
  *
  * <h2>409 responses</h2>
  * A write that would strand existing appointments is refused with a 409 naming them. Pass

@@ -73,10 +73,24 @@ cause in `getSlots` and it was treated as isolated.
 |---|---|---|
 | ~~A1~~ | ~~`getSlots` parsed the wrong shape~~ | ✅ Session 38 |
 | ~~A2~~ | ~~4 discovery schemas vs. columns that didn't exist~~ | ✅ Session 40 — V011 + rewritten schemas |
-| ~~A3~~ | ~~No way to detect a third instance~~ | ✅ `scripts/check-api-contracts.py`. **35 schemas match.** Found 4 more on its first run. |
-| **A4** | **The guard is a local script, not CI** | The repos are separate; neither workflow has the other checked out, so a CI job can't do this honestly. Cross-repo checkout is the real fix when it's worth the complexity. **Run it before touching any API shape.** |
+| ~~A3~~ | ~~No way to detect a third instance~~ | ✅ `ApiContractTest` (bmp-common). **36 schemas match.** Found 4 more on its first run. |
+| ~~A4~~ | ~~The guard is a local script, not CI~~ | ✅ Session 43 — it's `ApiContractTest` in bmp-common, so it runs under `mvn verify` locally and in your IDE. In CI it **skips** (assumption, not failure) because the workflow clones one repo; failing a build over a missing sibling repo teaches people to ignore the failure. **Run it before touching any API shape.** |
 | **A5** | **Mocks are still hand-written** | They now speak the server's shape, but nothing enforces it. Fixture tests captured from real responses (T3) would. |
 | **A6** | **No type checking in the guard** | It compares field NAMES only. A schema saying `number` where the server sends `String` still passes. |
+
+**New in Session 43 — the auth surface.** Login/signup was swept end to end across all four roles.
+Fixed: a fail-open `lookupUserByPhone` that turned any bmp-user outage into a *silent duplicate
+signup*; the same pattern in `resolveSalonScope`, which minted owner tokens with `salonId = null`
+so the console 403'd everywhere; OTPs replayable for their full 5-minute TTL (V005 `consumed_at`);
+`000000` unlocking **every** account, now allowlisted to the six seeded phones; a phone validator
+that accepted `+91919876500003`; a staff sign-in door that could mint a customer account from a
+typo. See BMP/CONTEXT.md Session 43 and BMP-FE/CONTEXT.md Session 43.
+
+| # | Still open after that sweep | Note |
+|---|---|---|
+| **N11** | **No rate limit on `/otp/request` beyond the 55s per-phone cooldown** | One phone is throttled; ten thousand phones are not. Email is real delivery now, so this is a route to burning the SMTP quota — and to using BMP as a spam relay. IP-level throttling at the gateway. |
+| **N12** | **`otp_requests` rows are never cleaned up** | Every code ever requested is kept forever, each holding a phone number and an email. A DPDP retention problem that grows monotonically. A daily job deleting consumed/expired rows older than N days. |
+| **N13** | **`bmp-admin` staff login is untouched by the Session 43 sweep** | Separate door — email + password + TOTP against bmp-admin, and `VITE_USE_MOCKS` defaults ON, so the console can look healthy while the backend is down. Nobody has audited it since Session 28. |
 
 ---
 
@@ -219,6 +233,247 @@ Nothing here reorders the fundraise plan; it fills in the detail.
 6. **F1** — an unanswered contact form on a live site is worse than no form.
 7. Decide on §4: build the UI or delete the endpoints. Leaving them is the worst option — dead
    code that looks alive misleads whoever reads the codebase next, which by then may not be you.
+
+---
+
+## 5d. Session 44 — owed, and why each is deferred rather than done
+
+**~~Real image upload (object storage). Now in THREE places.~~ ✅ DONE — Session 44, V015.**
+All three surfaces (`salon.imageUrl`, `salonService.imageUrl`, the `salon_photo` gallery) now
+accept a real JPG/PNG/WebP upload as well as a pasted link. MinIO in docker-compose; because it
+speaks the S3 API, moving to S3/R2/Spaces is the six `bmp.storage.*` values in bmp-salon's
+application.yml and no Java at all.
+
+Decisions worth knowing about:
+· **Upload goes THROUGH bmp-salon, not via a presigned URL.** A presigned PUT cannot be
+  validated — whatever the client sends is what lands in the bucket. At 8MB and twelve photos per
+  salon the bandwidth is affordable and the ability to reject is not optional.
+· **The server re-encodes every image**, which is what strips EXIF. Phone cameras write GPS
+  coordinates into photos; a stylist shooting their work would otherwise publish the salon's exact
+  location, and a photo taken at home would publish their home address.
+· **`storage_key` records ownership**, so deleting a row deletes our file and never touches an
+  image the salon hosts elsewhere. Replacing an image deletes the superseded object.
+· Object deletion is deliberately non-fatal, so a storage outage during a delete leaks an object
+  by design. V015 adds partial indexes that make reconciliation a cheap bucket-diff. **A periodic
+  orphan sweep is still unwritten** — the only piece of this feature not done.
+
+**Per-stylist services are inert.**
+The staff editor lets you attach services to a stylist, and the availability algorithm does not
+read that link — any stylist can be assigned to any service. So the control saves, and changes
+nothing. That is the "control that always fails reads as broken software" shape, one step worse:
+it *succeeds* and still changes nothing, which is the kind of bug you only find by testing the
+outcome rather than the click. Either wire it into `AvailabilityService` or remove the UI.
+
+**Converge the internal-endpoint namespace.**
+bmp-rewards serves its service-to-service endpoints at `/api/v1/internal/**`, which has no gateway
+route — genuinely unreachable from outside. Every other service nests them under the public parent
+(`/api/v1/salons/internal`, `/api/v1/bookings/internal`), which the parent's `/**` predicate
+matches, so **those are reachable from the public internet** and depend entirely on
+`@PreAuthorize("hasRole('SERVICE')")`.
+
+All six are guarded today, and `GatewayRouteTest` now asserts that on every build, so this is not
+an open hole. But bmp-rewards' arrangement is strictly better: it puts a network layer underneath
+the authorization one, so a future mistake in a single annotation is not immediately
+internet-facing. Deferred because moving a path prefix breaks every Feign client that calls it —
+a mechanical change that deserves its own commit and its own review, not a footnote in a UI pass.
+
+**Closed in Session 44:** the missing-gateway-route bug class. `GatewayRouteTest` asserts every
+controller `@RequestMapping` prefix is covered by a route predicate, using a *segment-aware*
+match — a plain `startsWith` would have reported `/api/v1/coupons` as covering
+`/api/v1/coupon-requests`, reintroducing the exact bug it exists to catch.
+
+---
+
+## 5e. Session 45 — support, and the location bugs found on the way
+
+**Closed: nobody could open a support ticket.** The headline finding of the session. bmp-admin
+had a complete support desk since Session 21 — ticket/message tables, SLA clocks, canned
+responses, triage, five console pages — and `SupportTicketController` was `ROLE_SERVICE` with
+**no callers anywhere in any of the three repos**. A salon owner whose payout looked short, or a
+customer disputing a cancellation fee, had no route to a human at all. A call centre with the
+phone line unplugged.
+
+Now: `/api/v1/support` in bmp-user (all roles), a Help tab on owner/manager/customer, "Get help"
+on a booking row, and "Log a call" in the console for phone-ins. Identity is derived from the JWT
+at the bmp-user boundary and re-checked against the ticket in bmp-admin — the calling service is
+trusted to authenticate, never to authorise.
+
+**Closed on the way: two location bugs that were costing salons bookings.**
+
+· `listSalons` sent a hardcoded `'12.9716,77.5946'` — Bengaluru city centre — as every customer's
+  position. A customer in Whitefield saw salons 18km away and none near them, and nothing on
+  screen admitted the location was invented, so the honest reading was "there are no salons near
+  me". Now uses the device position, with an explicit, retryable notice when permission is denied.
+· Search never touched service names, and ran client-side over the already-fetched list. So
+  "balayage" — the most natural thing a customer types — matched nothing, and a salon outside the
+  radius was unfindable. Now server-side across name, area, address and live service names.
+· Nothing could set a salon's coordinates. Signup used the AREA CENTROID, so every salon in
+  Indiranagar sat on one point, and `SalonResponse.location` was returned by the server but
+  dropped by the frontend schema — so no screen could ever show an owner where their salon was.
+  `LocationField` now takes one GPS tap or a pasted Maps link.
+
+### Found in the Session 45 self-review (4 bugs, all fixed)
+
+Asked "is it done, no bugs?", I went looking rather than answering. Recorded because the shapes
+recur:
+
+1. **A manager could read the owner's support tickets.** Salon scope was passed for any
+   salon-scoped role, which reads as "support is a salon-level concern" — right until you consider
+   that "I need to revoke my manager's access, money has gone missing" is an ordinary
+   `account_issue` ticket. Now OWNER-only for reads; writes still stamp `salonId` so the owner
+   sees what managers raised. *Writing a scope and reading by it are different questions.*
+2. **Customers were offered salon-only categories** ("My salon isn't showing up", "Payments and
+   payouts"). The filter was `audience === 'salon' ? forSalon : true` — a customer picking one
+   files into the partner queue and gets mis-triaged. Two independent flags now.
+3. **`requesterEmailMasked` / `requesterPhoneMasked` were never masked.** Raw email and phone
+   passed into fields whose names promise masking, readable by every staff role that can list the
+   queue including READ_ONLY. No masking helper existed anywhere in bmp-admin. `ConsoleDtos` says
+   it outright: *"Masking is only meaningful if the unmasked value never leaves the server."*
+   Pre-existing, but newly load-bearing now that in-app tickets exist.
+4. **In-app tickets were anonymous to agents.** `requesterName` is hardcoded null (older TODO) and
+   the contact columns are only populated for account-less phone-ins — so every ticket raised
+   through the app showed no requester at all. `raisedById` is now on the response.
+
+**5th bug, found when asked "is location done?":** the request was *"manager or owner can update
+the location"* and only the OWNER could. `LocationField` went into the Profile tab, which is
+owner-only — correctly, since `PUT /salons/{id}` can also rename the business. So the manager,
+who is the person most likely to be standing in the salon with a phone, had to ask the owner to
+set the pin from a laptop somewhere else.
+
+Fixed with a dedicated `PUT /salons/{id}/location` (owner OR manager, same shape as the photo
+endpoints) and a shared `SalonLocationPanel` on a Location tab of both dashboards. The copy in the
+Profile tab was REMOVED rather than left alongside — two code paths writing one value is exactly
+how a field like this ends up subtly wrong, and this is the field least able to survive that.
+
+### Still open
+
+**`nextTicketRef` is not concurrency-safe.** `create` counts existing rows and adds one — two
+simultaneous tickets can collide on `uk_support_ticket_ref`. Flagged since Session 21 as
+"replace with a DB sequence before go-live", and **materially more likely to bite now** that real
+users can create tickets rather than only a service that never called it. Needs a Postgres
+sequence, which is a migration plus a decision about back-filling.
+
+**Staff replies are recorded but never emailed.** `SupportDeskController.reply` carries a TODO
+saying an agent believing they replied when the customer heard nothing is worse than no reply
+feature at all. Session 45 partly fixes this — the user can now READ the reply in their Help tab —
+but nothing notifies them it arrived, so they only see it if they think to look. Wiring
+`ticket.replied` through the existing outbox → Kafka → NotificationDispatcher path is the
+remaining piece and reuses machinery that already exists for booking events.
+
+**Wallet and referrals have no UI.** Four live endpoints in bmp-rewards (`/wallet`,
+`/wallet/transactions`, `/referral-code`, admin credit) with zero callers in either frontend.
+Worth checking whether a balance can move at all before building a screen that always reads zero —
+no money has ever passed through BMP.
+
+**Discovery is still an in-memory Haversine over every salon.** Fine at current scale. The
+`q` filter added this session runs in the same pass, so it inherits the same ceiling.
+
+---
+
+## 5f. Session 46 — salon onboarding: pending / rejected / approved
+
+**Closed: an owner was never told their own status.** The largest remaining
+failure-that-looks-like-success in the product. `OwnerDashboard` rendered a full working desk
+whether the salon was pending, rejected, suspended or approved — the login response carried no
+status and no screen asked. A rejected owner would build a service menu, invite managers, set
+opening hours, and wait for bookings that could never arrive, because customers cannot see an
+unapproved salon.
+
+Now: `GET /salons/{id}/approval` (owner or manager) and a `SalonApprovalGate` that routes by
+status. PENDING is told and then let through — services, staff, hours and photos are genuinely
+useful preparation, and the approval is worth more on the day it lands if that work is done.
+REJECTED and SUSPENDED lead with the fix instead, since there is nothing useful to prepare for a
+salon that won't go live as things stand.
+
+**Closed: approve/reject was completely silent.** `SalonModerationService.decide` published
+nothing. A moderator approved a salon and the owner found out by opening the app and guessing; a
+rejection they found out never — which turns the single most anticipated moment in a partner's
+relationship with BMP into a silence indistinguishable from being ignored. Now
+`salon.status.changed` flows through the existing outbox → Kafka → NotificationDispatcher path.
+Email is live (JavaMailSender, same as OTP); SMS/WhatsApp remain the "configuration pending"
+stubs from Session 43. SMS carries approvals only — a truncated refusal is worse than no message,
+because the owner then knows they were refused and still not why.
+
+**Closed: rejection was a dead end.** V007 drops `uk_salon_review_salon` so a salon has ONE ROW
+PER SUBMISSION. `decide`'s guard — *"re-approving a rejection would erase the fact it was ever
+rejected"* — is exactly right and stays untouched; reusing the row would have meant relaxing it.
+Resubmission creates a new row instead, and `enqueue`'s idempotency is now expressed properly as
+"no PENDING row exists", which absorbs bmp-salon's retries while allowing the legitimate second
+submission the unique index used to forbid.
+
+**Where the event is published, and why it matters.** In bmp-salon's `InternalSalonController`,
+not bmp-admin. Two reasons: bmp-admin's `SalonDto` has no owner field at all, so it literally
+cannot address the message; and publishing from bmp-salon puts the outbox write in the SAME
+transaction as the status change, so "the salon is approved" and "the owner was told" cannot
+disagree.
+
+**Closed: signup used the AREA CENTROID and collected no photos.** The map pin is now a REQUIRED
+signup step (GPS tap or Maps link), replacing `lat: areaMeta?.lat ?? 12.9716` and the TODO that
+had been asking for exactly this since Session 15. Required rather than optional because signup is
+the one moment the owner is definitely engaged — "add it later from the dashboard" means most
+never do.
+
+Photos are OPTIONAL and offered AFTER creation, which is forced by the API as much as chosen: the
+upload endpoint is scoped to `salons/{salonId}/media`, so no salon exists to upload against until
+the salon is created. An owner without a good photo to hand shouldn't be turned away, but they are
+told it affects approval.
+
+**Closed: moderators approved blind.** The review panel showed a name, an id and an area — nothing
+a customer looks at — while the decision checklist asks the reviewer to confirm "photos genuine".
+They were being asked to certify something the screen never showed them. `SalonPreview` now renders
+the gallery, and an EMPTY gallery is stated explicitly rather than left blank, because "this salon
+has no photos" is itself a signal worth having before approving. Resubmissions carry a
+"Submission N" badge and the owner's own note about what they fixed, so a second look is a
+re-check rather than a fresh review.
+
+### The first real compile error — and what it says about the verification gap
+
+`SalonService.update` took `UUID id`, not `UUID salonId`. Session 44's cover-image work wrote
+`requireOwnKeyOrNull(salonId, ...)` there, copying the shape used in `addPhoto`, `updatePhoto`,
+`addService` and `updateService` — where the parameter genuinely IS `salonId`. Four correct call
+sites and one wrong one, in the same file.
+
+**Tree-sitter could never have caught this.** It is syntactically perfect Java; the identifier is
+simply not in scope. Every "386 files parse clean" claim in this document was true and did not
+mean what it might have looked like it meant.
+
+A scope checker now exists for this class of bug (bare identifiers passed as call arguments that
+aren't declared in the enclosing method, its class fields, or any enclosing binding form). Run
+across the 15 files changed in Sessions 44–46 it reports **zero** others. That is a real result but
+a narrow one: it checks name resolution for one syntactic shape, not types, not method existence,
+not overload resolution.
+
+### The second compile error — a global find/replace that hit three records
+
+`SalonDetailResponse` gained an `imageStorageKey` component it was never meant to have, so
+`detail()` passed 16 arguments to a 17-component record. IntelliJ reported it 30 times.
+
+Cause: the Session 44 edit used Python's `str.replace()`, which replaces EVERY occurrence. The
+line `String area, String address, String about, String imageUrl,` appears in three records, so
+one intended edit became three:
+
+| record | intended? | consequence |
+|---|---|---|
+| `UpdateSalonRequest` | ✅ yes | correct |
+| `CreateSalonRequest` | ❌ no | a field `create()` explicitly ignores (`setImageStorageKey(null)`) — accepted and silently discarded |
+| `SalonDetailResponse` | ❌ no | **the arity error, and a leak**: this is the PUBLIC customer detail response, so it would have published internal object-storage keys to everyone browsing a salon |
+
+The arity error was the loud symptom; the public leak was the quiet one, and only visible because
+the compiler forced a look at that record. Both unintended components removed.
+
+**Two static guards now exist** for the classes of bug tree-sitter cannot see:
+`undefined bare identifiers passed as arguments` (caught the `salonId`/`id` scope error) and
+`record arity vs constructor call`, file-scoped so same-named records in different modules don't
+produce noise. Both report clean across all 386 files.
+
+**Neither replaces `mvn verify`.** They check name resolution and argument counts — not types, not
+overload resolution, not generics. Maven Central is still unreachable from this environment (403
+at the proxy), so the compiler has still never run here. Both real errors so far were found by
+Darshan's IDE, which is the only thing actually type-checking this code.
+
+### Still open after Session 46
+
+**`nextTicketRef` concurrency** (Session 45) — unchanged and still owed a Postgres sequence.
 
 ---
 

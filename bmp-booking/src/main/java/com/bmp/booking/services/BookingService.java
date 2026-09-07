@@ -1,6 +1,7 @@
 package com.bmp.booking.services;
 
 import com.bmp.booking.api.BookingStatus;
+import com.bmp.booking.client.PaymentServiceClient;
 import com.bmp.booking.client.RewardsServiceClient;
 import com.bmp.booking.client.SalonAvailabilityClient;
 import com.bmp.booking.client.dto.AvailabilitySlot;
@@ -54,11 +55,19 @@ public class BookingService {
     private final BookingServiceItemRepository items;
     private final BookingEventsRepository events;
     private final SalonAvailabilityClient availability;
+    /** Session 50 — opening the payment order that lets a booking ever become CONFIRMED. */
+    private final com.bmp.booking.client.PaymentServiceClient payments;
     private final com.bmp.booking.client.RewardsServiceClient rewards;
     private final com.bmp.booking.client.UserServiceClient users;
     private final com.bmp.common.outbox.OutboxPublisher outbox;
     /** Session 37 — the reschedule trail. Had no repository at all before this session. */
     private final com.bmp.booking.repositories.BookingModificationRepository modifications;
+    /**
+     * Session 52 — a counter booking raises its bill immediately. Online bookings get theirs when
+     * payment is captured; a walk-in has no capture coming, and the person is at the desk wanting
+     * something to pay against.
+     */
+    private final InvoiceService invoices;
     private final ObjectMapper mapper = new ObjectMapper();
 
 
@@ -67,7 +76,11 @@ public class BookingService {
                            com.bmp.booking.client.RewardsServiceClient rewards,
                            com.bmp.booking.client.UserServiceClient users,
                            com.bmp.common.outbox.OutboxPublisher outbox,
-                           com.bmp.booking.repositories.BookingModificationRepository modifications) {
+                           com.bmp.booking.repositories.BookingModificationRepository modifications,
+                           com.bmp.booking.client.PaymentServiceClient payments,
+                           InvoiceService invoices) {
+        this.invoices = invoices;
+        this.payments = payments;
         this.modifications = modifications;
         this.bookings = bookings;
         this.items = items;
@@ -78,8 +91,146 @@ public class BookingService {
         this.outbox = outbox;
     }
 
+    /**
+     * Who this booking is for. Session 52.
+     *
+     * <h2>Why an identity object rather than two create methods</h2>
+     * Counter bookings (V009) need the same twelve things an online booking needs: the salon's
+     * price list, the salon's commission, the frozen policy snapshot, slot validation against the
+     * availability algorithm, the outbox event, the invoice. A second {@code createCounter} that
+     * reimplemented that would be two answers to "is this slot free?" and "what does this cost?",
+     * and the one that quietly wins is whichever runs second.
+     *
+     * <p>So there is ONE creation path, and this record is the only thing that differs.
+     *
+     * @param customerId      a BMP account. Null for counter bookings.
+     * @param salonCustomerId the salon's own contact record (V026). Null for online bookings.
+     *                        Exactly one of these two is set — enforced by chk_booking_identity.
+     * @param name            for counter bookings this is the ONLY record of who came; for online
+     *                        ones it is resolved from bmp-user and this stays null.
+     */
+    private record BookingIdentity(
+            UUID customerId, UUID salonCustomerId, String source,
+            String name, String phone, String email, UUID takenByStaffId) {
+
+        static BookingIdentity online(UUID customerId) {
+            return new BookingIdentity(customerId, null, "online", null, null, null, null);
+        }
+
+        static BookingIdentity counter(UUID salonCustomerId, String name, String phone,
+                                        String email, UUID takenByStaffId) {
+            return new BookingIdentity(null, salonCustomerId, "counter", name, phone, email,
+                    takenByStaffId);
+        }
+
+        boolean isCounter() { return "counter".equals(source); }
+    }
+
     @Transactional
     public BookingResponse create(CreateBookingRequest req) {
+        return createInternal(req.salonId(), req.items(), req.couponCode(),
+                BookingIdentity.online(req.customerId()));
+    }
+
+    /**
+     * A booking taken at the counter or over the phone. Session 52.
+     *
+     * <h2>Darshan's requirement, and why the customer record is mandatory</h2>
+     * <i>"Suppose any customer calls the manager or comes to walk in, then the manager should
+     * update it in the portal and the manager should select the stylist… we should compulsorily
+     * have their data in our database. Remember, it's their own customer."</i>
+     *
+     * <p>So {@code salonCustomerId} is required, not optional. The caller (bmp-salon's counter
+     * endpoint) creates or matches the {@code salon_customer} row first and passes its id — which
+     * means it is impossible to take a counter booking without recording who it was for. That is
+     * the whole point: walk-in trade used to leave a {@code walk_in_block} and nothing else.
+     *
+     * <h2>CONFIRMED immediately, not PENDING</h2>
+     * An online booking waits for a payment webhook to confirm it. A counter booking has no
+     * online payment — the person is standing there and will settle at the desk — so leaving it
+     * PENDING would mean every walk-in sat unconfirmed forever, exactly the bug that left every
+     * booking PENDING before Session 50. It is confirmed on creation, and the invoice records
+     * what is owed.
+     */
+    @Transactional
+    public BookingResponse createCounter(UUID salonId, List<ItemRequest> items,
+                                          UUID salonCustomerId, String name, String phone,
+                                          String email, UUID takenByStaffId) {
+        if (salonCustomerId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "A counter booking must be attached to a customer record.");
+        }
+        // No coupon on the counter path: coupons belong to a BMP account's redemption history,
+        // and there is no account here to charge a use against.
+        return createInternal(salonId, items, null,
+                BookingIdentity.counter(salonCustomerId, name, phone, email, takenByStaffId));
+    }
+
+    /**
+     * IS THIS SALON ALLOWED TO TAKE BOOKINGS AT ALL? Session 65.
+     *
+     * <h2>The hole this closes</h2>
+     * Suspending a salon removed it from DISCOVERY — {@code SalonService.PUBLICLY_VISIBLE} is
+     * {@code ['active']}, so search hides it and its public page 404s. Nothing checked the status
+     * on the way IN to a booking, so the freeze was only as strong as the customer's inability to
+     * find the salon:
+     *
+     * <ul>
+     *   <li>a customer with the salon page already open, or a saved deep link, could still book;</li>
+     *   <li>the salon's OWN counter desk kept taking walk-ins, because {@code createCounter} runs
+     *       inside the salon app and never consulted the platform's opinion of the salon.</li>
+     * </ul>
+     *
+     * That second one is the serious one. Suspension is how BMP stops a business trading — usually
+     * because of a complaint that has not been resolved — and the salon carried on taking money for
+     * appointments that BMP would then be on the hook for.
+     *
+     * <h2>Why here, and not at each caller</h2>
+     * {@code create} and {@code createCounter} both funnel through {@code createInternal}, so this
+     * is the one place both paths pass. A check at each entry point would be two copies, and the
+     * third entry point somebody adds next year would have none.
+     *
+     * <h2>Fails CLOSED, and that costs nothing extra</h2>
+     * If bmp-salon is unreachable the booking is refused. That reads harsh for a revenue path until
+     * you notice createInternal already calls listServices and getPolicy on the same service a few
+     * lines later — bmp-salon being down already means no booking. Refusing here just does it
+     * earlier, with a message about the salon rather than a stack trace about a service menu.
+     */
+    private void requireSalonBookable(UUID salonId) {
+        SalonAvailabilityClient.SalonSummary salon;
+        try {
+            salon = availability.getSalon(salonId);
+        } catch (Exception e) {
+            log.warn("Could not read salon {} before booking — refusing rather than guessing: {}",
+                    salonId, e.toString());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "We can't reach the salon's details right now. Please try again in a moment.");
+        }
+        if (salon == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "SALON_NOT_FOUND");
+        }
+
+        /*
+         * 'active' is the ONLY bookable status — the same single-element list discovery filters on
+         * (SalonService.PUBLICLY_VISIBLE). Deliberately an allow-list rather than "not suspended":
+         * a status added later is un-bookable until somebody says otherwise, which is a complaint,
+         * rather than bookable by default, which is a liability.
+         */
+        if (!"active".equalsIgnoreCase(salon.status())) {
+            log.warn("Refused a booking for salon {} — status is {}", salonId, salon.status());
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "suspended".equalsIgnoreCase(salon.status())
+                        ? "This salon is suspended and can't take bookings. Please contact support."
+                        : "This salon isn't taking bookings at the moment.");
+        }
+    }
+
+    private BookingResponse createInternal(UUID salonId, List<ItemRequest> reqItems,
+                                            String couponCode, BookingIdentity who) {
+        // FIRST, before a reference is minted or anything is written. A suspended salon must not
+        // consume a booking number, and a refusal after side effects is a refusal with litter.
+        requireSalonBookable(salonId);
+
         int year = Instant.now().atZone(ZoneOffset.UTC).getYear();
         String prefix = "BMP-" + year + "-";
         // NOTE: same count-based simplification as support_ticket's ticketRef (BMP-29) —
@@ -108,20 +259,20 @@ public class BookingService {
          */
         Map<UUID, SalonAvailabilityClient.SalonService> serviceMenu;
         try {
-            serviceMenu = availability.listServices(req.salonId()).stream()
+            serviceMenu = availability.listServices(salonId).stream()
                     .collect(Collectors.toMap(SalonAvailabilityClient.SalonService::id, s -> s));
         } catch (Exception e) {
             // Fail the booking rather than fall back to the client's numbers. A booking written
             // at an unverified price is worse than a booking that didn't happen — the first one
             // the salon has to honour, the second the customer just retries.
             log.error("Could not load the service menu for salon {} — refusing the booking. {}",
-                    req.salonId(), e.toString());
+                    salonId, e.toString());
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                     "We couldn't confirm the price with the salon. Nothing has been booked — please try again.");
         }
 
         Money total = Money.ZERO;
-        for (ItemRequest item : req.items()) {
+        for (ItemRequest item : reqItems) {
             SalonAvailabilityClient.SalonService svc = serviceMenu.get(item.serviceId());
             if (svc == null) {
                 // Either a stale menu on the client, or someone booking a service that belongs
@@ -160,10 +311,10 @@ public class BookingService {
          */
         SalonAvailabilityClient.SalonPolicy policy = null;
         try {
-            policy = availability.getPolicy(req.salonId());
+            policy = availability.getPolicy(salonId);
         } catch (Exception e) {
             log.warn("No policy for salon {} ({}) — booking under platform defaults, recorded in the snapshot.",
-                    req.salonId(), e.toString());
+                    salonId, e.toString());
         }
 
         int commissionBps = policy != null ? policy.commissionBps() : DEFAULT_COMMISSION_BPS;
@@ -173,14 +324,25 @@ public class BookingService {
         // Resolve + validate every item's stylist/slot BEFORE writing anything — a booking
         // with some items validated and others not is worse than rejecting the whole request.
         List<UUID> resolvedStylistIds = new java.util.ArrayList<>();
-        for (ItemRequest item : req.items()) {
+        for (ItemRequest item : reqItems) {
             // The SALON's duration, not the request's — see resolveAndValidateSlot's javadoc.
             resolvedStylistIds.add(resolveAndValidateSlot(
-                    req.salonId(), item, serviceMenu.get(item.serviceId()).durationMinutes()));
+                    salonId, item, serviceMenu.get(item.serviceId()).durationMinutes()));
         }
 
-        Booking booking = new Booking(bookingRef, req.salonId(), req.customerId(), BookingStatus.PENDING,
-                total, Money.ZERO, commission, policySnapshot, true, null);
+        /*
+         * Counter bookings are CONFIRMED on creation; online ones wait for the payment webhook.
+         * See createCounter's javadoc — a walk-in that stayed PENDING would never confirm, because
+         * there is no online payment coming for it.
+         */
+        boolean counter = who.isCounter();
+        Booking booking = new Booking(bookingRef, salonId, who.customerId(),
+                counter ? BookingStatus.CONFIRMED : BookingStatus.PENDING,
+                total, Money.ZERO, commission, policySnapshot, true,
+                counter ? Instant.now() : null);
+        booking.setSource(who.source());
+        booking.setSalonCustomerId(who.salonCustomerId());
+        booking.setTakenByStaffId(who.takenByStaffId());
         booking = bookings.save(booking);
 
         // Session 22: apply the coupon, if one was given.
@@ -191,11 +353,10 @@ public class BookingService {
         //
         // Inside the same @Transactional, so a failure anywhere below rolls the redemption back
         // with everything else.
-        applyCouponIfPresent(booking, req, total);
+        applyCouponIfPresent(booking, couponCode, who.customerId(), total);
 
         List<ItemResponse> itemResponses = new java.util.ArrayList<>();
-        List<ItemRequest> reqItems = req.items();
-        for (int i = 0; i < reqItems.size(); i++) {
+                for (int i = 0; i < reqItems.size(); i++) {
             ItemRequest item = reqItems.get(i);
             UUID assignedStylistId = resolvedStylistIds.get(i);
 
@@ -214,7 +375,8 @@ public class BookingService {
             itemResponses.add(toItemResponse(entity));
         }
 
-        recordEvent(booking.getId(), "CREATED", "customer", req.customerId(), Map.of());
+        recordEvent(booking.getId(), "CREATED", who.isCounter() ? "salon" : "customer",
+                who.isCounter() ? who.takenByStaffId() : who.customerId(), Map.of());
 
         /*
          * ═══════════════════════════════════════════════════════════════════════════════════
@@ -237,7 +399,7 @@ public class BookingService {
          * The contact snapshot happens FIRST and is allowed to fail — see resolveContact.
          */
         SalonAvailabilityClient.SalonSummary salonSummary =
-                snapshotContact(booking, req.customerId(), req.salonId(), bookingRef);
+                snapshotContact(booking, who, salonId, bookingRef);
 
         /*
          * Session 37 — pin the cancellation clock, once, forever.
@@ -252,6 +414,65 @@ public class BookingService {
                 .orElse(null));
 
         booking = bookings.save(booking);
+
+        /*
+         * ══════════════════════════════════════════════════════════════════════════════════════
+         * SESSION 50 — OPEN THE PAYMENT ORDER. This is the link that never existed.
+         * ══════════════════════════════════════════════════════════════════════════════════════
+         * bmp-booking and bmp-payment were not connected in either direction, which is why every
+         * booking BMP has ever taken sits PENDING: BookingStatus reserves PENDING -> CONFIRMED
+         * for the "Razorpay webhook ONLY", and no webhook existed to perform it.
+         *
+         * The commission rate passed here is the SALON'S, read once above for the policy
+         * snapshot. Passing it rather than letting bmp-payment fetch its own means the split and
+         * the cancellation terms frozen beside it can never come from two different reads of a
+         * policy somebody edited in between.
+         *
+         * NON-FATAL, and that is a real decision. The booking, its items and its slot holds are
+         * already committed and correct. If the payment service is down, the customer has a
+         * booking they cannot pay for yet — recoverable, and the salon can still take the money
+         * at the counter. Rolling the whole booking back would instead lose a validated slot for
+         * a reason that has nothing to do with the customer.
+         *
+         * Logged at ERROR because until this succeeds the booking cannot be confirmed by payment.
+         */
+        if (counter) {
+            /*
+             * No online payment order for a counter booking. The customer has no BMP account to
+             * pay from and is standing at the desk; the money is taken there and recorded against
+             * the invoice. Opening an order nobody can settle would leave a permanent unpaid
+             * order per walk-in and make the payments dashboard meaningless.
+             */
+            log.info("Counter booking {} confirmed at the salon — no online payment order opened.",
+                    booking.getBookingRef());
+            /*
+             * Raise the bill now. Non-fatal: the appointment is real and already committed, and a
+             * salon that cannot print a receipt this second can still take the money and reprint
+             * later. Losing a validated slot because a document failed would be the wrong trade.
+             */
+            try {
+                invoices.issueFor(booking.getId(),
+                        salonSummary == null ? booking.getSalonNameSnapshot() : salonSummary.name(),
+                        null);
+            } catch (Exception e) {
+                log.error("Counter booking {} was created but its invoice could not be raised ({}). "
+                        + "The booking stands; the bill can be reissued from the desk.",
+                        booking.getBookingRef(), e.toString());
+            }
+        } else try {
+            var order = payments.create(booking.getId(), new PaymentServiceClient.CreateOrder(
+                    booking.getFinalAmountPaise().paise(),
+                    booking.getSalonId(),
+                    commissionBps,
+                    booking.getBookingRef()));
+            log.info("Payment order {} opened for booking {} ({} paise, gateway order {}).",
+                    order.id(), booking.getBookingRef(), order.amountPaise(), order.razorpayOrderId());
+        } catch (Exception e) {
+            log.error("Booking {} was created but NO PAYMENT ORDER could be opened ({}). The "
+                    + "customer cannot pay online and the booking will stay PENDING until "
+                    + "somebody records a counter payment against its invoice.",
+                    booking.getBookingRef(), e.toString());
+        }
 
         outbox.publish(new com.bmp.common.events.BookingCreated(
                 booking.getId(), booking.getBookingRef(), booking.getSalonId(),
@@ -269,7 +490,88 @@ public class BookingService {
                 salonSummary == null ? null : salonSummary.bookingNotifyEmail(),
                 salonSummary == null ? null : salonSummary.bookingNotifyPhone()));
 
+        // Session 53 — and tell the people who have to do the work. Never fails the booking.
+        notifyAssignedStylists(booking, itemResponses, "booked",
+                salonSummary == null ? booking.getSalonNameSnapshot() : salonSummary.name(), null);
+
         return toResponse(booking, itemResponses);
+    }
+
+
+    /**
+     * Tell each assigned stylist their diary changed. Session 53.
+     *
+     * <h2>The silence this ends</h2>
+     * The customer was told at booking (Session 34) and the salon was told (Session 40). The
+     * stylist — the person who actually has to be at the chair — was told nothing, and found out
+     * by opening the app. Worst for a counter booking a manager takes ten minutes beforehand.
+     *
+     * <h2>What it must not carry</h2>
+     * No customer name, phone or id, and no price. Enforced by the SHAPE of
+     * {@link StylistAppointmentChanged}, which has no field for any of them, so no template
+     * written later can leak one. Same rule as {@code ScheduleEntryResponse} (Session 48).
+     *
+     * <h2>Never fails the booking</h2>
+     * Every lookup is wrapped. A stylist who is not told still has the appointment on their
+     * schedule, and failing a real booking because a name lookup timed out would be a far worse
+     * trade than a missing email. Logged at WARN with the booking ref so it can be found.
+     *
+     * <p>One event per stylist: a cut with Anjali at 11:00 and a colour with Imran at 11:45 is one
+     * booking and two diaries, and the message differs for each.
+     *
+     * @param change {@code booked} | {@code moved} | {@code cancelled}
+     * @param previousStarts per stylist, only for {@code moved}; null or absent otherwise
+     */
+    private void notifyAssignedStylists(Booking booking, List<ItemResponse> itemResponses,
+                                          String change, String salonName,
+                                          Map<UUID, Instant> previousStarts) {
+        // Group this booking's items by the person doing them, so somebody with two services in
+        // one booking gets ONE message covering both rather than two that each look complete.
+        Map<UUID, List<ItemResponse>> byStylist = new java.util.LinkedHashMap<>();
+        for (ItemResponse item : itemResponses) {
+            if (item.assignedStylistId() == null) continue; // unassigned: nobody to tell yet
+            byStylist.computeIfAbsent(item.assignedStylistId(), k -> new java.util.ArrayList<>())
+                    .add(item);
+        }
+
+        for (var entry : byStylist.entrySet()) {
+            UUID stylistId = entry.getKey();
+            List<ItemResponse> mine = entry.getValue();
+            try {
+                var contact = availability.stylistContact(stylistId);
+                String email = null;
+                String name = contact == null ? null : contact.name();
+
+                if (contact != null && contact.userId() != null) {
+                    // An invite-created profile nobody claimed has no account and no address.
+                    var body = users.getUserById(contact.userId()).getBody();
+                    if (body != null) {
+                        email = body.email();
+                        if (name == null || name.isBlank()) name = body.name();
+                    }
+                }
+
+                Instant startsAt = mine.stream().map(ItemResponse::serviceStart)
+                        .min(Instant::compareTo).orElse(null);
+                Instant endsAt = mine.stream().map(ItemResponse::serviceEnd)
+                        .max(Instant::compareTo).orElse(null);
+                int minutes = startsAt == null || endsAt == null
+                        ? 0
+                        : (int) java.time.Duration.between(startsAt, endsAt).toMinutes();
+
+                outbox.publish(new com.bmp.common.events.StylistAppointmentChanged(
+                        booking.getId(), booking.getBookingRef(), stylistId, booking.getSalonId(),
+                        salonName, change, startsAt,
+                        previousStarts == null ? null : previousStarts.get(stylistId),
+                        minutes,
+                        mine.stream().map(ItemResponse::nameSnapshot).toList(),
+                        email, name));
+            } catch (Exception e) {
+                log.warn("Booking {} was {} but stylist {} could not be notified ({}). The "
+                        + "appointment is on their schedule either way.",
+                        booking.getBookingRef(), change, stylistId, e.toString());
+            }
+        }
     }
 
     /**
@@ -309,8 +611,35 @@ public class BookingService {
      * still succeeds either way, and the dispatcher reports that nobody was told.
      */
     private SalonAvailabilityClient.SalonSummary snapshotContact(
-            Booking booking, UUID customerId, UUID salonId, String bookingRef) {
+            Booking booking, BookingIdentity who, UUID salonId, String bookingRef) {
         SalonAvailabilityClient.SalonSummary salonSummary = null;
+
+        /*
+         * Session 52 — a counter booking's contact details come from the person at the desk, not
+         * from bmp-user. There is no account to look up, and calling bmp-user with a null id would
+         * be a guaranteed 404 on every walk-in.
+         *
+         * These snapshot columns are the ONLY record of who this booking is for, which is why
+         * chk_counter_has_contact (V009) makes them mandatory for counter rows.
+         */
+        if (who.isCounter()) {
+            booking.setCustomerName(who.name());
+            booking.setCustomerPhone(who.phone());
+            booking.setCustomerEmail(who.email());
+            try {
+                var salon = availability.getSalon(salonId);
+                if (salon != null) {
+                    booking.setSalonNameSnapshot(salon.name());
+                    salonSummary = salon;
+                }
+            } catch (Exception e) {
+                log.warn("Could not resolve the name of salon {} for counter booking {} ({}).",
+                        salonId, bookingRef, e.toString());
+            }
+            return salonSummary;
+        }
+
+        UUID customerId = who.customerId();
         try {
             var body = users.getUserById(customerId).getBody();
             if (body != null) {
@@ -364,19 +693,26 @@ public class BookingService {
      * bmp-booking owns that fact. It excludes this booking (which was just inserted) by
      * comparing against 1, not 0.
      */
-    private void applyCouponIfPresent(Booking booking, CreateBookingRequest req, Money total) {
-        String code = req.couponCode();
+    private void applyCouponIfPresent(Booking booking, String code, UUID customerId, Money total) {
         if (code == null || code.isBlank()) {
             return;
         }
+        // Session 52: a counter booking has no BMP account, so there is nothing to redeem a
+        // coupon against and no redemption history to charge a use to. createCounter passes null,
+        // so this is defence rather than a live path — but it fails loudly rather than silently
+        // giving away a discount that no allowance is decremented for.
+        if (customerId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Coupons need a BMP account. Take the discount at the counter instead.");
+        }
 
         // "First booking" means this is their only one — the row we just wrote.
-        boolean isFirstBooking = bookings.countByCustomerId(req.customerId()) <= 1;
+        boolean isFirstBooking = bookings.countByCustomerId(customerId) <= 1;
 
         RewardsServiceClient.RedeemResponse redeemed;
         try {
             redeemed = rewards.redeem(new RewardsServiceClient.RedeemRequest(
-                    code.trim(), req.customerId(), req.salonId(), booking.getId(),
+                    code.trim(), customerId, booking.getSalonId(), booking.getId(),
                     total.paise(), isFirstBooking));
         } catch (feign.FeignException e) {
             // Feign surfaces a remote error as FeignException, NOT as the ResponseStatusException
@@ -410,7 +746,7 @@ public class BookingService {
         booking.applyDiscount(redeemed.couponId(), total, discount, finalAmount, redeemed.commissionBase());
         bookings.save(booking);
 
-        recordEvent(booking.getId(), "COUPON_APPLIED", "customer", req.customerId(),
+        recordEvent(booking.getId(), "COUPON_APPLIED", "customer", customerId,
                 Map.of("code", redeemed.code(), "discountPaise", redeemed.discountPaise()));
 
         log.info("Coupon {} applied to booking {}: -{}p (commission base {})",
@@ -693,6 +1029,10 @@ public class BookingService {
                 itemResponses.stream().map(ItemResponse::serviceStart).min(Instant::compareTo).orElse(null),
                 req == null ? null : req.reason(), bySalon ? "salon" : "customer"));
 
+        // Session 53 — the stylist's afternoon just freed up. Worth knowing, and until now the
+        // only way to find out was to notice an empty chair.
+        notifyAssignedStylists(b, itemResponses, "cancelled", b.getSalonNameSnapshot(), null);
+
         return toResponse(b, itemResponses);
     }
 
@@ -898,6 +1238,23 @@ public class BookingService {
                     "BOOKING_IN_PROGRESS: this appointment has already started.");
         }
 
+        /*
+         * ── A SUSPENDED SALON CANNOT ACQUIRE NEW FUTURE COMMITMENTS. Session 65, Darshan's call. ─
+         *
+         * The rule he chose: existing appointments stand and can be CANCELLED; they cannot be
+         * moved further into the future at a salon that is not allowed to trade.
+         *
+         * Without this, suspension leaked through the back door. Blocking creation (see
+         * requireSalonBookable) stops new bookings; rescheduling an existing one is how a salon
+         * would have kept a customer on its books indefinitely, one move at a time, while
+         * suspended.
+         *
+         * Note what is deliberately NOT blocked: cancel and refund. Winding a salon down means
+         * customers must be able to get out, and a suspension that traps people in appointments
+         * nobody will honour is worse than no suspension.
+         */
+        requireSalonBookable(b.getSalonId());
+
         List<BookingServiceItem> existing = items.findByBookingId(bookingId);
         if (existing.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "BOOKING_HAS_NO_SERVICES");
@@ -932,6 +1289,23 @@ public class BookingService {
 
         // The old times, captured before anything moves — this is `before_snapshot`.
         String before = snapshotItems(existing);
+
+        /*
+         * Session 53 — the same capture, for the stylist's "moved from" line.
+         *
+         * IT HAS TO HAPPEN HERE, not after the write. `existing` holds MANAGED JPA entities and
+         * the write pass below mutates them in place (`item.setServiceStart(...)` on objects that
+         * came out of this very list, via `byId`). Reading serviceStart afterwards therefore
+         * returns the NEW time, and the message would read "moved from 4pm to 4pm" — technically
+         * emitted, entirely useless, and the kind of thing nobody notices until a stylist asks why
+         * the email says nothing changed.
+         */
+        Map<UUID, Instant> previousStarts = new java.util.HashMap<>();
+        for (BookingServiceItem beforeItem : existing) {
+            if (beforeItem.getAssignedStylistId() == null) continue;
+            previousStarts.merge(beforeItem.getAssignedStylistId(), beforeItem.getServiceStart(),
+                    (a, c) -> a.isBefore(c) ? a : c);
+        }
 
         /*
          * Validate EVERY new slot before writing ANY of them.
@@ -1028,6 +1402,19 @@ public class BookingService {
                 b.getId(), b.getBookingRef(), b.getSalonNameSnapshot(), b.getCustomerId(),
                 b.getCustomerName(), b.getCustomerPhone(), b.getCustomerEmail(),
                 earliestOf(existing), newStart, req.reason(), bySalon ? "salon" : "customer"));
+
+        /*
+         * Session 53 — a move matters MORE to the stylist than the original booking did: an
+         * appointment that quietly shifts is one they turn up for at the wrong time, or block out
+         * twice. `previousStarts` was captured ABOVE, before the write pass mutated the entities —
+         * see the comment there.
+         *
+         * A reschedule can also move the work to a different person. The one who LOST it has an
+         * entry in the map and gets "moved from"; the one who GAINED it has none and gets a plain
+         * "booked", which is exactly right for somebody seeing it for the first time.
+         */
+        List<ItemResponse> movedItems = updated.stream().map(this::toItemResponse).toList();
+        notifyAssignedStylists(b, movedItems, "moved", b.getSalonNameSnapshot(), previousStarts);
 
         log.info("Booking {} rescheduled by {} to {} (customer moves so far: {})",
                 b.getBookingRef(), bySalon ? "salon" : "customer", newStart, b.getRescheduleCount());
@@ -1219,6 +1606,40 @@ public class BookingService {
      * live view of a person's current record on the platform. A salon-facing screen that queries
      * bmp-user directly is one step from being a customer directory.
      */
+    /**
+     * Every visit a COUNTER customer has made to this salon. Session 52.
+     *
+     * <h2>Why this isn't {@link #customerAtSalon}</h2>
+     * That method takes a BMP {@code customerId} and builds a rich card — total spend, no-show
+     * count, usual stylist — from the {@code customerStats} projection, which is keyed on
+     * {@code customer_id}. A counter customer has none: their id lives in another service's table
+     * and their bookings carry {@code customer_id = NULL} (V009).
+     *
+     * <p>Rather than widen that projection and end up with a stats query that means two different
+     * things depending on which id is populated, this returns the visits and nothing else. The
+     * counts a receptionist actually wants at the desk — how many times, when last —
+     * are already denormalised onto {@code salon_customer} itself, and are cheaper there.
+     *
+     * <h2>404 on nothing, same as the sibling</h2>
+     * An empty list would let one salon confirm whether an arbitrary id exists by watching which
+     * come back 200. The pair (salon, customer) has to match.
+     */
+    @Transactional(readOnly = true)
+    public PagedBookings salonCustomerBookings(UUID salonId, UUID salonCustomerId, int page, int size) {
+        Page<Booking> p = bookings.findBySalonIdAndSalonCustomerIdOrderByCreatedAtDesc(
+                salonId, salonCustomerId, PageRequest.of(Math.max(0, page), Math.min(Math.max(1, size), 50)));
+
+        if (p.getTotalElements() == 0) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "NO_BOOKINGS_AT_THIS_SALON");
+        }
+
+        List<BookingResponse> content = p.getContent().stream()
+                .map(b -> toResponse(b, items.findByBookingId(b.getId()).stream()
+                        .map(this::toItemResponse).toList()))
+                .toList();
+        return new PagedBookings(content, page, size, p.getTotalElements());
+    }
+
     public CustomerAtSalonResponse customerAtSalon(UUID salonId, UUID customerId, int page, int size) {
         Page<Booking> p = bookings.findBySalonIdAndCustomerIdOrderByCreatedAtDesc(
                 salonId, customerId, PageRequest.of(page, size));
@@ -1370,11 +1791,161 @@ public class BookingService {
         return new SalonDayResponse(summary, entries);
     }
 
-    /** Paged booking history for a salon — the "search everything" view behind the day view. */
-    public PagedBookings salonList(UUID salonId, String status, int page, int size) {
-        Page<Booking> p = status != null
-                ? bookings.findBySalonIdAndStatusOrderByCreatedAtDesc(salonId, BookingStatus.valueOf(status), PageRequest.of(page, size))
-                : bookings.findBySalonIdOrderByCreatedAtDesc(salonId, PageRequest.of(page, size));
+    // ══ the stylist's own schedule ════════════════════════════════════════════════════════════
+    //
+    // Session 48. Everything a stylist sees about their bookings goes through toStylistEntry, and
+    // that mapper cannot emit a customer id, phone, email, surname or any amount of money —
+    // StylistScheduleEntry has no components to put them in.
+    //
+    // WHY A SEPARATE PATH AT ALL. The stylist dashboard used to call salonDay, which is
+    // @PreAuthorize("hasAnyRole('SALON_OWNER','MANAGER')") — so it returned 403 to every real
+    // stylist and the screen only ever worked in mock mode. Fixing that by adding STYLIST to that
+    // annotation would have handed them customerPhone and pricePaise on the same response.
+
+    /**
+     * The single mapper for stylist-facing appointments.
+     *
+     * <p><b>Read the field list before adding anything.</b> Everything omitted here is omitted on
+     * purpose and is documented on {@link StylistScheduleEntry}. If a future change needs the
+     * customer's identity on a stylist screen, that is a product decision to take deliberately,
+     * not a field to widen in passing.
+     */
+    private StylistScheduleEntry toStylistEntry(BookingServiceItem i, Booking b) {
+        return new StylistScheduleEntry(
+                b.getId(), b.getBookingRef(), b.getStatus().name(),
+                firstNameOnly(b.getCustomerName()),
+                i.getId(), i.getNameSnapshot(),
+                i.getServiceStart(), i.getServiceEnd(), i.getDurationShownMinutes(),
+                i.getItemStatus(),
+                true);
+    }
+
+    /**
+     * "Priya Menon" → "Priya". Null and blank stay null.
+     *
+     * <h2>Why the surname is dropped in the SERVICE, not the UI</h2>
+     * Session 34 learned this on the phone number: a client that masks is a client that received
+     * the real value, and anyone with a browser network tab can read it. The full name never
+     * leaves this method.
+     *
+     * <p>A single-word name ("Priya") is returned unchanged — it is already just a first name.
+     * A name that is only a surname is a case this cannot detect and does not try to.
+     */
+    private static String firstNameOnly(String fullName) {
+        if (fullName == null) return null;
+        String t = fullName.trim();
+        if (t.isEmpty()) return null;
+        int space = t.indexOf(' ');
+        return space < 0 ? t : t.substring(0, space);
+    }
+
+    /**
+     * One day of a stylist's own appointments.
+     *
+     * @param salonId   resolved from the caller's token by the controller, never sent by them
+     * @param stylistId likewise — see SalonAvailabilityClient.stylistByUser
+     */
+    public StylistDayResponse stylistDay(UUID salonId, UUID stylistId, LocalDate date) {
+        Instant from = date.atStartOfDay(BmpTimeZone.ZONE).toInstant();
+        Instant to = date.plusDays(1).atStartOfDay(BmpTimeZone.ZONE).toInstant();
+
+        // Reuses the day query with its stylist filter — same rows the manager sees for this
+        // stylist, mapped through a type that cannot carry the sensitive columns.
+        List<BookingServiceItem> dayItems = items.findSalonDayItems(salonId, from, to, stylistId);
+        Map<UUID, Booking> parents = bookings.findAllById(
+                        dayItems.stream().map(BookingServiceItem::getBookingId).distinct().toList())
+                .stream().collect(java.util.stream.Collectors.toMap(Booking::getId, b -> b));
+
+        List<StylistScheduleEntry> entries = dayItems.stream()
+                .map(i -> {
+                    Booking b = parents.get(i.getBookingId());
+                    return b == null ? null : toStylistEntry(i, b);
+                })
+                .filter(java.util.Objects::nonNull)
+                .toList();
+
+        // Counted at BOOKING level, same as the manager's summary: three services for one
+        // customer is one appointment, and counting three would make the number meaningless.
+        List<Booking> distinct = entries.stream()
+                .map(StylistScheduleEntry::bookingId).distinct()
+                .map(parents::get).filter(java.util.Objects::nonNull).toList();
+
+        int completed = (int) distinct.stream().filter(b -> b.getStatus() == BookingStatus.COMPLETED).count();
+        int cancelled = (int) distinct.stream().filter(b -> b.getStatus() == BookingStatus.CANCELLED).count();
+
+        /*
+         * Minutes booked, NOT money earned.
+         *
+         * A stylist wants to know how full their day is, and this answers that without going
+         * anywhere near the salon's takings. Cancelled items are excluded — that time is free.
+         */
+        int bookedMinutes = entries.stream()
+                .filter(e -> !BookingStatus.CANCELLED.name().equals(e.bookingStatus()))
+                .mapToInt(StylistScheduleEntry::durationMinutes)
+                .sum();
+
+        return new StylistDayResponse(date, distinct.size(), completed, cancelled, bookedMinutes, entries);
+    }
+
+    /** A stylist's own forward queue. */
+    public PagedStylistBookings stylistUpcoming(UUID salonId, UUID stylistId, int page, int size) {
+        var p = items.findUpcomingForStylist(salonId, stylistId, Instant.now(),
+                org.springframework.data.domain.PageRequest.of(page, size));
+        return pageOfStylistEntries(p, page, size);
+    }
+
+    /** A stylist's own past work at this salon. */
+    public PagedStylistBookings stylistHistory(UUID salonId, UUID stylistId, int page, int size) {
+        var p = items.findPastForStylist(salonId, stylistId, Instant.now(),
+                org.springframework.data.domain.PageRequest.of(page, size));
+        return pageOfStylistEntries(p, page, size);
+    }
+
+    private PagedStylistBookings pageOfStylistEntries(
+            org.springframework.data.domain.Page<BookingServiceItem> p, int page, int size) {
+        Map<UUID, Booking> parents = bookings.findAllById(
+                        p.getContent().stream().map(BookingServiceItem::getBookingId).distinct().toList())
+                .stream().collect(java.util.stream.Collectors.toMap(Booking::getId, b -> b));
+        List<StylistScheduleEntry> rows = p.getContent().stream()
+                .map(i -> {
+                    Booking b = parents.get(i.getBookingId());
+                    return b == null ? null : toStylistEntry(i, b);
+                })
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        return new PagedStylistBookings(rows, page, size, p.getTotalElements());
+    }
+
+    /**
+     * Paged booking history for a salon — the "search everything" view behind the day view.
+     *
+     * <h2>Session 44: filters</h2>
+     * <ul>
+     *   <li>{@code stylistId} — "how has Ravi's month been?". Matches bookings Ravi worked
+     *       <b>any part of</b>: the stylist is on the ITEM, and one booking can span two chairs.</li>
+     *   <li>{@code search} — the owner typing a customer's name or a booking reference.
+     *       <b>Not phone.</b> V006 deliberately refused an index on {@code customer_phone}
+     *       because phone lookup is an effective way to enumerate the platform's customers and
+     *       belongs in bmp-admin where it's audited. Matching on it here would route around that
+     *       decision one salon at a time. Name search grants nothing new — the salon already
+     *       reads those names off its own desk every day.</li>
+     * </ul>
+     *
+     * <p>All filters are ANDed with {@code salonId}, which the caller does not supply: it comes
+     * from the JWT via {@code requireSalonScope}. The search can only ever narrow rows the salon
+     * already holds.
+     */
+    public PagedBookings salonList(UUID salonId, String status, UUID stylistId, String search,
+                                    int page, int size) {
+        // Blank is not a filter. A search box that has been focused and cleared sends "", and
+        // treating that as "match nothing containing empty string" would work by accident today
+        // and break the day someone changes the LIKE. Normalise it to absent.
+        String q = (search == null || search.isBlank()) ? null : search.trim();
+        BookingStatus st = status == null ? null : BookingStatus.valueOf(status);
+
+        Page<Booking> p = bookings.searchSalonHistory(
+                salonId, st, stylistId, q, PageRequest.of(page, size));
+
         List<BookingResponse> content = p.getContent().stream()
                 .map(b -> toResponse(b, items.findByBookingId(b.getId()).stream().map(this::toItemResponse).toList()))
                 .toList();

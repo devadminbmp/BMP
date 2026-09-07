@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -74,6 +75,40 @@ public class StaffAuthController {
     @GetMapping("/me")
     public StaffProfile me(@AuthenticationPrincipal StaffPrincipal caller) {
         return auth.profileOf(caller.staffId());
+    }
+
+    @Operation(
+        summary = "Change my own password",
+        description = """
+            Requires your CURRENT password AND a live code from your authenticator app. Both,             deliberately: if only the password were needed, anybody who stole it could change it             and lock you out permanently, and your two-factor would never get a chance to matter.
+
+            EVERY SESSION ENDS, including the one making this call — you will be signed out and             need to sign in again with the new password. A password change is what people do when             they think somebody else has been in the account, so "all sessions ended" has to be             true without an asterisk.
+
+            This is NOT the lockout path. If you cannot sign in at all, an ops admin re-issues             your credentials — that is the only recovery route, because a reset link landing in a             compromised inbox defeats two-factor entirely.""")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/me/password")
+    public ResponseEntity<Void> changePassword(@Valid @RequestBody ChangePasswordRequest req,
+                                                @AuthenticationPrincipal StaffPrincipal caller,
+                                                HttpServletRequest http) {
+        auth.changeOwnPassword(caller.staffId(), req.currentPassword(), req.totpCode(),
+                req.newPassword(), clientIp(http));
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
+        summary = "Update my own name or phone",
+        description = """
+            Your name and your phone number, and nothing else.
+
+            Your work EMAIL is not here: it is your sign-in address, so somebody who took over a             session could otherwise point the account at an inbox they control and keep it. An ops             admin changes that.
+
+            Role, tier and account status are not here either — that would be self-promotion. Job             title and reporting line belong to whoever manages you, on the Team screen.""")
+    @PreAuthorize("isAuthenticated()")
+    @PutMapping("/me/profile")
+    public StaffProfile updateOwnProfile(@Valid @RequestBody UpdateOwnProfileRequest req,
+                                          @AuthenticationPrincipal StaffPrincipal caller,
+                                          HttpServletRequest http) {
+        return auth.updateOwnProfile(caller.staffId(), req.name(), req.phone(), clientIp(http));
     }
 
     @Operation(summary = "Sign out", description = "Revokes the refresh token server-side. With no token supplied, revokes every session for this staff member.")

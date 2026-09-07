@@ -62,6 +62,16 @@
       <groupId>org.springframework.cloud</groupId>
       <artifactId>spring-cloud-starter-bus-kafka</artifactId>
     </dependency>
+
+    <!-- Session 45: support tickets. bmp-user is the user-facing door for support, but the
+         tickets live in bmp-admin — which rejects customer and salon-owner JWTs by design
+         (AdminSecurityConfig uses a separate signing key and a bmp-admin audience claim). So
+         this service authenticates the user, then calls bmp-admin service-to-service with
+         X-Internal-Service-Key. -->
+    <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-openfeign</artifactId>
+    </dependency>
 </dependencies>
 
   <build>

@@ -48,6 +48,48 @@ public class SalonService {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    /**
+     * V012 (Session 44) — when the salon retired this service. NULL = live and bookable.
+     *
+     * <p>There is deliberately no delete. Two tables hold real foreign keys to this row
+     * ({@code stylist_service}, {@code salon_combo_item}) and {@code booking_service_item}
+     * holds a cross-service logical ref with no FK at all — so a delete either fails loudly or,
+     * worse, succeeds and quietly orphans every past booking that used it. See V012's header.
+     */
+    @Column(name = "archived_at")
+    private Instant archivedAt;
+
+    /**
+     * V013 (Session 44) — what's included and what to expect. The menu previously carried only
+     * the facts a BOOKING needs (name, price, duration); nothing that helps a customer DECIDE.
+     */
+    @Column(name = "description", length = 600)
+    private String description;
+
+    /**
+     * V013 — a photo of the result. What a browser renders; always the readable address.
+     *
+     * <p>Since V015 (Session 44) this can be EITHER an image the owner uploaded through BMP or a
+     * link to one they host elsewhere. Readers don't need to tell the difference — a URL is a
+     * URL — which is exactly why the column didn't change shape when upload arrived.
+     */
+    @Column(name = "image_url", length = 500)
+    private String imageUrl;
+
+    /**
+     * Object-storage key when WE host the photo; null when {@link #imageUrl} points somewhere
+     * the salon hosts. V015.
+     *
+     * <p>Two destructive rules depend on this and neither is optional:
+     * <ul>
+     *   <li><b>Replacing</b> a photo must delete the OLD key, or every re-upload leaks an object
+     *       that nothing will ever reference again.</li>
+     *   <li><b>Never</b> delete when this is null. That image belongs to the salon, not to us.</li>
+     * </ul>
+     */
+    @Column(name = "image_storage_key", length = 400)
+    private String imageStorageKey;
+
     protected SalonService() {} // JPA
 
     public SalonService(UUID salonId, String name, Money pricePaise, int durationMinutes, boolean requiresStylistAssignment) {
@@ -71,4 +113,43 @@ public class SalonService {
     // V011 (Session 40) — menu grouping on the salon page.
     public String getCategory() { return category; }
     public void setCategory(String category) { this.category = category; }
+
+    // ── V012 (Session 44): editing and retiring ──────────────────────────────────────────────
+    //
+    // Editing price/duration is SAFE and needs no ceremony: booking_service_item freezes
+    // name_snapshot / price_paise_snapshot / duration_shown_minutes at creation, so no edit here
+    // can reach a booking that already exists. What the salon charges tomorrow and what it
+    // charged last Tuesday are separate facts, and the schema already keeps them separate.
+
+    public void setName(String name) { this.name = name; }
+    public void setPricePaise(Money pricePaise) { this.pricePaise = pricePaise; }
+    public void setDurationMinutes(int durationMinutes) { this.durationMinutes = durationMinutes; }
+    public void setRequiresStylistAssignment(boolean v) { this.requiresStylistAssignment = v; }
+
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+
+    public String getImageStorageKey() { return imageStorageKey; }
+    public void setImageStorageKey(String imageStorageKey) { this.imageStorageKey = imageStorageKey; }
+
+    public Instant getArchivedAt() { return archivedAt; }
+    public boolean isArchived() { return archivedAt != null; }
+
+    /**
+     * Retire this service. Not a setter, for the same reason {@code OtpRequests.markConsumed}
+     * isn't: there is one legitimate transition and a setter would invite arbitrary ones.
+     * Idempotent — archiving twice keeps the first timestamp, which is the one that's true.
+     */
+    public void archive() {
+        if (archivedAt == null) this.archivedAt = Instant.now();
+    }
+
+    /** Put it back on the menu. The counterpart to {@link #archive()} — and the reason this is
+     *  an archive rather than a delete: retiring a service should be a decision you can revisit. */
+    public void restore() {
+        this.archivedAt = null;
+    }
 }

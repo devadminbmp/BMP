@@ -43,4 +43,17 @@ public interface AuthServiceClient {
     /** Sends to the address already on the account. There is no destination parameter. */
     @PostMapping("/api/v1/auth/internal/resend-otp/{userId}")
     void resendOtp(@PathVariable("userId") UUID userId);
+
+    /**
+     * End every session this person currently holds. Session 65.
+     *
+     * <p>Called immediately after a block. Blocking the login door alone leaves anyone already
+     * signed in working normally until their refresh token expires — days — which for the case a
+     * block is usually FOR is the entire window that mattered.
+     *
+     * <p>It does not invalidate an access token already issued (stateless JWT, 15-minute TTL by
+     * default). That gap is real and bmp-auth cannot close it alone.
+     */
+    @PostMapping("/api/v1/auth/internal/revoke-sessions/{userId}")
+    void revokeSessions(@PathVariable("userId") UUID userId);
 }

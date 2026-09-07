@@ -1,0 +1,884 @@
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.4.1)
+
+2026-08-24T22:32:30.248+05:30  INFO 42884 --- [bmp-notification-service] [           main] c.b.n.BmpNotificationApplication         : Starting BmpNotificationApplication using Java 21.0.11 with PID 42884 (C:\BMP -PRJ\BMP\bmp-notification\target\classes started by Lenovo in C:\BMP -PRJ\BMP\bmp-notification)
+2026-08-24T22:32:30.250+05:30  INFO 42884 --- [bmp-notification-service] [           main] c.b.n.BmpNotificationApplication         : No active profile set, falling back to 1 default profile: "default"
+2026-08-24T22:32:30.302+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.s.c.c.c.ConfigServerConfigDataLoader   : Fetching config from server at : http://localhost:8888
+2026-08-24T22:32:30.303+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.s.c.c.c.ConfigServerConfigDataLoader   : Located environment: name=bmp-notification-service, profiles=[default], label=null, version=e49a1a5dcfcb36643a08d9529e85f702a6d4d502, state=
+2026-08-24T22:32:32.476+05:30  INFO 42884 --- [bmp-notification-service] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-08-24T22:32:33.479+05:30  INFO 42884 --- [bmp-notification-service] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 970 ms. Found 1 JPA repository interface.
+2026-08-24T22:32:38.004+05:30  INFO 42884 --- [bmp-notification-service] [           main] faultConfiguringBeanFactoryPostProcessor : No bean named 'errorChannel' has been explicitly defined. Therefore, a default PublishSubscribeChannel will be created.
+2026-08-24T22:32:38.039+05:30  INFO 42884 --- [bmp-notification-service] [           main] faultConfiguringBeanFactoryPostProcessor : No bean named 'integrationHeaderChannelRegistry' has been explicitly defined. Therefore, a default DefaultHeaderChannelRegistry will be created.
+2026-08-24T22:32:38.937+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.s.cloud.context.scope.GenericScope     : BeanFactory id=5d1e2749-5130-38c0-aa81-f2502c74ee17
+2026-08-24T22:32:41.316+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8089 (http)
+2026-08-24T22:32:41.349+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-08-24T22:32:41.350+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.34]
+2026-08-24T22:32:41.488+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-08-24T22:32:41.490+05:30  INFO 42884 --- [bmp-notification-service] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 11184 ms
+2026-08-24T22:32:42.394+05:30  INFO 42884 --- [bmp-notification-service] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-08-24T22:32:42.647+05:30  INFO 42884 --- [bmp-notification-service] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@3777fc44
+2026-08-24T22:32:42.650+05:30  INFO 42884 --- [bmp-notification-service] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-08-24T22:32:42.693+05:30  INFO 42884 --- [bmp-notification-service] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:postgresql://localhost:5432/bmp (PostgreSQL 16.4)
+2026-08-24T22:32:42.814+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 4 migrations (execution time 00:00.066s)
+2026-08-24T22:32:42.864+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "common_schema": 003
+2026-08-24T22:32:42.870+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.f.core.internal.command.DbMigrate      : Schema "common_schema" is up to date. No migration necessary.
+2026-08-24T22:32:43.071+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-08-24T22:32:43.163+05:30  INFO 42884 --- [bmp-notification-service] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.6.4.Final
+2026-08-24T22:32:43.223+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-08-24T22:32:43.646+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-08-24T22:32:43.772+05:30  INFO 42884 --- [bmp-notification-service] [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 16.4
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-08-24T22:32:45.065+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-08-24T22:32:45.158+05:30  INFO 42884 --- [bmp-notification-service] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-08-24T22:32:45.616+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-08-24T22:32:46.391+05:30  WARN 42884 --- [bmp-notification-service] [           main] c.b.n.services.LoggingEmailSender        : EMAIL IS IN LOG-ONLY MODE — no real emails will be sent. To send for real: set BMP_EMAIL_PROVIDER=smtp (+ BMP_SMTP_USERNAME/PASSWORD) BEFORE starting this service, e.g. run '. .\local-secrets.ps1' in this terminal first.
+2026-08-24T22:32:46.808+05:30  WARN 42884 --- [bmp-notification-service] [           main] .s.s.UserDetailsServiceAutoConfiguration : 
+
+Using generated security password: da90e00f-1e3f-4152-be6b-a9174be593b4
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-08-24T22:32:46.823+05:30  INFO 42884 --- [bmp-notification-service] [           main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
+2026-08-24T22:32:47.580+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 10 endpoints beneath base path '/actuator'
+2026-08-24T22:32:48.628+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.s.c.s.m.DirectWithAttributesChannel    : Channel 'bmp-notification-service.springCloudBusInput' has 1 subscriber(s).
+2026-08-24T22:32:49.334+05:30  INFO 42884 --- [bmp-notification-service] [           main] DiscoveryClientOptionalArgsConfiguration : Eureka HTTP Client uses RestTemplate.
+2026-08-24T22:32:49.424+05:30  WARN 42884 --- [bmp-notification-service] [           main] iguration$LoadBalancerCaffeineWarnLogger : Spring Cloud LoadBalancer is currently working with the default cache. While this cache implementation is useful for development and tests, it's recommended to use Caffeine cache in production.You can switch to using Caffeine cache, by adding it and org.springframework.cache.caffeine.CaffeineCacheManager to the classpath.
+2026-08-24T22:32:49.653+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.s.i.endpoint.EventDrivenConsumer       : Adding {logging-channel-adapter:_org.springframework.integration.errorLogger} as a subscriber to the 'errorChannel' channel
+2026-08-24T22:32:49.653+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.s.i.channel.PublishSubscribeChannel    : Channel 'bmp-notification-service.errorChannel' has 1 subscriber(s).
+2026-08-24T22:32:49.654+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.s.i.endpoint.EventDrivenConsumer       : started bean '_org.springframework.integration.errorLogger'
+2026-08-24T22:32:49.672+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.s.c.n.eureka.InstanceInfoFactory       : Setting initial instance status as: STARTING
+2026-08-24T22:32:49.705+05:30  INFO 42884 --- [bmp-notification-service] [           main] com.netflix.discovery.DiscoveryClient    : Initializing Eureka in region us-east-1
+2026-08-24T22:32:49.712+05:30  INFO 42884 --- [bmp-notification-service] [           main] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-24T22:32:49.723+05:30  INFO 42884 --- [bmp-notification-service] [           main] com.netflix.discovery.DiscoveryClient    : Disable delta property : false
+2026-08-24T22:32:49.725+05:30  INFO 42884 --- [bmp-notification-service] [           main] com.netflix.discovery.DiscoveryClient    : Single vip registry refresh property : null
+2026-08-24T22:32:49.725+05:30  INFO 42884 --- [bmp-notification-service] [           main] com.netflix.discovery.DiscoveryClient    : Force full registry fetch : false
+2026-08-24T22:32:49.725+05:30  INFO 42884 --- [bmp-notification-service] [           main] com.netflix.discovery.DiscoveryClient    : Application is null : false
+2026-08-24T22:32:49.725+05:30  INFO 42884 --- [bmp-notification-service] [           main] com.netflix.discovery.DiscoveryClient    : Registered Applications size is zero : true
+2026-08-24T22:32:49.725+05:30  INFO 42884 --- [bmp-notification-service] [           main] com.netflix.discovery.DiscoveryClient    : Application version is -1: true
+2026-08-24T22:32:49.725+05:30  INFO 42884 --- [bmp-notification-service] [           main] com.netflix.discovery.DiscoveryClient    : Getting all instance registry info from the eureka server
+2026-08-24T22:32:50.051+05:30  INFO 42884 --- [bmp-notification-service] [           main] com.netflix.discovery.DiscoveryClient    : The response status is 200
+2026-08-24T22:32:50.054+05:30  INFO 42884 --- [bmp-notification-service] [           main] com.netflix.discovery.DiscoveryClient    : Starting heartbeat executor: renew interval is: 30
+2026-08-24T22:32:50.057+05:30  INFO 42884 --- [bmp-notification-service] [           main] c.n.discovery.InstanceInfoReplicator     : InstanceInfoReplicator onDemand update allowed rate per min is 4
+2026-08-24T22:32:50.058+05:30  INFO 42884 --- [bmp-notification-service] [           main] com.netflix.discovery.DiscoveryClient    : Discovery Client initialized at timestamp 1787590970058 with initial instances count: 2
+2026-08-24T22:32:50.068+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.s.c.n.e.s.EurekaServiceRegistry        : Registering application BMP-NOTIFICATION-SERVICE with eureka with status UP
+2026-08-24T22:32:50.069+05:30  INFO 42884 --- [bmp-notification-service] [           main] com.netflix.discovery.DiscoveryClient    : Saw local status change event StatusChangeEvent [timestamp=1787590970069, current=UP, previous=STARTING]
+2026-08-24T22:32:50.071+05:30  INFO 42884 --- [bmp-notification-service] [foReplicator-%d] com.netflix.discovery.DiscoveryClient    : DiscoveryClient_BMP-NOTIFICATION-SERVICE/Darshan.mshome.net:bmp-notification-service:8089: registering service...
+2026-08-24T22:32:50.096+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8089 (http) with context path '/'
+2026-08-24T22:32:50.098+05:30  INFO 42884 --- [bmp-notification-service] [           main] .s.c.n.e.s.EurekaAutoServiceRegistration : Updating port to 8089
+2026-08-24T22:32:50.106+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.s.c.s.binder.DefaultBinderFactory      : Creating binder: kafka
+2026-08-24T22:32:50.106+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.s.c.s.binder.DefaultBinderFactory      : Constructing binder child context for kafka
+2026-08-24T22:32:50.108+05:30  INFO 42884 --- [bmp-notification-service] [foReplicator-%d] com.netflix.discovery.DiscoveryClient    : DiscoveryClient_BMP-NOTIFICATION-SERVICE/Darshan.mshome.net:bmp-notification-service:8089 - registration status: 204
+2026-08-24T22:32:50.456+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.s.c.s.binder.DefaultBinderFactory      : Caching the binder: kafka
+2026-08-24T22:32:50.497+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.k.clients.admin.AdminClientConfig    : AdminClientConfig values: 
+	auto.include.jmx.reporter = true
+	bootstrap.controllers = []
+	bootstrap.servers = [localhost:9092]
+	client.dns.lookup = use_all_dns_ips
+	client.id = 
+	connections.max.idle.ms = 300000
+	default.api.timeout.ms = 60000
+	enable.metrics.push = true
+	metadata.max.age.ms = 300000
+	metadata.recovery.strategy = none
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	receive.buffer.bytes = 65536
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retries = 2147483647
+	retry.backoff.max.ms = 1000
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = PLAINTEXT
+	security.providers = null
+	send.buffer.bytes = 131072
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+
+2026-08-24T22:32:50.596+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka version: 3.8.1
+2026-08-24T22:32:50.596+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka commitId: 70d6ff42debf7e17
+2026-08-24T22:32:50.596+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka startTimeMs: 1787590970595
+2026-08-24T22:32:50.917+05:30  INFO 42884 --- [bmp-notification-service] [| adminclient-1] o.a.kafka.common.utils.AppInfoParser     : App info kafka.admin.client for adminclient-1 unregistered
+2026-08-24T22:32:50.921+05:30  INFO 42884 --- [bmp-notification-service] [| adminclient-1] o.apache.kafka.common.metrics.Metrics    : Metrics scheduler closed
+2026-08-24T22:32:50.921+05:30  INFO 42884 --- [bmp-notification-service] [| adminclient-1] o.apache.kafka.common.metrics.Metrics    : Closing reporter org.apache.kafka.common.metrics.JmxReporter
+2026-08-24T22:32:50.921+05:30  INFO 42884 --- [bmp-notification-service] [| adminclient-1] o.apache.kafka.common.metrics.Metrics    : Metrics reporters closed
+2026-08-24T22:32:50.932+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.k.clients.consumer.ConsumerConfig    : ConsumerConfig values: 
+	allow.auto.create.topics = true
+	auto.commit.interval.ms = 100
+	auto.include.jmx.reporter = true
+	auto.offset.reset = earliest
+	bootstrap.servers = [localhost:9092]
+	check.crcs = true
+	client.dns.lookup = use_all_dns_ips
+	client.id = consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-1
+	client.rack = 
+	connections.max.idle.ms = 540000
+	default.api.timeout.ms = 60000
+	enable.auto.commit = false
+	enable.metrics.push = true
+	exclude.internal.topics = true
+	fetch.max.bytes = 52428800
+	fetch.max.wait.ms = 500
+	fetch.min.bytes = 1
+	group.id = anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7
+	group.instance.id = null
+	group.protocol = classic
+	group.remote.assignor = null
+	heartbeat.interval.ms = 3000
+	interceptor.classes = []
+	internal.leave.group.on.close = true
+	internal.throw.on.fetch.stable.offset.unsupported = false
+	isolation.level = read_uncommitted
+	key.deserializer = class org.apache.kafka.common.serialization.StringDeserializer
+	max.partition.fetch.bytes = 1048576
+	max.poll.interval.ms = 300000
+	max.poll.records = 500
+	metadata.max.age.ms = 300000
+	metadata.recovery.strategy = none
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	partition.assignment.strategy = [class org.apache.kafka.clients.consumer.RangeAssignor, class org.apache.kafka.clients.consumer.CooperativeStickyAssignor]
+	receive.buffer.bytes = 65536
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retry.backoff.max.ms = 1000
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = PLAINTEXT
+	security.providers = null
+	send.buffer.bytes = 131072
+	session.timeout.ms = 45000
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+	value.deserializer = class org.apache.kafka.common.serialization.StringDeserializer
+
+2026-08-24T22:32:50.966+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.k.c.t.i.KafkaMetricsCollector        : initializing Kafka metrics collector
+2026-08-24T22:32:51.021+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka version: 3.8.1
+2026-08-24T22:32:51.021+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka commitId: 70d6ff42debf7e17
+2026-08-24T22:32:51.021+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka startTimeMs: 1787590971021
+2026-08-24T22:32:51.042+05:30  INFO 42884 --- [bmp-notification-service] [           main] org.apache.kafka.clients.Metadata        : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-1, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Cluster ID: 5L6g3nShT-eMCtK--X86sw
+2026-08-24T22:32:51.044+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-1, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Resetting generation and member id due to: consumer pro-actively leaving the group
+2026-08-24T22:32:51.044+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-1, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Request joining group due to: consumer pro-actively leaving the group
+2026-08-24T22:32:51.048+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.apache.kafka.common.metrics.Metrics    : Metrics scheduler closed
+2026-08-24T22:32:51.048+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.apache.kafka.common.metrics.Metrics    : Closing reporter org.apache.kafka.common.metrics.JmxReporter
+2026-08-24T22:32:51.048+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.apache.kafka.common.metrics.Metrics    : Closing reporter org.apache.kafka.common.telemetry.internals.ClientTelemetryReporter
+2026-08-24T22:32:51.048+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.apache.kafka.common.metrics.Metrics    : Metrics reporters closed
+2026-08-24T22:32:51.050+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.kafka.common.utils.AppInfoParser     : App info kafka.consumer for consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-1 unregistered
+2026-08-24T22:32:51.067+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.s.c.stream.binder.BinderErrorChannel   : Channel 'kafka-23158576.springCloudBusInput.errors' has 1 subscriber(s).
+2026-08-24T22:32:51.068+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.s.c.stream.binder.BinderErrorChannel   : Channel 'kafka-23158576.springCloudBusInput.errors' has 0 subscriber(s).
+2026-08-24T22:32:51.068+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.s.c.stream.binder.BinderErrorChannel   : Channel 'kafka-23158576.springCloudBusInput.errors' has 1 subscriber(s).
+2026-08-24T22:32:51.068+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.s.c.stream.binder.BinderErrorChannel   : Channel 'kafka-23158576.springCloudBusInput.errors' has 2 subscriber(s).
+2026-08-24T22:32:51.083+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.k.clients.consumer.ConsumerConfig    : ConsumerConfig values: 
+	allow.auto.create.topics = true
+	auto.commit.interval.ms = 100
+	auto.include.jmx.reporter = true
+	auto.offset.reset = earliest
+	bootstrap.servers = [localhost:9092]
+	check.crcs = true
+	client.dns.lookup = use_all_dns_ips
+	client.id = consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2
+	client.rack = 
+	connections.max.idle.ms = 540000
+	default.api.timeout.ms = 60000
+	enable.auto.commit = false
+	enable.metrics.push = true
+	exclude.internal.topics = true
+	fetch.max.bytes = 52428800
+	fetch.max.wait.ms = 500
+	fetch.min.bytes = 1
+	group.id = anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7
+	group.instance.id = null
+	group.protocol = classic
+	group.remote.assignor = null
+	heartbeat.interval.ms = 3000
+	interceptor.classes = []
+	internal.leave.group.on.close = true
+	internal.throw.on.fetch.stable.offset.unsupported = false
+	isolation.level = read_uncommitted
+	key.deserializer = class org.apache.kafka.common.serialization.StringDeserializer
+	max.partition.fetch.bytes = 1048576
+	max.poll.interval.ms = 300000
+	max.poll.records = 500
+	metadata.max.age.ms = 300000
+	metadata.recovery.strategy = none
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	partition.assignment.strategy = [class org.apache.kafka.clients.consumer.RangeAssignor, class org.apache.kafka.clients.consumer.CooperativeStickyAssignor]
+	receive.buffer.bytes = 65536
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retry.backoff.max.ms = 1000
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = PLAINTEXT
+	security.providers = null
+	send.buffer.bytes = 131072
+	session.timeout.ms = 45000
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+	value.deserializer = class org.apache.kafka.common.serialization.StringDeserializer
+
+2026-08-24T22:32:51.083+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.k.c.t.i.KafkaMetricsCollector        : initializing Kafka metrics collector
+2026-08-24T22:32:51.088+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka version: 3.8.1
+2026-08-24T22:32:51.088+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka commitId: 70d6ff42debf7e17
+2026-08-24T22:32:51.088+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka startTimeMs: 1787590971088
+2026-08-24T22:32:51.092+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.k.c.c.internals.LegacyKafkaConsumer  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Subscribed to topic(s): springCloudBus
+2026-08-24T22:32:51.098+05:30  INFO 42884 --- [bmp-notification-service] [           main] s.i.k.i.KafkaMessageDrivenChannelAdapter : started org.springframework.integration.kafka.inbound.KafkaMessageDrivenChannelAdapter@6a2579a3
+2026-08-24T22:32:51.102+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.k.clients.consumer.ConsumerConfig    : ConsumerConfig values: 
+	allow.auto.create.topics = true
+	auto.commit.interval.ms = 5000
+	auto.include.jmx.reporter = true
+	auto.offset.reset = earliest
+	bootstrap.servers = [localhost:9092]
+	check.crcs = true
+	client.dns.lookup = use_all_dns_ips
+	client.id = consumer-bmp-notification-service-3
+	client.rack = 
+	connections.max.idle.ms = 540000
+	default.api.timeout.ms = 60000
+	enable.auto.commit = false
+	enable.metrics.push = true
+	exclude.internal.topics = true
+	fetch.max.bytes = 52428800
+	fetch.max.wait.ms = 500
+	fetch.min.bytes = 1
+	group.id = bmp-notification-service
+	group.instance.id = null
+	group.protocol = classic
+	group.remote.assignor = null
+	heartbeat.interval.ms = 3000
+	interceptor.classes = []
+	internal.leave.group.on.close = true
+	internal.throw.on.fetch.stable.offset.unsupported = false
+	isolation.level = read_uncommitted
+	key.deserializer = class org.apache.kafka.common.serialization.StringDeserializer
+	max.partition.fetch.bytes = 1048576
+	max.poll.interval.ms = 300000
+	max.poll.records = 500
+	metadata.max.age.ms = 300000
+	metadata.recovery.strategy = none
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	partition.assignment.strategy = [class org.apache.kafka.clients.consumer.RangeAssignor, class org.apache.kafka.clients.consumer.CooperativeStickyAssignor]
+	receive.buffer.bytes = 65536
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retry.backoff.max.ms = 1000
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = PLAINTEXT
+	security.providers = null
+	send.buffer.bytes = 131072
+	session.timeout.ms = 45000
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+	value.deserializer = class org.apache.kafka.common.serialization.StringDeserializer
+
+2026-08-24T22:32:51.103+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.k.c.t.i.KafkaMetricsCollector        : initializing Kafka metrics collector
+2026-08-24T22:32:51.106+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka version: 3.8.1
+2026-08-24T22:32:51.106+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka commitId: 70d6ff42debf7e17
+2026-08-24T22:32:51.106+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka startTimeMs: 1787590971106
+2026-08-24T22:32:51.111+05:30  INFO 42884 --- [bmp-notification-service] [           main] o.a.k.c.c.internals.LegacyKafkaConsumer  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Subscribed to topic(s): bmp.events
+2026-08-24T22:32:51.113+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] org.apache.kafka.clients.Metadata        : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Cluster ID: 5L6g3nShT-eMCtK--X86sw
+2026-08-24T22:32:51.113+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T22:32:51.115+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] (Re-)joining group
+2026-08-24T22:32:51.119+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] org.apache.kafka.clients.Metadata        : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Cluster ID: 5L6g3nShT-eMCtK--X86sw
+2026-08-24T22:32:51.120+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T22:32:51.122+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] (Re-)joining group
+2026-08-24T22:32:51.128+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Request joining group due to: need to re-join with the given member-id: consumer-bmp-notification-service-3-d23d8473-3b64-4e3b-b481-842048762720
+2026-08-24T22:32:51.128+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Request joining group due to: need to re-join with the given member-id: consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2-c96a0f86-ed29-4088-a349-de77ed578e4a
+2026-08-24T22:32:51.128+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] (Re-)joining group
+2026-08-24T22:32:51.128+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] (Re-)joining group
+2026-08-24T22:32:51.156+05:30  INFO 42884 --- [bmp-notification-service] [           main] c.b.n.BmpNotificationApplication         : Started BmpNotificationApplication in 25.726 seconds (process running for 27.063)
+2026-08-24T22:32:52.111+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.clients.consumer.ConsumerConfig    : ConsumerConfig values: 
+	allow.auto.create.topics = true
+	auto.commit.interval.ms = 5000
+	auto.include.jmx.reporter = true
+	auto.offset.reset = earliest
+	bootstrap.servers = [localhost:9092]
+	check.crcs = true
+	client.dns.lookup = use_all_dns_ips
+	client.id = consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4
+	client.rack = 
+	connections.max.idle.ms = 540000
+	default.api.timeout.ms = 60000
+	enable.auto.commit = true
+	enable.metrics.push = true
+	exclude.internal.topics = true
+	fetch.max.bytes = 52428800
+	fetch.max.wait.ms = 500
+	fetch.min.bytes = 1
+	group.id = anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7
+	group.instance.id = null
+	group.protocol = classic
+	group.remote.assignor = null
+	heartbeat.interval.ms = 3000
+	interceptor.classes = []
+	internal.leave.group.on.close = true
+	internal.throw.on.fetch.stable.offset.unsupported = false
+	isolation.level = read_uncommitted
+	key.deserializer = class org.apache.kafka.common.serialization.StringDeserializer
+	max.partition.fetch.bytes = 1048576
+	max.poll.interval.ms = 300000
+	max.poll.records = 500
+	metadata.max.age.ms = 300000
+	metadata.recovery.strategy = none
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	partition.assignment.strategy = [class org.apache.kafka.clients.consumer.RangeAssignor, class org.apache.kafka.clients.consumer.CooperativeStickyAssignor]
+	receive.buffer.bytes = 65536
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retry.backoff.max.ms = 1000
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = PLAINTEXT
+	security.providers = null
+	send.buffer.bytes = 131072
+	session.timeout.ms = 45000
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+	value.deserializer = class org.apache.kafka.common.serialization.StringDeserializer
+
+2026-08-24T22:32:52.111+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.t.i.KafkaMetricsCollector        : initializing Kafka metrics collector
+2026-08-24T22:32:52.114+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.kafka.common.utils.AppInfoParser     : Kafka version: 3.8.1
+2026-08-24T22:32:52.114+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.kafka.common.utils.AppInfoParser     : Kafka commitId: 70d6ff42debf7e17
+2026-08-24T22:32:52.115+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.kafka.common.utils.AppInfoParser     : Kafka startTimeMs: 1787590972114
+2026-08-24T22:32:52.121+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] org.apache.kafka.clients.Metadata        : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Cluster ID: 5L6g3nShT-eMCtK--X86sw
+2026-08-24T22:32:52.137+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T22:32:52.144+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:32:54.113+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Successfully joined group with generation Generation{generationId=1, memberId='consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2-c96a0f86-ed29-4088-a349-de77ed578e4a', protocol='range'}
+2026-08-24T22:32:54.113+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Successfully joined group with generation Generation{generationId=16, memberId='consumer-bmp-notification-service-3-d23d8473-3b64-4e3b-b481-842048762720', protocol='range'}
+2026-08-24T22:32:54.119+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Finished assignment for group at generation 1: {consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2-c96a0f86-ed29-4088-a349-de77ed578e4a=Assignment(partitions=[springCloudBus-0])}
+2026-08-24T22:32:54.119+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Finished assignment for group at generation 16: {consumer-bmp-notification-service-3-d23d8473-3b64-4e3b-b481-842048762720=Assignment(partitions=[bmp.events-0])}
+2026-08-24T22:32:54.126+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Successfully synced group in generation Generation{generationId=1, memberId='consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2-c96a0f86-ed29-4088-a349-de77ed578e4a', protocol='range'}
+2026-08-24T22:32:54.127+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Notifying assignor about the new Assignment(partitions=[springCloudBus-0])
+2026-08-24T22:32:54.127+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Successfully synced group in generation Generation{generationId=16, memberId='consumer-bmp-notification-service-3-d23d8473-3b64-4e3b-b481-842048762720', protocol='range'}
+2026-08-24T22:32:54.127+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Notifying assignor about the new Assignment(partitions=[bmp.events-0])
+2026-08-24T22:32:54.129+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] k.c.c.i.ConsumerRebalanceListenerInvoker : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Adding newly assigned partitions: bmp.events-0
+2026-08-24T22:32:54.129+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] k.c.c.i.ConsumerRebalanceListenerInvoker : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Adding newly assigned partitions: springCloudBus-0
+2026-08-24T22:32:54.134+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:32:54.134+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerUtils        : Setting offset for partition bmp.events-0 to the committed offset FetchPosition{offset=5, offsetEpoch=Optional.empty, currentLeader=LeaderAndEpoch{leader=Optional[localhost:9092 (id: 1 rack: null)], epoch=0}}
+2026-08-24T22:32:54.135+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.s.k.l.KafkaMessageListenerContainer    : bmp-notification-service: partitions assigned: [bmp.events-0]
+2026-08-24T22:32:54.141+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.SubscriptionState    : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Resetting offset for partition springCloudBus-0 to position FetchPosition{offset=0, offsetEpoch=Optional.empty, currentLeader=LeaderAndEpoch{leader=Optional[localhost:9092 (id: 1 rack: null)], epoch=0}}.
+2026-08-24T22:32:54.141+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.s.c.s.b.k.KafkaMessageChannelBinder$2  : anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7: partitions assigned: [springCloudBus-0]
+2026-08-24T22:33:29.314+05:30  INFO 42884 --- [bmp-notification-service] [nio-8089-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-08-24T22:33:29.315+05:30  INFO 42884 --- [bmp-notification-service] [nio-8089-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-08-24T22:33:29.318+05:30  INFO 42884 --- [bmp-notification-service] [nio-8089-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 3 ms
+2026-08-24T22:33:29.384+05:30  INFO 42884 --- [bmp-notification-service] [binder-health-1] o.a.k.clients.consumer.ConsumerConfig    : ConsumerConfig values: 
+	allow.auto.create.topics = true
+	auto.commit.interval.ms = 5000
+	auto.include.jmx.reporter = true
+	auto.offset.reset = earliest
+	bootstrap.servers = [localhost:9092]
+	check.crcs = true
+	client.dns.lookup = use_all_dns_ips
+	client.id = consumer-null-5
+	client.rack = 
+	connections.max.idle.ms = 540000
+	default.api.timeout.ms = 60000
+	enable.auto.commit = false
+	enable.metrics.push = true
+	exclude.internal.topics = true
+	fetch.max.bytes = 52428800
+	fetch.max.wait.ms = 500
+	fetch.min.bytes = 1
+	group.id = null
+	group.instance.id = null
+	group.protocol = classic
+	group.remote.assignor = null
+	heartbeat.interval.ms = 3000
+	interceptor.classes = []
+	internal.leave.group.on.close = true
+	internal.throw.on.fetch.stable.offset.unsupported = false
+	isolation.level = read_uncommitted
+	key.deserializer = class org.apache.kafka.common.serialization.StringDeserializer
+	max.partition.fetch.bytes = 1048576
+	max.poll.interval.ms = 300000
+	max.poll.records = 500
+	metadata.max.age.ms = 300000
+	metadata.recovery.strategy = none
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	partition.assignment.strategy = [class org.apache.kafka.clients.consumer.RangeAssignor, class org.apache.kafka.clients.consumer.CooperativeStickyAssignor]
+	receive.buffer.bytes = 65536
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retry.backoff.max.ms = 1000
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = PLAINTEXT
+	security.providers = null
+	send.buffer.bytes = 131072
+	session.timeout.ms = 45000
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+	value.deserializer = class org.apache.kafka.common.serialization.StringDeserializer
+
+2026-08-24T22:33:29.385+05:30  INFO 42884 --- [bmp-notification-service] [binder-health-1] o.a.k.c.t.i.KafkaMetricsCollector        : initializing Kafka metrics collector
+2026-08-24T22:33:29.390+05:30  INFO 42884 --- [bmp-notification-service] [binder-health-1] o.a.kafka.common.utils.AppInfoParser     : Kafka version: 3.8.1
+2026-08-24T22:33:29.390+05:30  INFO 42884 --- [bmp-notification-service] [binder-health-1] o.a.kafka.common.utils.AppInfoParser     : Kafka commitId: 70d6ff42debf7e17
+2026-08-24T22:33:29.390+05:30  INFO 42884 --- [bmp-notification-service] [binder-health-1] o.a.kafka.common.utils.AppInfoParser     : Kafka startTimeMs: 1787591009390
+2026-08-24T22:33:29.398+05:30  INFO 42884 --- [bmp-notification-service] [binder-health-1] org.apache.kafka.clients.Metadata        : [Consumer clientId=consumer-null-5, groupId=null] Cluster ID: 5L6g3nShT-eMCtK--X86sw
+2026-08-24T22:33:51.098+05:30  WARN 42884 --- [bmp-notification-service] [r-kafka-metrics] i.m.core.instrument.MeterRegistry        : This Gauge has been already registered (MeterId{name='kafka.consumer.io.wait.time.ns.avg', tags=[tag(client.id=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2),tag(kafka.version=3.8.1),tag(spring.id=springCloudBus.consumer.consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2)]}), the Gauge registration will be ignored. Note that subsequent logs will be logged at debug level.
+2026-08-24T22:33:52.162+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:34:12.493+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] c.b.n.services.LoggingSmsSender          : [SMS STUB — no real gateway configured] to=+919876500003 message="Your BMP verification code is 826543. It expires at 2026-08-24T17:09:09.368047100Z."
+2026-08-24T22:34:12.529+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] c.b.n.services.LoggingEmailSender        : [EMAIL STUB — no SMTP provider configured] to=owner.lumiere@example.com subject="Your BMP verification code" body="Your BMP verification code is 826543. It expires at 2026-08-24T17:09:09.368047100Z."
+2026-08-24T22:34:52.175+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:35:52.198+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:36:52.233+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:37:49.750+05:30  INFO 42884 --- [bmp-notification-service] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-24T22:37:52.250+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:38:52.267+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:39:52.281+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:40:52.300+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:41:51.155+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Node -1 disconnected.
+2026-08-24T22:41:51.545+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Node -1 disconnected.
+2026-08-24T22:41:52.319+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Node -1 disconnected.
+2026-08-24T22:41:52.329+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:42:48.472+05:30  INFO 42884 --- [bmp-notification-service] [binder-health-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-null-5, groupId=null] Node -1 disconnected.
+2026-08-24T22:42:49.779+05:30  INFO 42884 --- [bmp-notification-service] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-24T22:42:52.349+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:43:52.358+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:44:52.376+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:45:52.392+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:46:52.415+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:47:49.791+05:30  INFO 42884 --- [bmp-notification-service] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-24T22:47:52.438+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:48:52.455+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:49:52.474+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:50:52.512+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:51:51.231+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Node -1 disconnected.
+2026-08-24T22:51:51.233+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Node -1 disconnected.
+2026-08-24T22:51:52.526+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Node -1 disconnected.
+2026-08-24T22:51:52.538+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:52:49.800+05:30  INFO 42884 --- [bmp-notification-service] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-24T22:52:52.555+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:53:28.459+05:30  INFO 42884 --- [bmp-notification-service] [binder-health-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-null-5, groupId=null] Node -1 disconnected.
+2026-08-24T22:53:52.576+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:54:52.584+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:55:52.603+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:56:52.635+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:57:49.813+05:30  INFO 42884 --- [bmp-notification-service] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-24T22:57:52.661+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:58:52.687+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:59:52.715+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:00:52.732+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:01:52.758+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:02:49.827+05:30  INFO 42884 --- [bmp-notification-service] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-24T23:02:52.783+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:03:52.804+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:04:52.833+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:05:52.856+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:06:52.878+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:07:49.849+05:30  INFO 42884 --- [bmp-notification-service] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-24T23:07:52.900+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:08:52.911+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:09:52.925+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:10:52.933+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:11:52.962+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:12:49.871+05:30  INFO 42884 --- [bmp-notification-service] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-24T23:12:52.986+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:13:53.012+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:14:53.033+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:15:53.047+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:16:53.059+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:17:49.884+05:30  INFO 42884 --- [bmp-notification-service] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-24T23:17:53.080+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:18:53.103+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:19:53.116+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:20:53.140+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:21:53.155+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:22:49.886+05:30  INFO 42884 --- [bmp-notification-service] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-24T23:22:53.169+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:36:04.152+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Node 2147483646 disconnected.
+2026-08-24T23:36:04.217+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Node 2147483646 disconnected.
+2026-08-24T23:36:04.524+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Disconnecting from node 1 due to request timeout.
+2026-08-24T23:36:04.529+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Disconnecting from node 1 due to request timeout.
+2026-08-24T23:36:04.559+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Cancelled in-flight FETCH request with correlation id 6953 due to node 1 being disconnected (elapsed time since creation: 790679ms, elapsed time since send: 790679ms, throttle time: 0ms, request timeout: 30000ms)
+2026-08-24T23:36:04.566+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Cancelled in-flight FETCH request with correlation id 6954 due to node 1 being disconnected (elapsed time since creation: 790740ms, elapsed time since send: 790740ms, throttle time: 0ms, request timeout: 30000ms)
+2026-08-24T23:36:04.569+05:30  INFO 42884 --- [bmp-notification-service] [a4-d6f85bde88e7] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Group coordinator localhost:9092 (id: 2147483646 rack: null) is unavailable or invalid due to cause: session timed out without receiving a heartbeat response. isDisconnected: false. Rediscovery will be attempted.
+2026-08-24T23:36:04.570+05:30  INFO 42884 --- [bmp-notification-service] [ication-service] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Group coordinator localhost:9092 (id: 2147483646 rack: null) is unavailable or invalid due to cause: session timed out without receiving a heartbeat response. isDisconnected: false. Rediscovery will be attempted.
+2026-08-24T23:36:04.572+05:30  INFO 42884 --- [bmp-notification-service] [ication-service] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Requesting disconnect from last known coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:04.586+05:30  INFO 42884 --- [bmp-notification-service] [a4-d6f85bde88e7] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Requesting disconnect from last known coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:04.590+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.kafka.clients.FetchSessionHandler    : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Error sending fetch request (sessionId=317485308, epoch=5925) to node 1:
+
+org.apache.kafka.common.errors.DisconnectException: null
+
+2026-08-24T23:36:04.590+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.kafka.clients.FetchSessionHandler    : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Error sending fetch request (sessionId=225772264, epoch=5924) to node 1:
+
+org.apache.kafka.common.errors.DisconnectException: null
+
+2026-08-24T23:36:08.500+05:30  INFO 42884 --- [bmp-notification-service] [ication-service] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:08.520+05:30  INFO 42884 --- [bmp-notification-service] [a4-d6f85bde88e7] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:08.523+05:30  WARN 42884 --- [bmp-notification-service] [ication-service] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] consumer poll timeout has expired. This means the time between subsequent calls to poll() was longer than the configured max.poll.interval.ms, which typically implies that the poll loop is spending too much time processing messages. You can address this either by increasing max.poll.interval.ms or by reducing the maximum size of batches returned in poll() with max.poll.records.
+2026-08-24T23:36:08.524+05:30  INFO 42884 --- [bmp-notification-service] [ication-service] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Member consumer-bmp-notification-service-3-d23d8473-3b64-4e3b-b481-842048762720 sending LeaveGroup request to coordinator localhost:9092 (id: 2147483646 rack: null) due to consumer poll timeout has expired.
+2026-08-24T23:36:08.522+05:30  WARN 42884 --- [bmp-notification-service] [a4-d6f85bde88e7] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] consumer poll timeout has expired. This means the time between subsequent calls to poll() was longer than the configured max.poll.interval.ms, which typically implies that the poll loop is spending too much time processing messages. You can address this either by increasing max.poll.interval.ms or by reducing the maximum size of batches returned in poll() with max.poll.records.
+2026-08-24T23:36:08.543+05:30  INFO 42884 --- [bmp-notification-service] [a4-d6f85bde88e7] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Member consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2-c96a0f86-ed29-4088-a349-de77ed578e4a sending LeaveGroup request to coordinator localhost:9092 (id: 2147483646 rack: null) due to consumer poll timeout has expired.
+2026-08-24T23:36:08.603+05:30  INFO 42884 --- [bmp-notification-service] [ication-service] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:08.604+05:30  INFO 42884 --- [bmp-notification-service] [ication-service] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Resetting generation and member id due to: consumer pro-actively leaving the group
+2026-08-24T23:36:08.604+05:30  INFO 42884 --- [bmp-notification-service] [ication-service] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Request joining group due to: consumer pro-actively leaving the group
+2026-08-24T23:36:08.625+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Giving away all assigned partitions as lost since generation/memberID has been reset,indicating that consumer is in old state or no longer part of the group
+2026-08-24T23:36:08.625+05:30  INFO 42884 --- [bmp-notification-service] [a4-d6f85bde88e7] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:08.625+05:30  INFO 42884 --- [bmp-notification-service] [a4-d6f85bde88e7] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Resetting generation and member id due to: consumer pro-actively leaving the group
+2026-08-24T23:36:08.656+05:30  INFO 42884 --- [bmp-notification-service] [a4-d6f85bde88e7] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Request joining group due to: consumer pro-actively leaving the group
+2026-08-24T23:36:08.700+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Giving away all assigned partitions as lost since generation/memberID has been reset,indicating that consumer is in old state or no longer part of the group
+2026-08-24T23:36:08.702+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] k.c.c.i.ConsumerRebalanceListenerInvoker : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Lost previously assigned partitions springCloudBus-0
+2026-08-24T23:36:08.754+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] k.c.c.i.ConsumerRebalanceListenerInvoker : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Lost previously assigned partitions bmp.events-0
+2026-08-24T23:36:09.192+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.s.k.l.KafkaMessageListenerContainer    : bmp-notification-service: partitions lost: [bmp.events-0]
+2026-08-24T23:36:09.201+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.s.c.s.b.k.KafkaMessageChannelBinder$2  : anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7: partitions lost: [springCloudBus-0]
+2026-08-24T23:36:09.264+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.s.k.l.KafkaMessageListenerContainer    : bmp-notification-service: partitions revoked: [bmp.events-0]
+2026-08-24T23:36:09.294+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.s.c.s.b.k.KafkaMessageChannelBinder$2  : anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7: partitions revoked: [springCloudBus-0]
+2026-08-24T23:36:09.330+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] (Re-)joining group
+2026-08-24T23:36:09.333+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] (Re-)joining group
+2026-08-24T23:36:09.476+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:09.489+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:10.131+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:10.139+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:10.229+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:10.233+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:10.234+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:10.231+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:10.556+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:10.557+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:10.571+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:10.571+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:10.572+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:10.573+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:10.573+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:11.108+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Request joining group due to: need to re-join with the given member-id: consumer-bmp-notification-service-3-ec7f5670-ae2d-44f7-926d-3cbcc5358045
+2026-08-24T23:36:11.108+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Request joining group due to: need to re-join with the given member-id: consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2-9f5e4e07-63c7-46ac-92b6-1806bbd84e20
+2026-08-24T23:36:11.109+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] (Re-)joining group
+2026-08-24T23:36:11.109+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] (Re-)joining group
+2026-08-24T23:36:14.153+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Successfully joined group with generation Generation{generationId=3, memberId='consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2-9f5e4e07-63c7-46ac-92b6-1806bbd84e20', protocol='range'}
+2026-08-24T23:36:14.153+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Successfully joined group with generation Generation{generationId=18, memberId='consumer-bmp-notification-service-3-ec7f5670-ae2d-44f7-926d-3cbcc5358045', protocol='range'}
+2026-08-24T23:36:14.209+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Finished assignment for group at generation 3: {consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2-9f5e4e07-63c7-46ac-92b6-1806bbd84e20=Assignment(partitions=[springCloudBus-0])}
+2026-08-24T23:36:14.209+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Finished assignment for group at generation 18: {consumer-bmp-notification-service-3-ec7f5670-ae2d-44f7-926d-3cbcc5358045=Assignment(partitions=[bmp.events-0])}
+2026-08-24T23:36:14.281+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Successfully synced group in generation Generation{generationId=3, memberId='consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2-9f5e4e07-63c7-46ac-92b6-1806bbd84e20', protocol='range'}
+2026-08-24T23:36:14.283+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Notifying assignor about the new Assignment(partitions=[springCloudBus-0])
+2026-08-24T23:36:14.283+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] k.c.c.i.ConsumerRebalanceListenerInvoker : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Adding newly assigned partitions: springCloudBus-0
+2026-08-24T23:36:14.284+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Successfully synced group in generation Generation{generationId=18, memberId='consumer-bmp-notification-service-3-ec7f5670-ae2d-44f7-926d-3cbcc5358045', protocol='range'}
+2026-08-24T23:36:14.285+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Notifying assignor about the new Assignment(partitions=[bmp.events-0])
+2026-08-24T23:36:14.285+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] k.c.c.i.ConsumerRebalanceListenerInvoker : [Consumer clientId=consumer-bmp-notification-service-3, groupId=bmp-notification-service] Adding newly assigned partitions: bmp.events-0
+2026-08-24T23:36:14.293+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:36:14.294+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.a.k.c.c.internals.ConsumerUtils        : Setting offset for partition bmp.events-0 to the committed offset FetchPosition{offset=6, offsetEpoch=Optional.empty, currentLeader=LeaderAndEpoch{leader=Optional[localhost:9092 (id: 1 rack: null)], epoch=0}}
+2026-08-24T23:36:14.294+05:30  INFO 42884 --- [bmp-notification-service] [ntainer#0-0-C-1] o.s.k.l.KafkaMessageListenerContainer    : bmp-notification-service: partitions assigned: [bmp.events-0]
+2026-08-24T23:36:14.312+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.a.k.c.c.internals.SubscriptionState    : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-2, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Resetting offset for partition springCloudBus-0 to position FetchPosition{offset=0, offsetEpoch=Optional.empty, currentLeader=LeaderAndEpoch{leader=Optional[localhost:9092 (id: 1 rack: null)], epoch=0}}.
+2026-08-24T23:36:14.314+05:30  INFO 42884 --- [bmp-notification-service] [container-0-C-1] o.s.c.s.b.k.KafkaMessageChannelBinder$2  : anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7: partitions assigned: [springCloudBus-0]
+2026-08-24T23:36:19.974+05:30  WARN 42884 --- [bmp-notification-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=13m36s492ms663µs400ns).
+2026-08-24T23:36:59.545+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Node 2147483646 disconnected.
+2026-08-24T23:36:59.550+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Group coordinator localhost:9092 (id: 2147483646 rack: null) is unavailable or invalid due to cause: coordinator unavailable. isDisconnected: true. Rediscovery will be attempted.
+2026-08-24T23:36:59.552+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:59.552+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Group coordinator localhost:9092 (id: 2147483646 rack: null) is unavailable or invalid due to cause: coordinator unavailable. isDisconnected: false. Rediscovery will be attempted.
+2026-08-24T23:36:59.552+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Requesting disconnect from last known coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:59.653+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:59.663+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:37:59.674+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0
+2026-08-24T23:38:59.689+05:30  INFO 42884 --- [bmp-notification-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7-4, groupId=anonymous.e34b32fd-6c32-4d25-9ea4-d6f85bde88e7] Found no committed offset for partition springCloudBus-0

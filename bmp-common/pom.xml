@@ -60,5 +60,25 @@
       <groupId>org.springframework.kafka</groupId>
       <artifactId>spring-kafka</artifactId>
     </dependency>
+
+    <!-- Session 44: image upload (storage/).
+
+         OPTIONAL on purpose. bmp-common is a dependency of all 13 services, and only the ones
+         that actually store files need ~12MB of AWS SDK on their classpath. An optional
+         dependency is not transitive, so bmp-common compiles S3ObjectStorage against it while
+         every service that doesn't ask for it stays unaffected.
+
+         The matching @ConditionalOnClass on S3ObjectStorage means the bean simply isn't
+         created where the SDK is absent — so a service without it fails at STARTUP with a
+         clear missing-bean message if it tries to inject ObjectStorage, rather than at runtime
+         with NoClassDefFoundError on the first upload. Fail early, fail legibly.
+
+         A service that wants uploads adds `software.amazon.awssdk:s3` to its own pom (bmp-salon
+         does). Version comes from the BOM in the root pom. -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>s3</artifactId>
+      <optional>true</optional>
+    </dependency>
   </dependencies>
 </project>

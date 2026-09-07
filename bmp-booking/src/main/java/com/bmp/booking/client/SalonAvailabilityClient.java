@@ -4,6 +4,7 @@ import com.bmp.booking.client.dto.AvailabilitySlot;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.time.LocalDate;
@@ -27,6 +28,27 @@ import java.util.UUID;
 public interface SalonAvailabilityClient {
 
     /**
+     * Resolve a login to the stylist profile behind it, and the salon they work at. Session 48.
+     *
+     * <h2>This call IS the authorization for the stylist schedule endpoints</h2>
+     * A stylist's JWT has a userId and a role but no salonId — a stylist is a portable profile,
+     * not a salon-scoped seat. So {@code BookingController.stylistDay} cannot scope the query from
+     * the token alone, and it must not take a stylistId from the request: that is precisely how
+     * one stylist would read another's day, and the customer names in it.
+     *
+     * <p>Deriving both ids here, from the userId the token asserts, means the caller has no say in
+     * whose schedule they get.
+     *
+     * @return {@code salonId} is null when they are not currently on any team — treat as "no
+     *         schedule", not as an error
+     */
+    @GetMapping("/api/v1/salons/internal/stylist-by-user/{userId}")
+    StylistIdentity stylistByUser(@PathVariable("userId") UUID userId);
+
+    /** Mirror of bmp-salon's InternalSalonController.StylistIdentity. */
+    record StylistIdentity(UUID stylistId, UUID salonId, String name) {}
+
+    /**
      * @param excludeBookingId Session 37. Null for an ordinary lookup. Set ONLY while that
      *                         booking is being rescheduled, so it doesn't count as busy against
      *                         itself — otherwise moving a 60-minute service from 11:00 to 11:30
@@ -36,12 +58,14 @@ public interface SalonAvailabilityClient {
     @GetMapping("/api/v1/availability/slots")
     List<AvailabilitySlot> freeSlots(@RequestParam("salonId") UUID salonId,
                                        @RequestParam("stylistId") UUID stylistId,
+                                       @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                                        @RequestParam("date") LocalDate date,
                                        @RequestParam("durationMinutes") int durationMinutes,
                                        @RequestParam(value = "excludeBookingId", required = false) UUID excludeBookingId);
 
     @GetMapping("/api/v1/availability/slots/any")
     List<AvailabilitySlot> freeSlotsAnyStylist(@RequestParam("salonId") UUID salonId,
+                                                 @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
                                                  @RequestParam("date") LocalDate date,
                                                  @RequestParam("durationMinutes") int durationMinutes,
                                                  @RequestParam(value = "excludeBookingId", required = false) UUID excludeBookingId);
@@ -119,8 +143,68 @@ public interface SalonAvailabilityClient {
      * <p>Both nullable. A salon that has set neither gets no alert and the dispatcher says so in
      * the log; it must never fail a booking, because the appointment is real either way.
      */
-    record SalonSummary(UUID id, String name, String bookingNotifyEmail, String bookingNotifyPhone) {}
+    /**
+     * @param status Session 65 — and the reason this record changed at all.
+     *
+     *               bmp-salon's SalonResponse has always carried it; this record dropped it, so
+     *               bmp-booking had NO WAY to know a salon had been suspended. Discovery hid a
+     *               suspended salon from search, and booking creation would still accept one —
+     *               see BookingService.requireSalonBookable for what that meant in practice.
+     *
+     *               Field names must match SalonResponse exactly: Jackson binds by name and a
+     *               mismatch deserializes to a silent null rather than an error. `status` is the
+     *               name bmp-salon uses.
+     */
+    record SalonSummary(UUID id, String name, String status,
+                        String bookingNotifyEmail, String bookingNotifyPhone) {}
 
     @GetMapping("/api/v1/salons/{salonId}")
     SalonSummary getSalon(@PathVariable("salonId") UUID salonId);
+
+    // ══ Session 53 — telling the stylist they've been booked ══════════════════════════════════
+
+    /**
+     * The stylist's name and the account behind them, so bmp-booking can resolve an address.
+     *
+     * <p>Mirrors {@code InternalSalonController.StylistContact}. {@code userId} is null for a
+     * profile created by a salon invite that the person never claimed — treat that as "cannot be
+     * told", not as a failure.
+     */
+    record StylistContact(UUID stylistId, UUID userId, String name) {}
+
+    @GetMapping("/api/v1/salons/internal/stylist-contact/{stylistId}")
+    StylistContact stylistContact(@PathVariable("stylistId") UUID stylistId);
+
+    // ══ Session 52 — the salon's own customer book (V026), for counter bookings ═══════════════
+
+    /**
+     * Create or match the salon's contact record for the person at the counter.
+     *
+     * <p>Darshan's requirement is that a counter booking is IMPOSSIBLE without this: <i>"we should
+     * compulsorily have their data in our database."</i> bmp-booking calls this before writing the
+     * booking, so the {@code salonCustomerId} on the row always corresponds to a real record that
+     * bmp-salon created — the manager never supplies one, and cannot invent one.
+     *
+     * <p>Idempotent on the phone number within the salon, so booking the same regular twice today
+     * produces one contact with two visits.
+     *
+     * <p>Mirrors {@code SalonCustomerController.CustomerResponse}; extra fields are ignored.
+     */
+    record SalonCustomer(java.util.UUID id, String name, String phone, String email,
+                          int visitCount, boolean hasBmpAccount) {}
+
+    record UpsertSalonCustomer(String name, String phone, String email, String notes) {}
+
+    @org.springframework.web.bind.annotation.PostMapping("/api/v1/salon-customers/internal/{salonId}/upsert")
+    SalonCustomer upsertSalonCustomer(@PathVariable("salonId") UUID salonId,
+                                       @org.springframework.web.bind.annotation.RequestBody
+                                       UpsertSalonCustomer body);
+
+    /**
+     * Count the visit — called AFTER the booking is committed, never before, or an abandoned
+     * booking inflates somebody's loyalty count.
+     */
+    @org.springframework.web.bind.annotation.PostMapping("/api/v1/salon-customers/internal/{salonId}/{customerId}/visit")
+    void recordSalonCustomerVisit(@PathVariable("salonId") UUID salonId,
+                                   @PathVariable("customerId") UUID customerId);
 }

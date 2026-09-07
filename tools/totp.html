@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BMP — dev TOTP</title>
+<!--
+  ═══════════════════════════════════════════════════════════════════════════════════════════════
+  A two-factor code generator for LOCAL DEVELOPMENT ONLY. Session 48.
+  ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+  WHY THIS EXISTS
+  The admin console requires TOTP before it will show anything, and that is correct — it can read
+  every customer's personal data. But it means a developer with no authenticator app installed is
+  locked out of their own dev environment entirely, which is a bad enough obstacle that the
+  tempting fix is to weaken the login. This is the cheap alternative: same algorithm, no install.
+
+  WHAT IT IS NOT
+  Not a replacement for an authenticator app. It has no secure storage, no device binding, and it
+  runs in a browser tab you might leave open. For anything with real customer data, use Google
+  Authenticator, Authy or 1Password — this is for the seeded dev account and nothing else.
+
+  NO SECRET IS BAKED IN, deliberately. You paste it each time, and nothing is written to disk or
+  to localStorage. A file in the repo containing a live 2FA secret is exactly the artefact that
+  ends up committed by accident.
+
+  The algorithm is RFC 6238 (SHA-1, 6 digits, 30s), verified against all five published test
+  vectors before this file was written. Everything runs locally via the Web Crypto API — the page
+  makes no network requests at all, which you can confirm in the Network tab.
+-->
+<style>
+  :root { --bg:#14243D; --card:#fff; --ink:#1B2733; --muted:#5A6B82; --brand:#2B4C7E; --line:#E2E8F1; }
+  * { box-sizing: border-box; }
+  body {
+    margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+    background:var(--bg); color:var(--ink); padding:24px;
+    font-family:-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  }
+  .card { background:var(--card); border-radius:14px; padding:28px; width:100%; max-width:460px;
+          box-shadow:0 10px 40px rgba(0,0,0,.25); }
+  h1 { margin:0 0 4px; font-size:19px; }
+  p.sub { margin:0 0 20px; color:var(--muted); font-size:13px; line-height:1.5; }
+  label { display:block; font-size:12px; color:var(--muted); margin-bottom:6px; }
+  input { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:9px;
+          font-size:14px; font-family:ui-monospace,Consolas,monospace; }
+  input:focus { outline:2px solid var(--brand); outline-offset:1px; }
+  .code { margin-top:20px; text-align:center; }
+  .digits { font-size:44px; font-weight:700; letter-spacing:7px;
+            font-family:ui-monospace,Consolas,monospace; color:var(--brand); }
+  .digits.stale { color:#C0453B; }
+  .bar { height:5px; background:var(--line); border-radius:3px; overflow:hidden; margin-top:12px; }
+  .bar > div { height:100%; background:var(--brand); transition:width .95s linear; }
+  .meta { margin-top:8px; font-size:12px; color:var(--muted); }
+  .err { margin-top:12px; color:#C0453B; font-size:13px; }
+  .warn { margin-top:18px; padding:10px 12px; background:#FBF3E4; border-radius:9px;
+          font-size:12px; color:#6b5324; line-height:1.5; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>BMP dev — two-factor code</h1>
+  <p class="sub">
+    Paste the secret from the console's <em>Set up two-factor</em> screen. It's the
+    <code>secret=</code> value in the <code>otpauth://</code> line.
+  </p>
+
+  <label for="secret">Secret (base32)</label>
+  <input id="secret" placeholder="7BRC3RSLNHPCFHWOGO5KLD4DNEGMPART" autocomplete="off" spellcheck="false">
+
+  <div class="code">
+    <div class="digits" id="digits">------</div>
+    <div class="bar"><div id="bar" style="width:100%"></div></div>
+    <div class="meta" id="meta">Waiting for a secret…</div>
+  </div>
+
+  <div class="err" id="err"></div>
+
+  <div class="warn">
+    <strong>Dev only.</strong> Nothing is stored — the secret lives in this tab and disappears when
+    you close it. Use a real authenticator app for anything with customer data.
+  </div>
+</div>
+
+<script>
+/** Base32 (RFC 4648) → bytes. Rejects bad characters rather than skipping them: a silently
+ *  mangled secret produces codes that are wrong for no visible reason. */
+function base32Decode(s) {
+  const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  s = s.replace(/=+$/, '').replace(/\s+/g, '').toUpperCase();
+  let bits = 0, value = 0;
+  const out = [];
+  for (const c of s) {
+    const idx = A.indexOf(c);
+    if (idx === -1) throw new Error('"' + c + '" is not valid base32 — check the secret.');
+    value = (value << 5) | idx;
+    bits += 5;
+    if (bits >= 8) { out.push((value >>> (bits - 8)) & 0xff); bits -= 8; }
+  }
+  return new Uint8Array(out);
+}
+
+/** RFC 6238, SHA-1, 6 digits. Verified against all five published test vectors. */
+async function totp(secret, step) {
+  const key = await crypto.subtle.importKey(
+    'raw', base32Decode(secret), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+  const msg = new ArrayBuffer(8);
+  const dv = new DataView(msg);
+  // 64-bit big-endian counter, written as two 32-bit halves — the high word stays zero for
+  // several thousand years, and this avoids depending on setBigUint64.
+  dv.setUint32(0, Math.floor(step / 2 ** 32));
+  dv.setUint32(4, step >>> 0);
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, msg));
+  const off = sig[19] & 0x0f;                       // dynamic truncation offset
+  const bin = ((sig[off] & 0x7f) << 24) | (sig[off + 1] << 16)
+            | (sig[off + 2] << 8) | sig[off + 3];
+  return String(bin % 1000000).padStart(6, '0');
+}
+
+const $secret = document.getElementById('secret');
+const $digits = document.getElementById('digits');
+const $bar    = document.getElementById('bar');
+const $meta   = document.getElementById('meta');
+const $err    = document.getElementById('err');
+
+async function tick() {
+  const secret = $secret.value.trim();
+  const now = Math.floor(Date.now() / 1000);
+  const left = 30 - (now % 30);
+
+  $bar.style.width = (left / 30 * 100) + '%';
+
+  if (!secret) {
+    $digits.textContent = '------';
+    $digits.classList.remove('stale');
+    $meta.textContent = 'Waiting for a secret…';
+    $err.textContent = '';
+    return;
+  }
+
+  try {
+    const code = await totp(secret, Math.floor(now / 30));
+    $digits.textContent = code.slice(0, 3) + ' ' + code.slice(3);
+    // Under 5 seconds it will very likely expire while being typed. Say so rather than letting
+    // the console reject it and look broken.
+    $digits.classList.toggle('stale', left <= 5);
+    $meta.textContent = left <= 5
+      ? 'Expiring — wait for the next one'
+      : 'Valid for ' + left + 's';
+    $err.textContent = '';
+  } catch (e) {
+    $digits.textContent = '------';
+    $meta.textContent = '';
+    $err.textContent = e.message;
+  }
+}
+
+$secret.addEventListener('input', tick);
+setInterval(tick, 1000);
+tick();
+</script>
+</body>
+</html>

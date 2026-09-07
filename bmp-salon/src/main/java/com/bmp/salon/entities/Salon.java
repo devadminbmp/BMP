@@ -57,6 +57,65 @@ public class Salon {
     @Column(name = "address")
     private String address;
 
+    /**
+     * When the owner first pressed Go Live. V018 (Session 48). NULL = never published.
+     *
+     * <p>Kept across suspension deliberately: a restored salon has published before, and greeting
+     * it as brand new would be both wrong and a little insulting. See {@link #markWentLive()}.
+     */
+    @Column(name = "went_live_at")
+    private Instant wentLiveAt;
+
+    /**
+     * Human-readable reference: BMPS001. V017 (Session 48).
+     *
+     * <p>A LABEL, never a key. The id stays the UUID everywhere the system routes on it; this is
+     * what an owner reads off an email to support. Allocated by a Postgres sequence at insert —
+     * see SalonService.create and V017 for why not count(*)+1.
+     *
+     * <p>No setter on purpose: a reference that can change is not a reference. It is written once,
+     * by the repository's allocator, and never again.
+     */
+    @Column(name = "reference", length = 16, updatable = false)
+    private String reference;
+
+    /**
+     * Assign the reference. Called ONCE, by SalonService.create, immediately after allocation.
+     *
+     * <p>Deliberately not a Lombok {@code @Setter}: this is not a settable property. Refusing to
+     * overwrite an existing value makes that a rule the object enforces rather than a convention
+     * the next caller has to know — a reference already printed in somebody's email must never
+     * change underneath them.
+     */
+    /**
+     * Stamp the first publication. Idempotent — a salon that is suspended and later goes live
+     * again keeps its ORIGINAL date, because "when did you join BMP" has one answer.
+     */
+    public void markWentLive() {
+        if (this.wentLiveAt == null) this.wentLiveAt = Instant.now();
+    }
+
+    public void assignReference(String ref) {
+        if (this.reference != null) {
+            throw new IllegalStateException(
+                    "Salon " + id + " already has reference " + this.reference + " — it cannot be reassigned.");
+        }
+        this.reference = ref;
+    }
+
+    /**
+     * Six-digit Indian PIN code. V016 (Session 48). Nullable for salons created before it.
+     *
+     * <p>Separate from {@link #address} on purpose: owners already type it into the address line,
+     * where it is invisible to search and to any check that wants it as a value. See V016's header.
+     *
+     * <p>Length 6 matches the column and the CHECK constraint. Blank is normalised to null before
+     * it reaches here — see SalonService.normalisePincode; the constraint accepts NULL but not "".
+     */
+    @Setter
+    @Column(name = "pincode", length = 6)
+    private String pincode;
+
     /** Owner-written. Nullable, and the UI must not invent one when it's absent. */
     @Setter
     @Column(name = "about")
@@ -65,6 +124,17 @@ public class Salon {
     @Setter
     @Column(name = "image_url", length = 500)
     private String imageUrl;
+
+    /**
+     * Object-storage key when the cover image was uploaded through BMP; null when imageUrl is a
+     * link the salon hosts. V015 (Session 44).
+     *
+     * <p>Replacing the cover must delete the old key first — see SalonService.imageStorageKey
+     * for the two rules that govern every use of these columns.
+     */
+    @Setter
+    @Column(name = "image_storage_key", length = 400)
+    private String imageStorageKey;
 
     /**
      * Where booking alerts go. V011 (Session 40).

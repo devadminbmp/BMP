@@ -2,6 +2,7 @@ package com.bmp.booking;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.boot.autoconfigure.domain.EntityScan;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.cloud.openfeign.EnableFeignClients;
@@ -25,6 +26,9 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  * Boot falls back to its own auto-generated-password HTTP Basic security on everything.
  */
 @SpringBootApplication
+// Session 47: the outbox→Kafka relay is a @Scheduled poll. Without this the relay bean
+// exists and its method never runs — events commit to the outbox and are never published.
+@EnableScheduling
 @EnableDiscoveryClient
 @EnableFeignClients
 @ComponentScan(basePackages = {"com.bmp.booking", "com.bmp.common"})

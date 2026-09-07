@@ -53,5 +53,46 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     ports: ["9092:9092"]
 
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  # MinIO — object storage for uploaded images. Session 44.
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  # Until now a salon "photo" was a URL to an image hosted somewhere else, on three separate
+  # screens (salon cover, service photo, gallery), each apologising for it in its own copy.
+  # That was never going to survive contact with a real salon owner: they do not have a CDN,
+  # they have a phone with photos on it.
+  #
+  # WHY MinIO AND NOT S3 DIRECTLY
+  # MinIO implements the S3 API. bmp-salon talks to it through the AWS SDK exactly as it would
+  # talk to S3 — same client, same calls, same bucket semantics. Moving to real S3, Cloudflare
+  # R2 or DigitalOcean Spaces later changes the four `bmp.storage.*` values in bmp-salon's
+  # application.yml and nothing else. No account, no card and no cloud dependency to develop
+  # against today, and no rewrite waiting at the end.
+  #
+  # `miniodata` is a NAMED VOLUME for the same reason `pgdata` is: `docker compose down`
+  # (without -v) must not destroy a salon's photos. Note the caveat in the header though —
+  # `down -v` wipes this too, and unlike the database there is no seed script to rebuild it.
+  #
+  # Console at http://localhost:9001 (browse the bucket, confirm an upload landed).
+  # API at http://localhost:9000 — this is the endpoint the service uses.
+  # Credentials are dev-only and match bmp-salon's application.yml defaults.
+  minio:
+    image: minio/minio:RELEASE.2024-09-13T20-26-02Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: bmp-dev
+      MINIO_ROOT_PASSWORD: devonly-minio-password
+    ports:
+      - "9000:9000"   # S3 API — bmp-salon connects here
+      - "9001:9001"   # web console — for humans
+    volumes: [miniodata:/data]
+    healthcheck:
+      # bmp-salon creates the bucket on startup if it's missing, so it must not race a MinIO
+      # that is listening but not ready.
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
 volumes:
   pgdata:
+  miniodata:

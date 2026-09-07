@@ -129,6 +129,37 @@ public class InternalAuthController {
     }
 
     /**
+     * End every session this person has. Session 65.
+     *
+     * <h2>Why blocking the account is not enough on its own</h2>
+     * A block stops the login door and is refused on refresh. But somebody already signed in is
+     * holding an access token that was minted before the block and stays cryptographically valid
+     * until it expires — {@code BMP_ACCESS_TOKEN_TTL_SECONDS}, 15 minutes by default. For the case
+     * a block is usually FOR — an account doing something right now — fifteen minutes is the
+     * window that mattered.
+     *
+     * <p>Revoking the refresh tokens closes the long tail immediately: the session cannot be
+     * renewed, so it ends at the current access token's expiry instead of days later.
+     *
+     * <h2>The 15-minute gap is real and is NOT closed by this</h2>
+     * Nothing here can invalidate an access token already in someone's hands — that is what
+     * stateless JWTs cost, and pretending otherwise in a comment would be worse than the gap. If
+     * that window ever becomes unacceptable, the fix is a revocation check on the resource
+     * services, not something bmp-auth can do alone.
+     */
+    @Operation(summary = "Revoke all refresh tokens for a user",
+               description = "Called by bmp-admin when an account is blocked. Does NOT invalidate an access token already issued — see the 15-minute note in the source.")
+    @PostMapping("/revoke-sessions/{userId}")
+    @Transactional
+    public ResponseEntity<Void> revokeSessions(@PathVariable UUID userId) {
+        var live = refreshRepo.findByUserIdAndRevokedFalse(userId);
+        live.forEach(t -> t.setRevoked(true));
+        refreshRepo.saveAll(live);
+        log.warn("Revoked {} refresh token(s) for userId={} (staff console)", live.size(), userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
      * Send a fresh login code.
      *
      * <p>ALWAYS to the phone and email already on the account — the request carries no address,

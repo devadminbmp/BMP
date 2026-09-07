@@ -31,7 +31,7 @@ import java.util.UUID;
  * there is no end-user role that belongs here, not even for reads: a payment order reveals what
  * someone paid, for what, and the commission split on it.
  */
-@Tag(name = "Payments", description = "payment_order CRUD, 12% commission split. SERVICE role only — no end-user token reaches this service. No real payment gateway wired yet.")
+@Tag(name = "Payments", description = "payment_order CRUD. Commission comes from the SALON's own rate, never a platform constant (Session 50). SERVICE role only — no end-user token reaches this service. No real payment gateway wired yet.")
 @RestController
 @PreAuthorize("hasRole('SERVICE')")
 public class PaymentOrderController {
@@ -42,8 +42,34 @@ public class PaymentOrderController {
         this.service = service;
     }
 
-    @Operation(summary = "Create a payment order for a booking", description = "Computes the 12% platform commission split at creation time.")
-    @PostMapping("/api/v1/bookings/{bookingId}/payment-order")
+    /**
+     * Open a payment order for a booking.
+     *
+     * <h2>Session 50 — note the SECOND path below, and why</h2>
+     * The original mapping is {@code /api/v1/bookings/{id}/payment-order}: a BOOKING-shaped path
+     * served by bmp-payment. It works today only because bmp-booking reaches this service through
+     * Feign and service discovery, which bypasses the gateway entirely.
+     *
+     * <p>Through the gateway it would land on bmp-booking, which has no such handler — the same
+     * bug class that hid the salon-reviews route and the whole of the stylist-profile namespace
+     * in Session 49. It is a landmine for the first person who calls it from anywhere else.
+     *
+     * <p>(Those paths are not written out here on purpose: an Ant wildcard containing a star
+     * followed by a slash ends a Javadoc block early, and this comment did exactly that until the
+     * parser caught it.)
+     *
+     * <p>So a correctly-prefixed alias is added and is what {@code PaymentServiceClient} uses.
+     * The old path is kept, not deleted, because deleting a route another service may already be
+     * calling is a worse failure than an extra mapping.
+     */
+    @Operation(summary = "Create a payment order for a booking",
+               description = "Freezes the commission split using the SALON'S OWN rate — not a "
+                   + "platform constant. Idempotent: a retry returns the existing order rather "
+                   + "than failing, because a retried booking must not fail for the customer.")
+    @PostMapping({
+        "/api/v1/payment-orders/booking/{bookingId}",   // correct prefix — routes to this service
+        "/api/v1/bookings/{bookingId}/payment-order"    // legacy; see the note above
+    })
     public ResponseEntity<PaymentOrderResponse> create(@PathVariable UUID bookingId,
                                                         @Valid @RequestBody CreatePaymentOrderRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(bookingId, req));

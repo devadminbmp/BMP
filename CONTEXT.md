@@ -1534,7 +1534,8 @@ function that must survive that person leaving. The customer's phone number is d
 **not** in the alert — that stays behind the audited reveal, or every booking SMS becomes an
 unaudited copy of a customer's number in someone's phone.
 
-**`scripts/check-api-contracts.py`** — the sweep, committed and repeatable. Stdlib only, no node,
+**`ApiContractTest`** (was `scripts/check-api-contracts.py` until Session 43) — the sweep,
+committed and repeatable. Runs under `mvn verify`, no extra toolchain,
 no maven. It found four more mismatches on its first run, including one my own edit had just
 introduced, and one bug in itself (it couldn't see `.nullish()` inherited through `.extend()`).
 **35 schemas now match.** It's a local script, not CI: the repos are separate and neither
@@ -1707,7 +1708,1561 @@ Settings → Build → Compiler → Annotation Processors → *Enable annotation
 Build Tools → Maven → Runner → *Delegate IDE build to Maven*. Also check the Project SDK is
 **21** — Lombok 1.18.36 predates JDK 24/25 and fails on them however it's configured.
 
+### Session 42c — `NoClassDefFoundError: com/bmp/common/ids/UuidV7` on login
+
+Reported from the web login modal: `Handler dispatch failed: java.lang.NoClassDefFoundError:
+com/bmp/common/ids/UuidV7`. Nothing was wrong with the code.
+
+**What the evidence showed.** `UuidV7.class` was present in every place it should be — source, in
+`bmp-common/target/classes` (19:28:30), in the installed jar, and inside bmp-auth's nested
+`BOOT-INF/lib/bmp-common-0.1.0-SNAPSHOT.jar`. Build order was correct (common 19:28:30 → auth
+19:29:44). But an *earlier* build had failed at 19:14, leaving `bmp-common/target/classes` partial,
+and the running `bmp-auth` JVM had been started somewhere in between. It kept that stale view.
+
+**Two things worth internalising.**
+
+1. `mvn -pl <service> spring-boot:run` resolves `bmp-common` from your local **`.m2`**, not from the
+   sibling folder. `package` doesn't touch `.m2`; only `install` does. So a service can start
+   against a copy of common that is weeks old, and `bmp-common` has changed in five recent sessions
+   — four domain events, a security filter, `Money`.
+2. **Classes resolve lazily.** The service starts, serves most traffic, and throws on the *first
+   request that touches the new class*. So a rebuild alone is not enough — anything already running
+   must be restarted. The failure surfaces far from its cause in both space and time, which is why
+   it reads as a code bug.
+
+**Reading the message.** The slash-separated `com/bmp/common/ids/UuidV7` is the classloader's
+"not found" form. *"Could not initialize class com.bmp.common.ids.UuidV7"* (dots) is a different
+failure — the class was found but its static initialiser threw. Same-looking log line, unrelated
+fix; distinguishing them is the whole diagnosis.
+
+Documented in `RUN_LOCALLY.md` §2b (a new subsection under the build command, since §2 said *what*
+to run but not *why* or that it's needed **again** after every `bmp-common` change) plus a §12
+Troubleshooting row. No code change.
+
+### Session 43 — the login audit, and five things it turned up
+
+Started from one symptom: signing in as the seeded salon owner returned *"email is required to
+sign up"*. Ended up rewriting how auth answers the question **"does this account exist?"**
+
+**1. `lookupUserByPhone` was `catch (Exception ignored) { return null; }`.**
+That line made an *outage indistinguishable from a fact*. bmp-user down, a wrong
+`X-Internal-Service-Key` (the endpoint is `hasRole('SERVICE')`, so a bad key is a 403), no Eureka
+instance, a socket timeout — all of them returned "no such user", and the caller confidently took
+the SIGNUP branch for someone who'd had an account for months. The visible cost was the confusing
+message. The real cost was one small edit away: if the request *had* carried an email, we'd have
+sailed past the guard and created a **second account on a phone that already had one**, orphaning
+its bookings and salon. Only the unique index on `users.phone` stood in the way, and a uniqueness
+constraint catching a logic error is luck, not design. Now: **only a 404 means "no such user"**;
+everything else is a 503.
+
+**2. `resolveSalonScope` had the same shape, and was worse.** It failed *silently*. With bmp-salon
+unreachable, an owner got a token carrying `salonId = null`, logged in "successfully", and then hit
+403 on every panel — because every salon-scoped `@PreAuthorize` reads
+`principal.salonId().equals(#salonId)`. They'd report "the console is broken", and nobody would
+think to look at bmp-salon. Now it refuses to mint the token.
+
+> Worth recording the near-miss: my first version of that fix looked for
+> `FeignException.NotFound`. bmp-salon actually signals "no seat yet" with **204 No Content** —
+> `.orElseGet(() -> noContent())`. Shipping it would have 503'd every fresh salon owner who
+> hadn't created their salon. Caught by reading `StaffController`, not by reasoning about it.
+> **Check the callee's contract; don't infer it from the caller's error handling.**
+
+**3. The phone field invited the bug it then rejected.** `phoneSchema` is `/^\+[1-9]\d{7,14}$/` —
+the *wire* format, which must accept every country. The form renders a fixed `+91` chip, so typing
+`919876500003` built `+91919876500003`, passed validation, and matched nothing. New
+`indianMobileSchema` validates the local part as exactly 10 digits starting 6–9, and
+`normaliseIndianMobile` strips a leading `91`/`0` first. **A validator borrowed from the wire
+format won't catch input errors the UI itself invites.** Fixed in one file; all six doors share it,
+including the invite panels where a mistyped number means an invite nobody can redeem.
+
+**4. OTPs were replayable.** No `consumed_at`, and the row was never invalidated — a verified code
+kept working for the rest of its 5-minute TTL, for anyone holding it, and email is the only live
+channel. V005 adds the column plus a partial index on live rows; `markConsumed()` is deliberately
+not a setter (the only legitimate transition is unused → used, once) and is idempotent so a replay
+can't overwrite the record of the first use. `OtpConsumptionTest` asserts, among other things, that
+`setConsumedAt` **does not exist** — the test's real subject is the absence of a method.
+
+**5. `000000` unlocked every account.** Convenient until the first real user exists, and it meant
+the real path (generate → email → read → type) was never exercised locally. Now restricted to the
+six seeded phones via `dev-master-otp-phones`, and **AuthService refuses to start** if the master
+OTP is set with an empty allowlist. Any other number gets a real emailed code.
+
+**Also: the staff door could mint a customer account.** `requestedRole` defaults to `customer` and
+StaffAccessSheet's sign-in path sends no role — a typo'd digit would have created a customer and
+then shown "Not a staff account". It only failed safe *by accident*, because that call happens not
+to send an email. Added `loginOnly` to the verify contract: **when behaviour depends on intent,
+send the intent** rather than deducing it from which optional fields happen to be absent.
+
+**Channels.** `WhatsAppSender` is now its own interface, not a flavour of `SmsSender` — WhatsApp
+needs a pre-approved *template name*, not free text, reports delivery asynchronously by webhook,
+and fails permanently (not transiently) when a number has no WhatsApp account. Collapsing them
+would have meant rewriting every call site later. Both stubs now honour their config flag and are
+off by default; a flag a stub ignores misinforms the reader about what the system does.
+**Email remains the only live channel** and is dispatched first in `handleOtpRequested`, with a
+loud `log.error` if an OTP has no email address — that's a dead end for the user.
+
+**Found while verifying: BMP-FE had not typechecked since Session 41.** Ten errors, none of them
+mine — `getSalon`/`getSalonAdmin`/`updateSalonProfile` existed in `salons.ts` but were never added
+to the `@api` barrel, so `SalonProfilePanel` couldn't compile; `SmartImage.uri` rejected the `null`
+its callers are contractually fed; `ServicePicker` used a nullish `category` as a Map key, and
+`ServiceSchema`'s own comment already promised the "Other" grouping that was never written. Fixed;
+`tsc --noEmit` now exits 0.
+
+**The seed had silently stopped working.** Loading it failed on `uk_users_phone`, because rows
+created by the two bugs above were squatting seeded phone numbers with random ids — and the seed's
+guard is `ON CONFLICT (id)`, which never matched. Since the file is one transaction, the whole
+thing rolled back: *one stale row, and the seed does nothing at all*.
+
+Fixing that exposed two more, which the users error had been masking all along: the seed inserts
+`salon_service.updated_at` and `salon_staff.status`, and **neither column has ever existed**. The
+`salon_staff` rows are the ones that make owner login work — `resolveSalonScope()` reads that table
+on every token mint, so without them Kavya authenticates and then gets 403 everywhere.
+
+Three compounding reasons nobody noticed: the single transaction means the first error hides every
+later one; the file only ever runs by hand, after a reset, when someone is already debugging
+something else — so its errors get attributed to that; and `seed/README.md` asserted idempotency,
+which was true only against re-running itself. **Demo data that breaks only when you need it is
+worse than data that breaks loudly**, because you reach for it precisely when you're already lost.
+
+Now: a reclaim step deletes squatters on seeded phones (children first — real FKs), scoped so it
+can only ever match the six seeded numbers, leaving real signups alone. Plus
+`SeedSchemaTest` in bmp-common, which parses the migrations statically (no Docker, under a
+second) and fails on any INSERT naming a column that doesn't exist. **Self-tested against a
+deliberately broken seed before being trusted** — the habit I most want to keep from Session 42.
+
+**Verified, not assumed:** the seed now runs three times consecutively, clean, starting from a
+database pre-loaded with squatter rows, against a schema built from all 9 services' migrations —
+8 salons, 55 services, 3 staff seats, Kavya wired to Lumière as OWNER. Also: all 5 bmp-auth
+migrations applied against a real PostgreSQL (`consumed_at`
+nullable, partial index present, inserts default to unused); 8 changed Java files parse clean;
+contract checker still reports 36/36; `tsc --noEmit` clean. `mvn verify` still hasn't run here —
+Maven Central is unreachable from this sandbox, so the compiler remains the one check nobody has
+performed.
+
+### Session 43b — the repo guards are JUnit tests now, and there is no Python left
+
+Darshan: *"i dont want any .py python files."* Fair, and it turned out to be the better design.
+
+Four repo-wide invariants lived outside the build: two scripts under `scripts/` and two inline
+`python3` heredocs in `ci.yml` (plus two more pasted into `docs/API_ACCESS.md` as instructions).
+They are now tests in `bmp-common/src/test/java/com/bmp/common/repo/`:
+
+| Test | Was | Checks |
+|---|---|---|
+| `PublicPathsTest` | ci.yml heredoc | every service declares `public-paths`, none sets `/**` |
+| `WriteEndpointAuthTest` | ci.yml heredoc | every write endpoint carries `@PreAuthorize` |
+| `SeedSchemaTest` | `check-seed-columns.py` | every seed INSERT names columns that exist |
+| `ApiContractTest` | `check-api-contracts.py` | every Zod schema matches its backend record |
+
+**Why this is an improvement, not just compliance.** They now run under the `mvn verify` everyone
+already types — so they run *locally, in the IDE, before the push*. A check that only lives in CI
+tells you what you broke after it's too late to fix quietly. And a check pasted into a document
+(`API_ACCESS.md` §9 had two) only runs when someone remembers it exists: **a check you have to
+remember to run is a check that stops being run.** It also drops a whole toolchain — Python and
+PyYAML — from a repo that otherwise contains only Java and TypeScript.
+
+The cost, stated honestly: these tests read the source tree, so moving a folder breaks them. That
+is deliberate. Each encodes a rule learned from a real incident, and every one asserts it actually
+found something to check (`isPositive()` on the count) — because a scanner whose glob stops
+matching passes forever while checking nothing, which is the failure mode a repo-scanning test is
+most prone to.
+
+`ci.yml` lost both heredoc jobs; only `migration-hygiene` remains alongside `build`.
+
+**Verified without a compiler.** Maven can't run in this sandbox (Central unreachable), so I
+reimplemented all four algorithms in Node against the real tree and confirmed they reproduce the
+originals exactly — including the same **36 schemas matched**, 9 seed inserts, 9 services, 31
+controllers, all green. Plus: 5/5 files parse clean, no missing imports, no unused imports.
+**The Java is unverified by javac** — that remains true of the whole repo and is the one gap
+`mvn verify` on your machine would close.
+
 ---
+
+### Sessions 44–49 — the surface an owner, a stylist and a customer actually touch
+
+Six sessions of feature work, and one bug class that appeared in all of them.
+
+#### The recurring lesson: a screen that works against mocks proves nothing
+
+Four separate times a feature looked finished and had never once succeeded against a real
+backend. Each was found by asking "what is this actually connected to?" rather than by reading
+the code, which was correct every time.
+
+| What looked fine | What was actually true |
+|---|---|
+| Admin console showing salon requests | `BMP-ADMIN` had no `.env`, and `VITE_USE_MOCKS !== 'false'` defaults mocks ON |
+| Owner never notified of new requests | `ops-email` defaulted to the empty string |
+| Stylist's Today tab | `/bookings/salon/day` is owner/manager-only — every stylist got 403 |
+| Stylist's "not in today" toggle | Salon-scoped guard needs `principal.salonId()`, which a stylist's JWT never has |
+
+**Rule to keep:** when a screen shows plausible data that doesn't match reality, check what it is
+connected to before you check the code.
+
+#### Session 44–47 — discovery, moderation, closures, money surfaces
+
+V011–V019: salon discovery fields, pincode and free-text area, the `salon_reference` sequence
+(BMPS001), the split of `approved` from `active` with an explicit **Go Live**, and salon closures
+that the availability algorithm subtracts. Commission stopped being settable by the owner — 
+`POST /salons/{id}/policy` is owner-guarded and the request body carried `commissionBps`, so an
+owner could set their own platform rate to zero with one curl. **Authorise the path, then trust
+the body** is the hole this codebase keeps re-finding.
+
+#### Session 48 — a stylist owns their profile
+
+V020–V021. A stylist can register themselves ("I'm a stylist" on the customer account screen),
+search for the salon they work at, and ask to be added. **The owner's acceptance is the only
+thing that creates a `stylist_salon` row** — verified as a single call site, because anything
+else means anyone can put themselves on any salon's public page by typing a name into a form.
+
+V021 enforces **one active salon per stylist** with a partial unique index rather than a service
+check, because the service checks are read-then-write and two owners accepting the same stylist
+simultaneously both pass. Alumni rows are unlimited: that list is the stylist's work history and
+is what survives them changing jobs.
+
+**Two real bugs found on the way.** `stylist_rating` was a nullable column mapped to a Java
+primitive, so `ReviewService` stored **0** whenever a customer skipped rating the stylist. Dormant
+because nothing read it back — until stylists could see their own reviews, at which point a
+stylist whose true average was 4.67 read as **2.80**. V005 nulls the zeros and adds a CHECK. And
+`markAlumni` left a departed stylist flagged bookable and overwrote `left_at` on a second press.
+
+#### Session 49 — the booking window, leave, receipts, and a calendar
+
+- **V022 — the booking window.** `booking_horizon_days` (how far ahead the diary opens) and
+  `min_notice_minutes`. Notice **defaults to 0** on Darshan's explicit instruction: *"any person
+  needs urgent hair cut he had some function he need wait for 2 hours its not good"*. A platform
+  should not impose a wait; a colourist who needs prep sets their own. Both enforced in
+  `AvailabilityService.freeSlots`, which booking creation already validates against — one
+  enforcement point covers the picker and the booking.
+- **V023 — leave.** The mechanism already existed: `stylist_availability` has carried
+  `rule_type='leave'` since V003 and the algorithm has always subtracted it. What was missing was
+  anything that could create the row. **Approval writes the rows**, which is why leave approved a
+  month early takes effect on the day with no scheduled job. A pending request blocks nothing —
+  blocking on request means a request the owner would have declined has already cost the salon a
+  day of trade.
+- **V024/V008 — invoices.** One document per booking, sequence-allocated number, line items
+  **copied** at issue so renaming a service never rewrites last month's bills. Reads *amount due*
+  until payment is recorded, then becomes a receipt with the same number. Honest by design: no
+  payment gateway exists, and a receipt for money nobody received is the worst possible bug here.
+- **`DayTimeline`** — the owner/manager day as a real calendar, one column per stylist. A list
+  cannot answer "who's free at 4", because two appointments an hour apart and two back-to-back
+  look identical in it. No drag-to-reschedule: that would skip the availability, notice and fee
+  checks `RescheduleSheet` exists to run.
+
+#### Session 49b — the gateway was swallowing six paths
+
+`GatewayRouteTest` asked "is this prefix routed *somewhere*?" and could not fail when a path was
+routed to the **wrong** service. A new ordering test asks, for each real path, which route matches
+FIRST — the gateway's actual rule — and found:
+
+- `/api/v1/salons/*/reviews` → went to bmp-salon, which has no such handler. Broken since the
+  endpoint was written; unnoticed because nothing called it.
+- `/api/v1/stylist-profile/**` → **no route at all.** Every Session 48/49 stylist endpoint 404'd
+  at the gateway. The whole self-service feature was unreachable in a real deployment while
+  working perfectly against the service directly. It is not covered by `/api/v1/stylists/**`:
+  Ant treats `-` as an ordinary character, so the two share a prefix and nothing else — the same
+  trap as `/api/v1/coupons/**` vs `/api/v1/coupon-requests/**` in Session 44.
+- The two Session 49 invoice paths, salon-shaped but served by bmp-booking, would have joined
+  them on the first real call.
+
+**A SALON-SHAPED PATH DOES NOT IMPLY bmp-salon**, and route order is load-bearing.
+
+#### Still open
+
+- **`mvn verify` has never run in the assistant's sandbox** (Maven Central unreachable). Every
+  claim here rests on tree-sitter parses, record-arity checks, real-Postgres migration runs and
+  reimplemented algorithms. **javac and the IDE remain the real check** — and IntelliJ has caught
+  at least one thing these did not.
+- No payment gateway: every booking sits PENDING and invoices only become receipts when a salon
+  records a counter payment.
+- MinIO orphan-object sweep.
+
+---
+
+### Sessions 50–51 — payments connected, and two money bugs that were worse than the gap
+
+#### Session 50 — booking → payment → webhook → confirmed
+
+bmp-booking and bmp-payment had **never been connected in either direction**. That is why every
+booking BMP has ever taken sits PENDING: `BookingStatus` has reserved `PENDING → CONFIRMED` for
+`Actor.SYSTEM` with the comment *"Razorpay webhook ONLY"* since the enum was written, and no
+webhook existed to perform it.
+
+The chain now runs: booking opens a payment order (commission frozen) → gateway → signed webhook
+→ capture + commission ledger → `payment.captured` → booking CONFIRMED + invoice becomes a
+receipt.
+
+**The gateway is behind an interface.** Everything that matters — freezing the split,
+deduplicating a redelivery, confirming the booking, writing the ledger — is BMP's logic, and
+wiring two HTTP calls directly in would have meant none of it could be tested without a Razorpay
+account and a real card. `FakePaymentGateway` needs three independent things true before it loads
+(explicit property, not-prod profile, warns on every call), because **a system that silently
+pretends payments succeeded is worse than one that cannot take payments at all.** Razorpay's
+signature verification and payload parsing are real; its two HTTP calls throw rather than
+returning a fabricated order id that would fail later, at the salon door.
+
+**Two money bugs found on the way, both worse than the gap.**
+
+1. **Commission ignored the salon's negotiated rate.** `PaymentOrderService` had
+   `COMMISSION_BPS = 1200` and applied 12% to every order — while Session 48 gave each salon its
+   own `salon_policy.commission_bps`, set by an admin at approval, specifically so rates could be
+   negotiated. BMP could agree 8%, store 8%, show 8% in the console, and charge 12%. On a ₹800
+   booking that is **₹32 short to the salon, every time**, invisible until a partner audits a
+   statement.
+
+2. **Every uniqueness guarantee in the payment schema was fictional.** V002 documents four columns
+   as `UNIQUE`, including `webhook_event.razorpay_event_id` with the comment *"UK — dedup at DB
+   level"*. Not one had a unique index; that column got a plain `CREATE INDEX`. Only the ten
+   primary keys existed.
+
+   This matters because `WebhookService` was written around it: *"the UNIQUE index is what
+   actually prevents double-application"*. Under concurrent redelivery — normal, gateways deliver
+   at-least-once — both requests pass the `exists()` check, both capture, and **the commission
+   ledger is credited twice for one payment.** Found by a test that inserted the same event id
+   twice and expected failure; it succeeded.
+
+   **A comment claiming a guarantee is worse than no comment, because code gets built on it.**
+
+Also: bmp-payment had no `@EnableScheduling` and no outbox relay flag — the fourth service to
+silently opt out of that per-service switch. `payment.captured` would have been committed and
+then sat in the table forever, with the customer's money taken, the ledger crediting BMP, and the
+booking still reading "awaiting payment".
+
+#### Session 51 — who can remove a stylist
+
+Three levels, each meaning something different:
+
+| Actor | Action | Meaning |
+|---|---|---|
+| Owner **or manager** | Remove from team | Employment. They work elsewhere tomorrow. |
+| Admin | Remove from a salon | The same act, for when a salon can't or won't. |
+| Admin | Suspend | The platform barring them from BMP entirely. |
+
+**Managers were excluded, and the reason had expired.** The javadoc said: *"irreversibility is
+why… There is no un-alumni endpoint."* Session 48 made re-adding a stylist reuse their old row —
+status flips back, `left_at` clears, rating and review count survive — so removal became one tap
+to undo. The guard outlived its justification by three sessions.
+
+> **A guard justified by a limitation has to be revisited when the limitation goes.** This one
+> survived because the reason lived in a comment nobody re-read while changing the thing it
+> described.
+
+**V025 — suspension.** Lives on `stylist`, not `stylist_salon`, because it is a fact about the
+PERSON: a suspended stylist with no current salon must still be suspended when they later ask to
+join one. Enforced in **four** places — invite redemption, owner add, join-request acceptance, and
+availability — via a shared `StylistSuspensionGuard`, because a suspension enforced in three of
+four is not a suspension. Availability had to be one of them: without it, somebody suspended today
+would keep taking bookings at the salon they were already on.
+
+Two deliberate restraints: suspending does **not** rewrite `stylist_salon` rows (a salon keeps an
+honest record of an employment that really happened), and the salon is told the stylist is
+unavailable but **not why** — the reason may reference a safety complaint, and the salon is a
+third party. The stylist gets it in full, by email and on their own profile.
+
+**A bug in my own design, caught by a test.** The first `reinstate()` cleared `suspended_at`,
+which erased when the bar started *and* violated V025's own CHECK requiring a reinstatement to
+point at a suspension. Fixed: both timestamps persist and "currently barred" is the pair.
+
+#### Session 52 — the counter takes bookings, and the picker got fast
+
+Two things Darshan named, both about the same screen.
+
+**1. Walk-in and phone trade was anonymous.** The desk's only tool was `POST /availability/walk-in`,
+which writes a `walk_in_block`: the stylist's time vanishes from the calendar and *nothing else* is
+recorded — no customer, no services, no price, no invoice, no history. For most salons that is the
+majority of the business, and the platform could not see any of it.
+
+Darshan: *"suppose any customer calls the manager or comes to walk in, then the manager should
+update in the portal and the manager should select the stylist… we should compulsory to have their
+data in our database who are booking through salon **remember its there own customer**."*
+
+That last clause shaped the schema. **`salon_schema.salon_customer` (V026) is NOT a BMP account.**
+Somebody who read their number to a receptionist has not signed up to BMP and must not be
+quietly acquired as a user. It is the salon's private contact card, unique on `(salon_id, phone)`
+so the second visit recognises the first. `linked_user_id` stays null until that person signs up
+themselves — deliberately never populated by a background phone-number matcher, because Indian
+mobile numbers get recycled and merging a stranger's visits into somebody's account cannot be undone.
+
+`booking_schema` V009 makes `customer_id` nullable and adds `source` ('online' | 'counter'),
+`salon_customer_id` and `taken_by_staff_id`, with a CHECK enforcing **exactly one** identity per
+booking. Verified against real Postgres: 15 constraint cases, and three legacy rows seeded *before*
+the migration survive it as `source='online'`.
+
+Counter bookings go down the **same** `createInternal` path an app booking uses — same price
+resolution from the salon's menu, same slot validation, same policy snapshot, same invoice. A second
+`createCounter` that reimplemented any of that would be two answers to "is this slot free?" and
+"what does this cost?". They differ only in a `BookingIdentity` record. Two deliberate differences
+in behaviour: they are **CONFIRMED on creation** (there is no payment webhook coming for a walk-in,
+and Session 50's bug was every booking sitting PENDING forever), and they **raise the invoice
+immediately** rather than on payment capture.
+
+Ordering matters and is documented in `CounterBookingService`: the customer record is written
+**first** (so a booking without one is impossible, not merely discouraged), the booking second, and
+the visit count **last** — counting first would inflate a regular's loyalty every time a
+receptionist started a booking and abandoned it.
+
+**2. "The UI for stylist available is a bit laggy… make it fast and attractive."**
+
+Root cause: `freeSlotsAnyStylist` looped over the team calling `freeSlots` per stylist, and *each*
+of those made its own cross-service HTTP call to bmp-booking. Six stylists = six sequential round
+trips and roughly forty queries to answer one "who's free today?". The app made it worse by calling
+`/availability/slots` once per stylist too, so the list visibly reshuffled as responses landed out
+of order.
+
+Now: `GET /api/v1/availability/salon-day` — salon policy, opening hours, closures and the notice
+cutoff read **once**; every stylist's busy windows in **one** batched call
+(`/bookings/internal/busy-windows/salon`, two queries total); the per-stylist interval arithmetic
+done in memory. Names, specialities and ratings travel *with* the slots, so nothing is joined on the
+device and there is no flash of "Stylist 4f2a…". `freeSlotsAnyStylist` now flattens the batched
+result rather than keeping a second implementation.
+
+A stylist with a full day comes back `busy: true` with an empty list rather than being omitted —
+"Anjali is fully booked" is a useful answer at the counter and a missing name looks like a bug. If
+bmp-booking is unreachable the method returns **no** availability and logs at ERROR, because
+returning "everything is free" would double-book people.
+
+**The `-` trap, for the sixth time in this repo.** `/api/v1/salons/**` does *not* match
+`/api/v1/salon-customers/...` — Ant treats `-` as an ordinary character. Same class as
+`stylist-profile` (Session 49) and `coupon-requests` (Session 44). Added explicitly to the gateway
+predicate and to `GatewayRouteTest`.
+
+Rewards/referral payout stays deferred at Darshan's request.
+
+#### Session 53 — the customer book you can actually read, and the stylist finally gets told
+
+Two gaps found by auditing the four roles rather than trusting the task list.
+
+**1. Session 52 wrote customer records nobody could look at.** Recording a walk-in customer became
+mandatory, which was the requirement — and the salon's only way to SEE that data was a search box
+buried inside the booking sheet. A database the owner cannot read is one that quietly stops being
+trusted, and the desk goes back to the paper diary.
+
+New **Customers tab** on the desk (owner AND manager, matching the endpoints): browse regulars most
+recently seen first, search by partial name or phone, open somebody to read and edit their note,
+and see every visit they have made here. Backed by `PUT /salon-customers/{id}` and
+`GET /bookings/salon/counter-customer/{id}`.
+
+Two deliberate omissions, both documented on the screen rather than left as dead controls:
+
+- **The phone number is not editable.** It is the unique key `(salon_id, phone)` that the whole
+  visit history was matched by; editing it in place would either collide with another record or
+  silently re-point one person's visits at another. A wrong number becomes a new customer.
+- **Nothing can be deleted.** `salon_customer_id` on `booking` has no FK (it crosses services), so
+  a delete orphans real bookings and surfaces months later as a receipt with no name. When it is
+  wanted it should be a deliberate anonymise.
+
+The visits endpoint is deliberately NOT `customerAtSalon`: that builds its rich card from the
+`customerStats` projection, which is keyed on `customer_id` — a counter customer has none, and
+their bookings carry `customer_id = NULL` (V009). Widening that projection would give it two
+meanings depending on which id happened to be populated. The counts a receptionist actually wants
+are already denormalised onto `salon_customer`.
+
+**2. The stylist was the only party never told they'd been booked.** The customer got a
+confirmation (Session 34), the salon got an alert (Session 40); the person who has to be standing
+at the chair found out by opening the app — including for a counter booking taken ten minutes
+beforehand, which is exactly when a message is worth most.
+
+New `StylistAppointmentChanged` event, one per affected stylist (a booking can span several
+diaries), covering **booked / moved / cancelled**. Emitted from create, reschedule and cancel;
+every lookup is wrapped so a failed name resolution can never fail a real booking.
+
+**The boundary is enforced by the record's SHAPE, not by the handler's restraint.** The event has
+no field for the customer's name, phone, email or id, and none for the price. A template somebody
+writes next year cannot leak a field that was never carried. Same Session 48/49 rule that
+`ScheduleEntryResponse` follows, made structural.
+
+**A bug caught while writing it.** The first version of the "moved from" line read `previousStart`
+from `existing` *after* the write pass. But `existing` holds managed JPA entities and the write
+mutates them in place (`item.setServiceStart(...)` on objects that came out of that very list), so
+the message would have read "moved from 4pm to 4pm" — emitted, technically correct code, entirely
+useless, and the kind of thing nobody notices until a stylist asks why the email says nothing
+changed. The capture now happens beside the existing `before_snapshot`, which is the one place that
+was already provably pre-mutation.
+
+**A false alarm worth recording.** An ad-hoc gateway-route simulator reported
+`/api/v1/salon-customers` as unrouted. The simulator was wrong, not the config: both Spring's
+`PathPattern` and `GatewayRouteTest`'s own matcher treat a trailing `/**` as matching the bare path.
+Checked against the test's matcher before changing anything — the lesson being that a
+reimplemented matcher is only as trustworthy as the one it is reimplementing.
+
+Verified: 426 files parse, 34 migrations apply against real Postgres, 18 event construction sites
+match their record arities (comment-stripped — the naive check false-positived on commas inside
+javadoc), `tsc --noEmit` clean, every new endpoint carries `@PreAuthorize`, and the new event
+provably carries no customer or money field.
+
+#### Session 54 — anyone could review anything, and nobody could review at all
+
+Found by auditing TODOs rather than trusting the backlog. `ReviewService.create` carried this,
+from the CRUD-first build order:
+
+> `// TODO(Phase 3 / inter-service): call bmp-booking-service to confirm booking.status ==`
+> `// COMPLETED before allowing a review. Skipped in this CRUD-first pass.`
+
+**THREE faults, stacked, each hiding the others.**
+
+1. **No verification.** With `hasRole('CUSTOMER')` as the only gate, any logged-in account could
+   POST a review against any booking id — one belonging to somebody else, or one that never
+   existed. The sole defence was one review per booking id, which stops a second fake review and
+   not a first. A competitor could one-star a salon; a salon could five-star itself.
+2. **The client supplied `salonId` and `stylistId`.** So even a genuine customer reviewing a
+   genuine appointment could attach it to a salon they never visited, or credit a stylist who was
+   never in the room. Same class as the Session 30 price bug.
+3. **The gateway route was wrong — the SEVENTH instance of that bug class.**
+   `POST /api/v1/bookings/{id}/review` is declared in bmp-**review**, and `/api/v1/bookings/**`
+   sent it to bmp-booking, which has no such handler. It 404'd.
+
+And a fourth thing that explains why none of it was noticed: **there was no frontend at all.** No
+customer could reach the endpoint. A feature unreachable from both ends is indistinguishable from
+one that hasn't shipped, so nobody audited its guards, and the broken route was never exercised.
+
+**Severity had grown quietly.** These were written when reviews were decoration. Session 52 made
+stylist ratings order the counter's availability picker — so invented reviews now change who gets
+offered work.
+
+**The fix, end to end.** bmp-review had no outbound clients whatsoever, which is precisely why the
+TODO survived eleven sessions: there was no way to ask. It now has openfeign, a
+`FeignInternalKeyConfig` and one client. `requireReviewable` refuses unless the booking exists
+(404), is the caller's (403), is not a counter booking (403 — no account could have written it),
+is COMPLETED (409) and finished within 90 days (409). Salon and stylist come from the BOOKING; the
+request's copies are ignored, and a stylist rating naming somebody who never worked on it is
+dropped while the salon rating is kept — losing a real review to a stale client-side id is the
+worse outcome.
+
+**bmp-booking unreachable REFUSES the review (503).** Deliberately the opposite of the
+contact-snapshot rule: a missing confirmation email costs nothing recoverable, whereas an
+unverified review is permanent, public and moves a rating. Failing open would silently restore the
+exact hole every time bmp-booking restarted.
+
+Frontend: `ReviewSheet` on completed bookings only, asking whether a review already exists before
+offering the form, separate optional stylist stars (skipping stores NULL, not the zero that made a
+4.67 stylist read as 2.80 in Session 48), and the server's refusals surfaced verbatim because they
+are written for the customer.
+
+Verified: 13 abuse cases reimplemented and all refuse correctly — including "bmp-booking down must
+not fail open" and "a review naming a competitor's salon is stored against the real one". 428 files
+parse, 34 migrations apply, `tsc` clean, gateway resolution asserted for the new route plus three
+control paths that must still reach bmp-booking.
+
+#### Session 55 — the coupon audit: two validators, and a rule nothing enforced
+
+Darshan asked for seven things. Auditing first showed **five were already built** — owner raises a
+request scoped to their own salon (forced server-side from the token), support/ops issue directly
+under `CouponIssuePolicy`, `coupon_user` targets named individuals or a group, `max_discount_paise`
+gives "20% up to ₹100", and the escalation message already says an admin can issue more.
+
+Three things were genuinely wrong.
+
+**1. TWO live implementations of "is this coupon valid".** `POST /coupons/quote` runs
+`CouponRedemptionService` — audience targeting, the percent cap, the first-booking rule, all of it.
+`POST /coupons/validate` ran `RewardsService.validate`: six rules, **no** audience check (a coupon
+issued to three named people validated for everyone), **no** max-discount cap ("20% up to ₹100"
+previewed as an uncapped 20%), and the welcome-coupon first-booking rule carrying the comment
+*"skipped (assumed true) in this CRUD-first pass"*.
+
+The app has always called the good one, so this looked harmless. It is not: the weaker path was
+reachable by any authenticated user and returned discounts the real redemption would refuse — a
+customer shown a price and then charged more. Both the endpoint and the method are **deleted**,
+along with their request/response records, so nothing can be written against them again. One
+question, one implementation.
+
+**2. "One coupon per booking" was never enforced.** Two things made it look like it was, and
+neither was a guarantee:
+
+- `CreateBookingRequest` carries a single `couponCode` — a property of today's DTO, gone the moment
+  anyone adds a "change coupon" endpoint.
+- `redeem` already had a duplicate check that reads as if it covers this. It does not. It is keyed
+  on `(coupon_id, booking_id)`, which makes retrying the SAME coupon idempotent — right for a Feign
+  timeout — and says nothing about a DIFFERENT coupon on the same booking. Two codes, two usage
+  rows, the booking discounted twice.
+
+Same shape as the payment-uniqueness problem in Session 50: a partial check plus a confident
+comment, read together as a guarantee nobody had written. So V005 puts it in the database
+(`uq_coupon_usage_one_per_booking`), with a backfill that keeps the EARLIEST usage per booking —
+the price the customer was actually shown — and warns about what it removed. The service check
+stays so the customer gets a sentence naming the applied code rather than a constraint violation.
+Verified on real Postgres, seeded with a booking already holding two coupons.
+
+**3. Support could not issue to a group, which a requirement explicitly asked for.**
+`support_max_recipients` defaulted to **1**. An agent settling a salon-wide outage for forty
+customers had to escalate every single one. Now 50. All four ceilings — ₹500 flat, 20%, 30 days,
+50 recipients — remain `coupon_policy` rows, so changing them is an audited data change, not a
+deploy.
+
+**What I deliberately did NOT build.** `coupon.allows_wallet_stacking` is written and never read,
+and I left it that way, documented. There is no wallet-spend path anywhere in the product — wallet
+credit is a payment method, not a second coupon, and it belongs with the payment work. Inventing a
+stacking rule for a feature that does not exist is how a column comes to claim a guarantee nothing
+enforces, which is the exact mistake this session corrected twice.
+
+#### Session 56 — the pre-launch batch: erasure, contact details, WhatsApp, console gaps
+
+Six items off the pending register. Two of them I had reported wrongly, and correcting the record
+was part of the work.
+
+**1. Deletion requests were not deleting anything (V005).** bmp-admin closed a DPDP/GDPR erasure by
+calling `deactivate`, and said so in its own recorded outcome. Two things made that worse than it
+reads: every personal field stayed, and **deactivation is reversible by design** — bmp-auth
+restores it on the next successful OTP login — so an erased account came back intact the moment its
+owner signed in. A signed compliance record for something that had not happened.
+
+Now `POST /users/{id}/anonymise`, SERVICE-only, called by the verified deletion flow. Name, email,
+gender, age, photo and hair profile cleared. The **id survives** because `booking.customer_id`,
+`invoice.customer_id`, `review.author_user_id` and `coupon_usage.user_id` are cross-service logical
+refs with no FK — deleting the row turns a real appointment into a receipt with no customer.
+Erasure covers personal data, not the commercial record tax law requires be kept.
+
+The phone becomes `ANON-<id>`: unique, undialable, and it **frees the original number** so the same
+person can sign up again. Without that, exercising a deletion right would permanently bar them.
+`reactivate` now refuses an anonymised row — that path is the one that would have undone the whole
+thing. A CHECK enforces that an anonymised row carries no name or email, because the erasing method
+is exactly the kind of code that gains a field and forgets one.
+
+**A bug the test caught.** `phone` is `VARCHAR(20)`; the tombstone is 41 characters. The first
+version would have failed at runtime with a truncation error, on the compliance path. The column is
+widened to 64 rather than the id truncated — a shortened id would turn "unique by construction"
+into "unique probably", and UNIQUE on that column is what stops two erased accounts colliding.
+
+**2. Company details are now one file with a build-time guard.** Registered name, address, support
+phone, inboxes and team were scattered across two content files behind `TODO(pre-launch)` comments.
+Scattered placeholders fail in a specific way: whichever page someone happens to open gets fixed and
+the rest ship. `src/company.ts` holds all of it, every consumer renders **nothing** rather than a
+marker when a value is unfilled, and `assertCompanyDetailsAreReal()` throws on a production build
+listing exactly what is missing.
+
+Three things deleted rather than defaulted: the invented `+91 80 0000 0000` (it rendered as a
+tappable `tel:` link, so publishing it was the default, not the accident), map coordinates pointing
+at a real Bengaluru location that is not our office, and three team members with bios none of them
+approved. Comments do not fail builds; this does.
+
+**3. WhatsApp reached exactly one call site.** SMS was wired broadly; WhatsApp only sent OTPs. The
+day the Business account is approved and the flag flips, the channel would have carried login codes
+and nothing a customer wants it for. Now wired alongside SMS at every booking moment, through a
+`whatsappTemplate()` map from our template code to the Meta-registered name — returning null for
+anything not yet approved, so approvals can trickle in without a message failing.
+
+**4. Support console gaps.** Ticket rows showed a bare UUID; the requester's name is now resolved
+from bmp-user for customer-raised tickets, non-fatally (a queue that fails to load because a name
+lookup timed out is worse than a blank column). Per-customer booking count added as a one-integer
+endpoint — the old TODO said it wasn't worth a call per row, which was right for the list and wrong
+for the detail view, so it is on for one user and off for lists.
+
+**5. Google sign-in was NOT a stub — I reported that wrongly.** It calls Google's tokeninfo, which
+does full signature and expiry validation, then checks `aud` against our client id and
+`email_verified`. The 501 fires only when no client id is configured, which is correct fail-closed
+behaviour pending a Google Cloud OAuth client only the founders can create. One real gap fixed: the
+`iss` check was missing. It cannot fail today, and it becomes load-bearing the moment somebody
+swaps tokeninfo for local JWKS verification — which they should, since tokeninfo is rate-limited
+and makes Google reachability a hard dependency of logging in.
+
+**6. Referral payout stays deferred** at Darshan's earlier instruction.
+
+Verified: 428 files parse, bmp-user migrations apply over a seeded real user, the anonymisation
+CHECK refuses an incomplete erasure, `tsc --noEmit` clean.
+
+#### Session 57 — the support organisation: tiers, a real queue, escalation and media
+
+**The org model, compared against how the big Indian platforms run.** Swiggy, Zomato, Rapido and
+Blinkit all run Zendesk/Freshdesk-shaped desks, and the shape is always four rungs: front-line
+agent, team lead, ops, owner. BMP had **agent, ops and owner — and no lead**. That missing rung is
+exactly why the ask reads as "support escalates to ops admin": with nothing in between, ops becomes
+the first and only escalation, and a role meant for policy spends its day on individual complaints.
+So `support_lead` was added, and it is the one change I made to what Darshan described.
+
+`ops_admin (analysts)` maps to the existing **`read_only`** role at tier 0 — off the ladder
+deliberately. An analyst who can be assigned a customer's complaint is not an analyst. Same for
+`finance_admin`: refunds are a different axis, not a higher rung, which is why those companies route
+money to a finance queue rather than up the support chain.
+
+**Tier is an integer, not a role string.** Escalation is then one comparison. Deriving it from role
+names puts the ladder in a switch statement inside whichever service escalates, and there is
+eventually a second one that disagrees.
+
+**"Not all ops admins can create accounts" is a capability flag, not a new role.**
+`can_manage_staff`, granted individually by a super_admin, default false. Inventing
+`ops_admin_senior` doubles the role list every time one person needs one extra power — and a flag
+is how Zendesk and Freshdesk model it too.
+
+**Escalation does not create a new ticket, and that IS the history requirement.** Messages belong to
+the ticket; escalation raises its tier and records a `ticket_escalation` row. The receiving person
+opens the same thread with every message, photo and prior handover in it. A fresh ticket per
+escalation is precisely how a customer ends up repeating their problem to the third person they
+speak to, and it splits the SLA clock so the new ticket looks fast while they have waited since
+yesterday.
+
+**Assignment is least-loaded, not strict round-robin.** A pure rotation keeps dealing to an agent
+already holding four hard tickets. Ordering by `open_ticket_count` self-corrects — and **a new
+joiner has a count of zero, so they are first in line automatically.** That is the whole mechanism
+behind "new members are included in the queue": no roster, nothing to remember to update. A tier
+with nobody in it is skipped on escalation, so a platform with no leads yet goes agent → ops and
+starts using the lead tier the day somebody is hired, with no code change.
+
+**Two things that were quietly broken.** `SupportDeskController.list` loaded every ticket and
+filtered in Java — correct at ten, hopeless at ten thousand, and the queue is busiest exactly when
+the platform is having its worst day; it is now a database query with an index. And
+`support_message.attachment_url VARCHAR(500)` allowed **one** attachment, stored as a URL, which
+quietly requires a public bucket — for threads containing faces, receipts and bank statements. Now
+a table of storage keys with signed reads, matching how salon photos already work.
+
+**Upload safety.** Type is DETECTED from magic bytes, never believed from the client's
+`Content-Type`, and the allow-list is five formats. Verified against real headers: JPEG, PNG, PDF,
+WEBP and iPhone HEIC accepted; a renamed EXE, an ELF binary, HTML, a ZIP and an SVG all refused.
+
+Verified: 435 files parse, 9 admin migrations apply over staff seeded one-per-role (tier backfill
+correct), escalation refuses downward/same-tier/reasonless moves, the 25 MB ceiling holds, 8
+assignment cases and 11 sniffer cases pass, `tsc` clean.
+
+#### Session 58 — the authority matrix: one mechanism for every gated action
+
+Darshan: *"support can give discount and cash coupons up to a certain level; if not they pass to a
+higher person. If a refund is required they pass to ops/finance. Even if ops admin can't, they pass
+to admin. **I've given the example only for discount coupons — next it can be anything.**"*
+
+That last clause is the whole design. A bespoke ladder for coupons, then another for refunds, then
+another for waivers gives three subtly different escalation rules that drift apart — and the fourth
+feature gets none, because by then nobody remembers there was a pattern.
+
+**So: one matrix table, one approval table, one service, one console screen.** Adding a gated action
+is a ROW plus an executor class. Not a controller change, not a queue change, not a UI change.
+
+**The approver is a ROLE, not tier+1** — and Darshan's own example is why. Refunds go to FINANCE,
+which sits at tier 0 and is off the support ladder entirely (V009). Money is a different axis from
+seniority; a refund does not become approvable by being handed to a support lead. Coupons climb the
+support ladder, refunds jump sideways to finance then up to ops, and both are just rows.
+
+**`0` is a real answer, distinct from absent.** Support's refund ceiling is 0 — "may request, may
+never perform". Without that distinction "cannot approve" and "not configured" read identically, and
+the safe interpretation of the second is not the useful behaviour of the first. A missing row is
+FORBIDDEN, never unlimited, so a new action added without matrix rows is impossible for everyone
+below the owner rather than accidentally available to the whole desk.
+
+**Approved and executed are separate states.** An approved coupon still has to be created and that
+call can fail. A failure marks the request `failed` and **keeps the approval** — discarding it would
+lose a real decision and make the retry look like a fresh request nobody signed off. The console
+sorts those to the top, because somebody has probably already told a customer they are getting
+something.
+
+**Two mistakes caught while building.** I used `gen_random_uuid()` in the seed, which needs pgcrypto
+and has no precedent anywhere in this repo — replaced with deterministic UUIDv5 literals so the seed
+is idempotent and two environments can be diffed. And the coupon executor initially called a
+`createCoupon` client method that does not exist; rewritten to reuse the EXISTING
+`POST /internal/coupons` path so `CouponIssuePolicy` still applies — a second creation route would
+have bypassed every ceiling that made the approval necessary.
+
+Full mapping, including every seeded band and how to add an action, is in
+`docs/AUTHORITY_AND_ESCALATION.md`.
+
+Verified against real PostgreSQL: 16 authority decisions (support's ₹800 → lead, any refund →
+finance, finance's ₹20,000 → ops, finance FORBIDDEN from coupons), the worked example end to end
+(raised → lead escalates → ops approves → executed) with the trail keeping both decisions, and four
+constraint guards. 446 files parse; console `tsc` clean apart from two pre-existing `vite.config.ts`
+Node-types errors.
+
+#### Still open
+
+- **Wallet spending at checkout.** `allows_wallet_stacking` stays inert until it exists.
+- **`mvn verify` has never run in the assistant's sandbox.** Everything rests on tree-sitter
+  parses, arity checks, real-Postgres migration runs and reimplemented algorithms. **javac and
+  IntelliJ remain the real check.**
+- Razorpay's two HTTP calls (create-order, refund) — need an account.
+- No customer-facing pay button: the backend confirms on webhook, but nothing opens a payment
+  sheet yet.
+- MinIO orphan-object sweep.
+
+---
+
+### Session 59 — the owner sets the ranges; nothing exceeds what was paid; the team, and their leave
+
+Darshan, in one message: *"all ranges can be fixed by admin owner of bmp. next support or anyone
+cant give coupon price more than what customer had booked. next all refund coupons etc all details
+should be displayed for admin and finance admin they monitor. next queue monitor… can be a business
+analyst or automatically… or manual also. next i need admin and ops admin to have feature to
+maintain other memebers in team… mainly i need employee managemenet system… including leaves."*
+
+Plus: *"check every flow even in tickets flow employee flow etc… build new standard features also
+and approve for every recommemded one."*
+
+#### 1. The authority bands became data
+
+`GET/PUT /api/v1/admin/approvals/matrix`. Owner edits, ops and finance read, every change audited.
+A band can never be set above the band it escalates to. The console renders the whole matrix as one
+editable grid rather than a form per role — ₹2,000 for a lead only means something next to ₹500 for
+an agent.
+
+Ops deliberately cannot edit: a role that can raise its own ceiling doesn't have one.
+
+#### 2. Nobody gives back more than the customer paid — including the owner
+
+`GoodwillCapService`, checked at raise, at execute, **and** on the direct coupon path (goodwill
+within somebody's own band never becomes an approval request at all). bmp-booking unreachable
+**refuses** rather than failing open.
+
+**V012 `goodwill_grant`** closed the hole that remained: the cap previously subtracted refunds only,
+so a ₹600 booking accepted two ₹500 coupons — each passed, because a coupon never touches
+`total_refunded`. The rule was enforced against one kind of goodwill and silently not the others.
+Now every non-refund gesture is recorded at the moment it is granted, with a `CHECK` forbidding
+refund rows (double-count) and a partial unique index on `approval_request_id` (retry double-count).
+
+`record(...)` runs after the gesture succeeds and never throws — the customer already has the
+coupon, and a false failure would have an agent issue it twice.
+
+#### 3. One place where the owner and finance watch all of it
+
+`/api/v1/admin/goodwill` + `/summary` + `/failed`, and `GoodwillPage` in the console. The ledger
+merges approval requests **and** within-authority grants, de-duplicated by approval id — a ledger
+built from approvals alone shows every escalated gesture and none of the routine ones, which is
+backwards.
+
+Given / awaiting / failed are three figures and are never summed. Failed rows — approved and never
+delivered — sit at the top, because they are a promise outstanding rather than a cost, and ops can
+read that endpoint too.
+
+Per-agent totals: top ten, plain list, no chart. An agent who knows they are being ranked refuses
+goodwill the business wanted given.
+
+#### 4. Queue assignment: auto, manual, or an analyst
+
+`queue_config` per tier (V011), all three modes through the one `autoAssign` so the fiddly parts
+aren't reimplemented three times. `max_open_per_agent` pushes overflow into the visible pool instead
+of onto somebody already full.
+
+#### 5. Employee management, including leave
+
+`TeamController` — roster with live load, employment record (job title, employee code, joined,
+reports-to with cycle detection, shift note, last working day), availability pause, and leave:
+request, approve, refuse, withdraw, and who's-off-today.
+
+**Deliberately absent: salary, bank details, government identifiers.** Five roles can read the team
+page, and putting pay one field away from a support console turns a console permission into a
+payroll breach. If payroll is wanted it should be its own service with its own access model.
+
+Nobody approves their own leave — including the owner. Approved leave takes the person out of the
+ticket rotation.
+
+Editing employment details cannot change role, tier or account status. A form labelled "job title"
+must never be able to promote somebody. End-dating is separate from suspending the account: one is
+an HR fact, the other a security action.
+
+#### Bugs found by the flow trace Darshan asked for
+
+- **`applyTodaysLeave()` was never called.** Written, documented, tested — and nothing scheduled it.
+  Leave is requested in advance, so approving it did nothing on the day it started: an agent
+  approved for next Friday would still have been handed tickets next Friday. Now
+  `LeaveRotationJob` at 00:05 Asia/Kolkata plus one pass 30s after boot (a redeploy at 09:00 misses
+  that night's run). *Pattern worth naming: a method whose javadoc describes a schedule is not
+  scheduled by the javadoc.*
+- **`support_lead` was locked out of the console.** The role has existed server-side since Session
+  57; the console's `STAFF_ROLES` never gained it, so `roleAllowed()` matched neither door and a
+  lead was bounced between them.
+- **`/support/approvals` had no way in.** Session 58 built the page and the route; nothing linked
+  to it.
+- **`/matrix` returned rows that couldn't be told apart.** `LimitResponse` carried `approverRole`
+  (who signs off *above*) but not `role` (whose band it *is*), so an editor could not know which
+  ceiling it was about to change.
+- **A comment claimed a distinction the code doesn't make.** The leave sweep's "back in" branch
+  says it won't re-enable somebody who paused themselves; it can't tell the difference. Corrected to
+  say what it actually relies on — that it runs at 00:05, before any manual pause exists — with an
+  explicit warning not to move the schedule without adding a reason column first.
+
+#### Verification
+
+457 Java files parse, 0 errors. Console `tsc --noEmit` clean. V011 (12 cases) and V012 (9 cases)
+run against real PostgreSQL, including the retry double-count and the exact ₹600-booking scenario
+the old rule allowed.
+
+#### Still open
+
+- `mvn verify` **has still never run in the assistant's sandbox.** javac in IntelliJ remains the
+  real check.
+- The Session 58/59 console modules (approvals, team, goodwill) have **no mock layer on purpose** —
+  an approval ladder that works against fixtures proves nothing. They show a `LiveOnlyNote` banner
+  in mock mode; run with `VITE_USE_MOCKS=false`.
+- No seed data for `staff_leave` or `goodwill_grant`.
+- Razorpay create-order/refund still need real keys.
+
+---
+
+### Session 60 — clearing what was actually pending, and three things that were never reachable
+
+Darshan: *"whats pending do it both front and back end"*. An audit of every TODO across the three
+repos, then the ones that were real.
+
+#### 1. Upholding a content report now removes the content
+
+The console recorded moderation decisions and did nothing with them — the worst shape a moderation
+tool can take. The audit log said the content was removed, the reporter was told it was handled, and
+the abusive review was still on the salon's page. Invisible from inside the console, and the next
+report looked like a duplicate.
+
+- **V006 (bmp-review)** — `hidden_at` / `hidden_reason` / `hidden_by_staff_id`, with a CHECK that all
+  three move together. Hidden, not deleted: moderation is reversible, `booking_id` is unique so a
+  delete would let the same customer write a replacement, and the rating is history.
+- **Every customer-facing read now filters it** — salon page, stylist page, average, histogram.
+  Missing any one is how "we removed it" turns out to mean "from one of four places", and the star
+  average is the one people trust most.
+- **Photos are genuinely deleted** — nothing references a photo row. The asymmetry is deliberate and
+  documented so it does not read as an inconsistency.
+- **Profiles do nothing automatically.** The remedy is suspension, which ends somebody's ability to
+  earn and has its own screen, note and role. Wiring it to a queue click would let an agent take a
+  salon offline as a side effect of clearing their list. The moderator is told this, on the button.
+
+#### 2. The DPDP data export exists
+
+Erasure shipped in Session 56; access did not — which is backwards, since access is what people
+actually ask for. "Still manual" meant an agent copying fields out of four screens and always
+forgetting the support tickets.
+
+`DataExportService` assembles profile + bookings + reviews (including hidden ones — the item the
+person is least likely to know about) + tickets. A source that fails is **declared in the bundle**,
+never silently omitted; the console repeats the warning before the agent can attach it to an email.
+
+Gated on identity verification, because generating the bundle *is* the disclosure. Delivered by the
+agent who verified them, not auto-emailed — the commonest reason for an export nobody requested is
+that the account was taken over.
+
+#### 3. The goodwill ceiling is visible before an agent promises anything
+
+`GET /admin/coupons/goodwill-context` — what is left on the booking, **and what has already been
+given, by whom**. The number alone ("up to ₹200" on a ₹600 booking) reads as a bug; the two earlier
+₹200 coupons beside it make it obviously right, and tell the agent something that changes what they
+say next.
+
+#### 4. Smaller
+
+- Half-day leave: the API and the V011 CHECK always accepted it; the form never sent it, so a dentist
+  appointment cost a whole day.
+- `RefundService` now uses the by-id booking lookup added in Session 59 instead of pulling a
+  customer's entire booking list. *A guard justified by a limitation has to be revisited when the
+  limitation lifts.*
+- The salon-rejection TODO was **stale** — bmp-salon already emails via `setSalonStatus`.
+  Implementing it would have double-emailed every rejected owner. Replaced with a pointer.
+- `seed/dev-seed-team.sql`: six colleagues, leave in four states, queue config, goodwill history.
+
+#### Bugs found while verifying
+
+- **The entire Session 58/59 console surface was unreachable.** `approvals.ts`, `team.ts` and
+  `goodwill.ts` wrote paths as `/admin/approvals`, and `client.ts` already sets baseURL to
+  `/api/v1/admin` — so axios produced `/api/v1/admin/admin/...`. 21 paths, every one a 404. It hid
+  because these modules deliberately have no mocks: an unexercised wrong path looks exactly like
+  "no server running". *A feature that only works against mocks proves nothing; one that is never run
+  against anything proves less.*
+- **The team seed inserted nothing.** Every row was guarded `WHERE EXISTS (... role='support_agent')`
+  and V003 seeds exactly one staff row — the superadmin. It reported success and produced the empty
+  screens it was written to prevent. Caught by running it against real PostgreSQL rather than reading
+  it. *A seed guarded on data it does not create is a seed that does nothing.*
+- An invalid-hex UUID in that seed, plus a comment claiming a booking id matched `dev-seed.sql` when
+  that file seeds no bookings at all.
+- `DataExportService`'s header said "five sources" over four.
+
+#### Verification
+
+460 Java files parse, 0 errors. Console and BMP-FE `tsc --noEmit` both clean. V006 run against real
+PostgreSQL with all three CHECK combinations refused; the twelve admin migrations plus the team seed
+applied and re-applied idempotently, producing 4 leave rows, 2 goodwill rows and 4 queue rows.
+
+#### Still open
+
+- `mvn verify` **has still never run in the assistant's sandbox.** javac in IntelliJ remains the real
+  check.
+- Notification/consent history is absent from the export — bmp-notification records no per-recipient
+  delivery yet. Named in the bundle's own notice rather than left implied.
+- Push notifications; Razorpay create-order and refund (need an account); referral payout (deferred);
+  customer-facing pay button; MinIO orphan sweep.
+
+---
+
+### Session 61 — the customer side: what a person can do about content, their data, and their own account
+
+Darshan: *"Now in customer side any pendings?"* — then *"complete all the things… and also check all
+booking related features done and also history cancel searching filters etc and also support raise
+ticket coupons etc should be working."*
+
+#### The audit first
+
+Traced every customer path from screen to controller to gateway route. **Booking, support and
+coupons are all correctly wired**, which is worth recording as a negative result:
+
+| Flow | State |
+|---|---|
+| Book, cancel (+ fee preview), reschedule (+ eligibility), events, invoice, review | wired |
+| Discovery search — `near`, `radiusKm`, `category`, `q` | wired |
+| Support: raise a ticket, thread, reply, media | wired, correctly routed |
+| Coupons: `/coupons/quote` at checkout | wired to bmp-rewards |
+| Payment | still "coming soon" — blocked on Razorpay credentials, not code |
+
+Two gaps found in booking, four elsewhere. All six built this session.
+
+#### 1. Nothing could report content — the queue had no input at all
+
+`content_report` has existed since Session 23. The console has a moderation screen. Session 60
+wired upholding so it genuinely hides a review and deletes a photo. And the `ContentReport`
+constructor was **never called from anywhere**: no endpoint created a row, no app had a Report
+control.
+
+Unreachable from both ends simultaneously, which is exactly why it survived so long — an empty
+queue reads as "no bad content", not "no way to tell us about any".
+
+- `POST /api/v1/content-reports` in bmp-admin (`ROLE_SERVICE`), `POST /api/v1/me/reports` in
+  bmp-user, and a `ReportSheet` in the app.
+- **One open report per person per item.** A second report by the same person returns the first and
+  says so, so a double tap doesn't put two items in front of a moderator. Two *different* people
+  reporting the same thing stay two rows — how many people reported something is the best triage
+  signal there is.
+- Reasons are a fixed list, not free text: a moderator sorting fifty items can't sort on prose, and
+  `safety` can only jump the queue if it's a value the code compares.
+- The confirmation promises a **look, not an outcome** — "we'll act on it if it breaks our rules",
+  never "this has been removed".
+
+Review reporting is wired end to end but has **no surface yet**: the salon page shows a review
+*count*, not the reviews. Named in the code rather than left as a mystery.
+
+#### 2. A customer could not ask for their own data
+
+The console's data-request queue could only be filled by an agent typing on somebody's behalf.
+Session 60 built the export that fulfils one. Under the DPDP Act the data principal needs a route —
+and a queue only staff can fill is a process, not a route.
+
+`POST /api/v1/me/data-requests` → a new `raiseBySubject` that audits the actor as **the customer**,
+not as staff. Idempotent per person per type. Deletion asks twice and still only opens a request:
+erasure is irreversible, and the commonest reason for a deletion request nobody made is that
+somebody else has the phone.
+
+#### 3. The wallet had never been reachable
+
+Built in Session 47 — balance, transactions, referral code, all working — and **nothing linked to
+it**. Now in the Profile tab rather than a fifth tab: a tab bar is for what you do often.
+
+#### 4. The profile was read-only
+
+`PUT /users/{id}` has existed since Session 12 and the app never called it. A name captured wrong at
+signup meant opening a support ticket to fix one field. The phone number stays uneditable, with the
+reason stated on screen — it's the login credential, so changing it is an authentication flow.
+
+#### 5. Booking history had no search or filter
+
+Upcoming/Past tabs only. Client-side, because the list is already fully loaded — with a note that if
+the 50-row page size ever stops being enough, the filter has to move server-side **and** pagination
+has to become real, since doing one without the other silently searches only the first page.
+
+Controls appear only past four bookings, and a too-narrow search says "*n* bookings are hidden by
+your filter" rather than showing an empty list that reads as "my bookings are gone".
+
+#### Notable in the gateway
+
+`/api/v1/me/**` routed to bmp-user. `/api/v1/content-reports/**` and `/api/v1/data-requests/**`
+deliberately **not** routed anywhere — they're the `ROLE_SERVICE` receivers, called over the internal
+network. Adding routes would put service-to-service endpoints on the public internet for no reason.
+The fifth instance of the salon-shaped-path lesson: a route exists because something needs it, not
+because the path exists.
+
+#### Verification
+
+465 Java files parse, 0 errors. Both frontends `tsc --noEmit` clean. Every new FE path checked
+against its controller mapping and its gateway route by hand — the check that caught the doubled
+`/admin/admin/…` prefix last session.
+
+#### Still open
+
+- `mvn verify` **has still never run in the assistant's sandbox.**
+- Payment: Razorpay create-order and refund need real credentials.
+- Push notifications; referral payout (deferred); notification history in the data export.
+- Review reporting has no surface until the salon page lists reviews.
+
+---
+
+
+---
+
+### Sessions 62–63 — staff logins that actually exist, and the two bugs that ate every OTP
+
+#### The credentials problem was never a code problem
+
+Three sessions were spent on `DevStaffSeeder` not producing accounts. The cause, every time, was
+PowerShell scope: `$env:BMP_ADMIN_DEV_STAFF` set in one terminal, service started from another (or
+from the IDE), seeder sees `enabled=false`, does nothing, says nothing. The seeder also refuses to
+overwrite an existing account, so a second attempt with a new password looks exactly like a failure.
+
+`seed/dev-staff-logins.sql` removes the variable from the equation: six accounts with **precomputed,
+committed bcrypt hashes** — nothing to configure and nothing to scope wrongly. Password
+`BmpLocalDev2026!Console`, shared TOTP secret `YKWFL6SICQZYDPCVN6UGLS4BYQOH5WQK`. It uses
+`ON CONFLICT (id) DO UPDATE` — deliberately the opposite of `dev-seed-team.sql`, which leaves rows
+alone. That file seeds a *roster*; this one seeds *logins*, and its entire job is to be the thing you
+run when you cannot get in. A version that quietly skipped would reproduce the failure that made it
+necessary. It also clears `failed_login_count` and `locked_until`.
+
+It has **no localhost guard** — a SQL file cannot check its own target. The banner says so.
+
+#### 2FA without a phone
+
+`tools/totp.mjs` (CLI, `--watch`) and `tools/authenticator.html` (browser tab, secret pre-filled,
+click-to-copy, greys out below 5s). Both HMAC-SHA1 / 6 digits / 30s to match `TotpService`, both
+verified against all five RFC 6238 test vectors. These are **authenticators, not bypasses** — without
+the secret they give you nothing. Console 2FA still cannot be skipped, on purpose: a bypass flag is
+the thing that eventually ships enabled.
+
+#### `tools/otp-doctor.sql` — and what it found
+
+Four queries, one per hop: `otp_requests` → `common_schema.outbox` → `notification_log` → accounts
+with no email. Read top to bottom; the first empty section is where it stopped. It never prints a
+code — `otp_requests` stores a bcrypt hash, and a query that dumped live OTPs would be a credential
+dump with a helpful banner.
+
+Run against the real database it produced the diagnosis in one pass, and there were **two** bugs:
+
+**1. Kafka `key.serializer`, in five services.** Spring Cloud Bus's `KafkaBinderEnvironmentPostProcessor`
+silently defaults `spring.kafka`'s serializers to `ByteArraySerializer`. Outbox rows carried
+`Can't convert key of class java.lang.String … specified in key.serializer`. This exact bug was
+diagnosed and fixed **in Session 16 — and only in `bmp-auth`.** But `common_schema.outbox` is
+**shared**: every service with `bmp.outbox.relay.enabled=true` polls it, so a relay in bmp-salon
+picking up an `otp.requested` row died on the same serializer. Explicit `StringSerializer` blocks
+added to bmp-salon, bmp-booking, bmp-admin, bmp-payment, bmp-rewards.
+
+> **Fixing the service where a bug was *noticed* is not the same as fixing the service where it
+> *lives*.** A shared table means a shared failure mode.
+
+**2. `NotificationLogService.markSent` / `markFailed` had no `@Transactional`.**
+`repo.findById(id).ifPresent(entity::markSent)` loads the row, mutates the object, returns. With no
+transaction open the persistence context closes at the end of `findById`, the entity is **detached**,
+and the mutation is discarded in silence. Every `notification_log` row sat at `status = 'queued'`
+with `error_reason` NULL — throwing away the SMTP diagnosis `NotificationDispatcher` had carefully
+built, which is why "OTP not arriving" had no error to read for weeks.
+
+> **A setter on a JPA entity is not a write.**
+
+Also: `requestOtp` now refuses to issue a code when no email address can be resolved, instead of
+issuing an undeliverable one and reporting success. Email is still the only live channel.
+
+#### Frontend
+
+`LoginSheet.tsx` — the web sheet never rendered the Google button. `useGoogleSignIn`,
+`loginWithGoogle`, `setFromGoogle` and server-side ID-token verification all already existed; only
+`LoginScreen.tsx` rendered it. Sixth instance of *a feature is shipped when something navigates to
+it.* Copy reworked so the sheet reads as one door for new and returning users ("Continue with your
+phone" / "One is created for you when you confirm the code") — there is no separate signup, and the
+old wording implied there was. `TextField` gained a `hint` prop.
+
+Needs `EXPO_PUBLIC_GOOGLE_CLIENT_ID` in `BMP-FE/.env` and `http://localhost:19000` in the Google
+Cloud authorised origins, or the button stays hidden.
+
+#### Verification
+
+All seven touched `application.yml` files parse; five now carry `StringSerializer` (bmp-notification
+consumes, doesn't relay). 19 bmp-notification Java files parse, 0 errors. All six bcrypt hashes
+verified against the password on a real PostgreSQL. `otp-doctor.sql` 4/4 queries verified against the
+real schema — which is how `user_schema.otp_requests` (not `auth_schema`) and `failed_login_count`
+(not `failed_login_attempts`) were caught. Both TOTP tools 5/5 RFC vectors. BMP-FE `tsc` clean.
+
+#### Rotate before real data
+
+The console password, the shared TOTP secret, and the Session-58 admin credentials are all in git.
+Delete the dev accounts before anything real exists:
+`DELETE FROM admin_schema.bmp_staff WHERE email LIKE 'dev.%@bemyprofessional.in';`
+
+
+
+---
+
+### Session 64 — the support desk: who is asking, who is working it, and who has it now
+
+#### Two features that were built, correct, and unreachable
+
+**`raised_by_type` was written on every ticket since V002 and rendered NOWHERE.**
+`grep -rn raisedByType BMP-ADMIN/src` returned zero hits. An agent opening the queue saw a customer's
+haircut question and a salon reporting it could not trade as two identical grey rows. That single
+omission also disabled `priority`, which had existed and sorted correctly the whole time — you
+cannot rank by who is blocked when who is blocked is invisible.
+
+> **A column that is written and never read is a promise the UI never kept.**
+
+**`TicketEscalationService.escalate()` had no controller, no route and no button.**
+Written in Session 58, complete: tier ladder, ten-character reason floor, "you can only escalate what
+you hold", auto-assignment to the receiving tier, a full `ticket_escalation` trail, and a database
+CHECK enforcing upward-only moves. Nothing called it. Six sessions in which no ticket could be
+escalated by anyone, and the only symptom was `escalation_count` permanently zero — which reads as
+"we never need to escalate", not "escalation is unreachable".
+
+> **Seventh instance: a feature is shipped when something calls it. A service class with no caller
+> is a design document that compiles.**
+
+#### V013 — requester identity and the assignment trail
+
+`requester_name` and `salon_name` are **snapshots**, denormalised at raise time, exactly as
+bmp-booking snapshots customer contact (V006). Two reasons: the queue lists fifty tickets, so a live
+join is fifty cross-service calls per page load — and a failed name is indistinguishable in the UI
+from a ticket that never had one. And a ticket is a record of a conversation that *happened*: if the
+person renames themselves or exercises erasure, it must still say who it concerned at the time.
+
+`priority_auto` records whether the value came from the policy or a person. Without it the only safe
+design is "derive once at creation, never again" — which leaves a ticket later linked to a salon
+carrying a priority computed when we thought it was a consumer.
+
+`ticket_assignment` is append-only, with UPDATE and DELETE revoked at the database level and no
+setters on the entity. Kept separate from `ticket_escalation` because they answer different
+questions: escalation is *was this handled at the right level*, assignment is *who is working what
+right now*. Merging them would make every workload query filter escalations out and every escalation
+audit filter reassignments out.
+
+#### `TicketPriorityPolicy` — and the line it will not cross
+
+Salon-side outranks customer. Not snobbery — blast radius: a customer with a booking problem has one
+spoiled appointment; a salon that cannot trade loses every appointment it would have taken today,
+plus the customers who quietly went elsewhere.
+
+**It never assigns `urgent`.** If the system can mint urgent, every category eventually becomes
+urgent, agents learn to ignore the flag, and the top of the queue stops meaning anything. The policy
+tops out at `high` and leaves `urgent` to a person. That is the important line in the file.
+
+`raise()` previously hardcoded `"medium"` for every in-app ticket regardless of source.
+
+#### V014 — desk is orthogonal to tier
+
+`tier` is HOW SENIOR; `handling_desk` is WHICH FUNCTION. A refund dispute does not need a more senior
+*support* person, it needs finance — who are deliberately tier 0 and off the escalation ladder
+entirely. The ladder structurally cannot reach them, so escalating three times to reach the platform
+owner and having them forward it by hand was the only available route.
+
+So there are two verbs. **Escalate** = "this is harder than I can handle" (up a tier). **Transfer** =
+"this isn't my job" (sideways). A tier-2 ticket at the finance desk is a normal state.
+
+The tier-0 ban on holding tickets governs the AUTO-ASSIGNMENT engine. It does not extend to a human
+deliberately handing finance a refund dispute. *A guard justified by one mechanism must not silently
+govern a different one.*
+
+Both moves demand ≥10 characters of reason, enforced server-side and mirrored in the button's
+disabled state. The thread id never changes: the receiving person opens the same conversation, and
+the customer sees one visible line saying it changed hands and they need not re-explain. The reason
+itself stays internal — it can carry candid assessments.
+
+#### `TicketHandlingState` — and what it deliberately does not claim
+
+Eight states derived from columns that already exist, never stored. A stored `chat_state` would be a
+second source of truth that drifts the first time somebody updates a ticket through a path that
+forgets to maintain it — and that path will be added in six months by somebody who has not read this.
+
+The chat banner previously appeared **only** on escalation. Every other state, including the whole
+first stretch after someone hits send, showed nothing: the person saw their own message and no sign
+anyone had read it. `status` said "open", which is true and useless — it says the same thing ninety
+seconds in and three days in.
+
+> Silence in a support chat is not neutral. People read it as being ignored, and the reliable
+> consequence is a second ticket about the same problem, which lengthens the queue and makes their
+> own wait worse.
+
+**No "agent is typing", no "connecting…", no read receipts.** There is no live socket, so all three
+would be comforting animations with nothing behind them. Every state corresponds to a stored fact.
+A status that turns out to be untrue costs more trust than no status at all.
+
+#### Oversight, and the nav
+
+`OversightPage` — every open ticket with its holder, per-agent workload (open / high / breached /
+*taking work*), assign–reassign–release, and the movement trail. Separate from "All tickets" because
+they answer opposite questions: that screen is for WORKING a queue and hides what you cannot act on;
+this is for DECIDING HOW WORK IS SPREAD and must show everything, including other people's. Folding
+them together turns an agent's working view into a floor-wide league table.
+
+The tell that it was needed: a ticket assigned to somebody who had left simply stopped moving, with
+nothing anywhere reporting it. **A queue with no supervisor view does not fail loudly; it goes quiet.**
+
+`DeskNav` — the owner dashboard had 21 tabs in one non-scrolling `View`. Everything past the viewport
+edge was laid out and unreachable: no scrollbar, no wrap, no affordance. Grouped into five sections
+that always fit. *A layout that works at six items is not a layout that works at twenty; the failure
+mode of too many children in a fixed row is silent truncation, not a warning.*
+
+First version let you open a group without navigating, so the header said People and the body said
+Desk. That imported a desktop-menu idea into something that is not a menu. **Tapping a group
+navigates.**
+
+#### Closures were reachable and undiscoverable
+
+V019 has done festival and one-off closing since Session 48, and `AvailabilityService` has subtracted
+every window from every slot search. Two things were missing, both in the UI:
+
+- The owner looking for "close this Thursday" went to **Opening hours**, which sets the WEEKLY
+  pattern — switching Friday off closes every Friday from now on. That screen now signposts Closures.
+- The **customer** was never told. A salon shut for Diwali looked identical to a busy one: page
+  rendered, date strip offered the day, tapping returned an empty list. "No slots" and "closed" are
+  different facts and people act differently on each — the first means try another time, the second
+  means try another day or another salon.
+
+#### The chat thread, rebuilt
+
+Sides (staff right, requester left), day separators (`Today` / `Yesterday` / a date), and consecutive
+messages from one speaker no longer repeat the timestamp. Internal notes keep the dashed amber border
+*and* a distinct full-width shape — that confusion is the expensive one, an agent writing candidly
+believing a note is private or withholding a reply believing it was already sent.
+
+#### Bugs caught in this session's own work
+
+- Console endpoints written as `/oversight/...` when `SupportDeskController` is mapped at
+  `/api/v1/admin/support` — every call would have 404'd. Invisible against mocks, because the mock
+  branch returns before the URL is built. Same failure as Session 58 and the Offers tab before it.
+- `fromDesk` read *after* the setter, so the audit would have logged "finance → finance".
+- Four mock tickets missing the new fields — caught by `tsc`, which is the contract guard working.
+
+#### Verification
+
+469 Java files parse, 0 errors. All 14 bmp-admin migrations apply in order on a real PostgreSQL; the
+`handling_desk` CHECK was confirmed to reject a bad value rather than merely being declared. Both
+frontends `tsc --noEmit` clean. Every new console path checked against its controller's
+`@RequestMapping`, not its method mapping.
+
+**`mvn verify` still has never run in the assistant's sandbox** — Maven Central is unreachable, so
+compile-level confirmation remains the team's to run.
+
+
+
+#### Session 64, continued — push, the export gap, and the referral that never paid
+
+**Notification history in the DPDP export.** The bundle's notice used to end *"It does not yet
+include a log of messages we sent you"* — honest, and now obsolete. Five sources instead of four.
+
+Two limits kept deliberately. The message **body** is not exported: `notification_log.payload` holds
+template variables that routinely name a THIRD PARTY (a booking notification carries the salon and
+stylist; a closure notice can carry a manager's phone number). Same reasoning that already excludes
+support message threads — disclosing somebody else's data as part of a subject's export is a
+different decision from disclosing the subject's own. And **failed** sends are included, because
+"we tried and it bounced" is a materially different fact from "we never sent it".
+
+A purpose-built `/export` endpoint rather than reusing `/recipient/{id}`: that one returns a Spring
+Data `Page`, which does not deserialise into a list without `PageJacksonModule` in every consumer —
+and the failure mode when somebody later forgets it is an empty section in a legal disclosure.
+
+**Push notifications, via Expo.** `push_token` (V004) is per-DEVICE, not per-person: the same account
+on a phone and a tablet is two tokens and should get both. Owned by bmp-notification because a push
+token is a delivery address, exactly as an email address is for SMTP, and only bmp-notification ever
+sends.
+
+The unique index is on `token` ALONE, not `(user_id, token)` — verified against a real database. A
+phone handed from one person to another keeps its token, so re-registering must MOVE it; a
+per-user constraint would let the new owner receive the previous owner's booking notifications.
+
+Expo answers **HTTP 200 even for a token it rejects** — the per-message outcome is inside the body.
+Treating 200 as success would mark every send delivered, including to tokens Expo has just declared
+dead, and the log would show a healthy channel reaching nobody. `DeviceNotRegistered` is the normal
+end of a token's life, logged at INFO: alerting on it would train everybody to ignore this channel's
+alerts.
+
+> **Push is an ADDITION to a durable channel, never a replacement.** Treating a push as "they have
+> been told" is how a salon cancellation ends with somebody standing outside a locked door.
+
+The registration endpoint was first written INTO bmp-notification and moved out again. That service's
+config says explicitly it is written to by other services and never by an app, and its public-paths
+list exists because an earlier version left the whole message history open. The app now calls
+`/api/v1/me/push-token` in bmp-user, which fills the user id from the verified JWT — a caller-supplied
+one would be an interception endpoint with a friendly name.
+
+**The referral that never paid.** Everything existed except the wire:
+
+- `referral.completed_at` — V002, commented *"set on referee's FIRST COMPLETED VISIT"*
+- `ReferralService.completeOnFirstVisit(...)` — fraud and expiry guards, fully written
+- `BookingCompleted` — published by bmp-booking on every completed appointment
+
+Nothing connected them. bmp-rewards had **no Kafka listener at all**, so the method had no caller and
+referrals accumulated attribution for months while paying nothing. Its own javadoc said so: *"Do not
+advertise a referral programme until this is wired."*
+
+> **Eighth instance: a service method with no caller is a design document that compiles.**
+
+The `TODO(payout)` said *"Needs bmp-payment"* and was wrong — that assumed a CASH payout. Wallet
+credit is entirely internal to bmp-rewards: no gateway, no KYC on the referrer, no TDS, no
+reconciliation ledger. It is self-funding (credit costs margin, not cash) and can only be spent with
+us, which is the point of paying for a referral.
+
+Released on the referee's first **completed** booking, never signup: signups are free to manufacture,
+and paying for them pays for accounts rather than customers. Not on payment either — a paid booking
+can still be refunded, and clawing back a spent wallet credit is usually impossible.
+
+Idempotency lives on the ENTITY (`Referral.markCompleted()` returns false once settled), not in the
+listener: `booking.completed` is at-least-once, and a second consumer added later would have to
+remember to re-implement a check placed in the listener, and would not.
+
+Reward amounts are read from the FROZEN columns, not from today's config. Somebody who referred a
+friend under a ₹150 offer is owed ₹150 even if the rate is ₹50 by the time the friend books.
+
+**And the same Session 63 bug, mirrored.** bmp-rewards had explicit producer serializers and no
+CONSUMER deserializers — it had never consumed anything. Adding a listener without them would have
+failed on every message, and failed *silently from outside*: referrals would simply never pay, which
+is indistinguishable from the state this work set out to fix. `auto-offset-reset: earliest` too, or a
+brand-new consumer group skips every booking completed before it first started.
+
+#### Still open after this
+
+- **`mvn verify` has never run in the assistant's sandbox.** Maven Central is unreachable; everything
+  above rests on parse checks, real-database migration runs and hand-checked arity, not a compiler.
+- `npx expo install expo-notifications expo-device`, then delete `src/types/optional-native-modules.d.ts`.
+  Until then push degrades to nothing, by design. Push does not work in Expo Go on Android SDK 53+.
+- `http://localhost:19000` in the Google Cloud authorised origins.
+- Rotate the committed dev console password and TOTP secret before real customer data exists.
+- Razorpay create-order and refund need real credentials.
+- Review reporting still has no surface until the salon page lists reviews.
+
+### Session 65 (part 2) — account administration, scoped by whose account it is
+
+**What was asked.** *"Number changes, email changes, account block, account remove of customers can
+be done by support ... customer and support accounts can be done by ops admin ... all kind of
+accounts can be done by main admin."*
+
+**The thing that nearly went wrong.** The obvious reading — one set of endpoints over "accounts" —
+is wrong, because BMP has **two account tables**. `user_schema.users` holds customers and
+salon-side people who sign in with a phone and an emailed code. `admin_schema.bmp_staff` holds the
+console's own people, who sign in with a password and TOTP. A support agent's console account is
+not a row in `users` at all, so "ops admin can manage support accounts" could never have been
+satisfied by the user endpoints, however well they were written. Two scope classes, each naming its
+table: `AccountScope` and `StaffAccountScope`.
+
+**Load first, authorise second.** `@PreAuthorize` can only prove the caller is staff. The real
+question is *may this caller act on THIS account*, and that depends on the **target's** role, which
+is unknown until the row is read. Every one of these endpoints therefore loads the target before
+deciding — the reverse of the usual order, deliberately.
+
+**Two drifts found while doing it, both of the same shape — a second copy of a rule with nothing
+checking it against the first:**
+
+- `StaffPermission.permissionsFor(super_admin)` hand-listed its permissions while `has()` used a
+  wildcard. The three new `account:*` permissions were granted by `has()` and missing from the
+  list, so the owner would have had endpoints that worked and buttons that were hidden. It now
+  derives the set by reading the constants off the class. The javadoc above `ROLE_PERMISSIONS` had
+  warned against exactly this; the method simply had not followed it.
+- The self-edit check in `AccountScope` compares a `bmp_staff` id to a `users` id. Those come from
+  different tables and are never equal, so it does not fire. It is kept (it costs nothing and
+  becomes real if the identities are ever linked) but the comment now **says so** rather than
+  claiming a protection that isn't there. The self-edit risk that exists today is on the staff
+  side, where `StaffAccountScope` compares two ids of the same kind and the check means something.
+
+**Ops admins can now reach Staff accounts.** The screen was owner-only, which meant one person had
+to be free before a departing agent's access could be revoked — not an offboarding procedure. Ops
+now creates, suspends and re-credentials the desk (agents, leads, finance, read-only) and can do
+none of those to another ops admin or the owner, or to themselves. The role dropdown only offers
+roles the caller may actually create, and rows they cannot act on show *"Owner only"* or *"This is
+you"* instead of buttons that would 403.
+
+**Remove means anonymise.** The row survives with its identifying fields cleared, because a
+person's past bookings are also the salon's record of work it performed and was paid for. The hard
+delete in `tools/delete-test-accounts.sql` is for the two test numbers only and says so in its
+header.
+
+**Verified:** 486 Java files parse clean; `tsc --noEmit` clean in BMP-ADMIN; every identifier in the
+new console code checked against the real field and method names (the first draft of these endpoints
+used four that did not exist). **Not verified by a compiler — `mvn verify` still has never run here.**
+
+### Session 65 (part 3) — the Block button was doing nothing
+
+**Found while checking what the app should show a blocked person.** The feature shipped an hour
+earlier called `deactivate()`, and bmp-auth reactivates a deactivated account on its owner's next
+OTP login — a line written for people who pause their own account, which cannot tell that case from
+a staff block. So the block lifted itself at the next sign-in. Separately, neither `refresh` nor
+`me` read the flag, so anyone already signed in kept working for days.
+
+Everything worked: the button, the audit entry, the confirmation. **The only thing that did not
+happen was the block.** This is the same shape as the session's other finds — a feature is shipped
+when something CALLS it, and a call to the wrong thing is indistinguishable from a call to the
+right one until somebody traces it.
+
+**The fix is a separate `blocked_at`**, because `deactivated_at` and a block say opposite things
+about the person's wishes and one column cannot hold both. Refused at login (before the
+reactivation line — the ordering is the fix), at refresh (which also revokes the token), and at
+`/me` with a 403 rather than a 401 so the app can distinguish it from an expired session.
+
+**The 15-minute gap is not closed and the comments say so.** An access token already issued stays
+valid until it expires. Revoking refresh tokens ends the session at renewal rather than instantly.
+Fixing it properly needs revocation checks on the resource services.
+
+**BMP-FE gained a fourth session state.** `blocked` is not a flavour of `guest`: a guest can sign
+in, and sending a blocked person to the login screen produces a loop — number, code, refused — that
+reads as a broken app and hides that the block worked.
+
+**Self-service contact change, and an unverified email edit removed.** The profile form was
+changing the email address outright with nothing confirming it. Login codes arrive by email, so
+anybody holding a session could redirect them and own the account. Both phone and email now go
+through a code. The honest limit: for a PHONE change the code goes to the existing email, because
+SMS cannot deliver until DLT registration completes — it proves the requester, not the number, and
+the screen says exactly that rather than implying a check that did not happen.
+
+**Verified:** 491 Java files parse clean; both migrations run against real PostgreSQL, including
+the property the block depends on (the reactivation UPDATE clears `deactivated_at` and leaves
+`blocked_at` standing) and the CHECK that rejects a targetless contact-change row; `tsc --noEmit`
+clean in BMP-FE and BMP-ADMIN. **Still no compiler — `mvn verify` has never run here.**
+
+### Session 66 — a stylist's specialisations, and a validation hole in the table that held them
+
+**`stylist_service` had existed since V002 with endpoints since Session 24 and no caller in any
+app.** The table was empty in every environment, so nobody could say which services a stylist
+performs — and the per-stylist duration, which the availability algorithm reads, was unreachable.
+
+`addService` was three lines: construct from the request, save, return. **It validated nothing.**
+The controller authorises the caller against `salonId` in the PATH; `serviceId` then arrived in
+the BODY and was written straight to the row, so an owner could attach another salon's service to
+their stylist by pasting an id. Same shape as the closure-cancel and join-request holes — *an
+authorised path says who is calling, not what their ids refer to.* It now checks four things: the
+stylist is active here, the service belongs to this salon, it is not archived, and it is not
+already assigned. Plus a 5-minute-to-8-hour duration range, because that number sizes real
+appointments.
+
+`PUT` and `DELETE` were also simply absent, which is *why* the duplicate mattered — an owner who
+got it wrong could only add it again with different numbers. Added both, and a `@PreAuthorize` on
+the GET, which had none and was falling through to the filter-chain default.
+
+Also this session: the stylist can now READ their own working hours (`GET
+/api/v1/stylist-profile/hours`) and the days the salon has marked them off. Every method on
+`StylistAvailabilityController` was owner/manager-only — correct for writes, but it gated the read
+too, so *the person expected at the chair was the only party who could not see the shift they were
+expected for.*
+
+### Session 67 — Darshan cut the per-stylist timings, and he was right
+
+> "Why we required services plus timings ... timing is standard for service and applicable all
+> stylish ... stylist can choose service which is salon itself"
+
+How long a haircut takes is a property of the haircut. Modelling it per stylist does not capture a
+real distinction so much as manufacture one, and then asks somebody to maintain stylists × services
+numbers forever — 3,000 of them for a 100-stylist salon. Nobody does, they go stale, and the
+booking algorithm starts sizing appointments off figures no one believes. Same argument removed the
+price override: one price per service.
+
+What remains is membership, which is a set — so three endpoints (add / edit / remove) collapsed to
+one replace-set `PUT`. That deletes a class of bug rather than handling it: no duplicate check, no
+ordering question, no partial-failure state.
+
+`actual_duration_minutes` survives as a NOT NULL column, written from the service's own duration
+and read by nothing. A later migration can drop it.
+
+### Session 68 — "fully booked" was a lie, five different ways
+
+Darshan, on a brand-new salon with zero bookings, was told his stylist was fully booked — on a page
+that printed "Hours not set yet" three inches away.
+
+`freeSlots` returned an empty list for **five unrelated reasons** and every screen rendered all
+five identically: suspended, date out of range, salon has no opening hours, stylist has no rota,
+genuinely full. Only the last is "fully booked". **This is not an edge case — a salon that just
+signed up has neither hours nor a rota, so every new salon on BMP is told its staff are fully
+booked on day one.**
+
+Same lesson as Session 66's fail-closed availability, in a new place: *a computation that produced
+nothing is not a computation that means nothing is available.* `freeSlotsExplained` now returns
+slots plus a `NoSlotReason`, and `salonLevelReason` holds the salon-wide checks in one place so
+`salonDayAvailability` — a deliberate second copy of the arithmetic — cannot drift on the reasons
+too. Staff get the cause and the screen to fix it; customers get a neutral sentence, because a
+salon's unconfigured rota and a stylist's suspension are not a customer's business. The staff test
+is derived from the principal, never a request parameter.
+
+**Two bugs were hiding behind it**, both in the customer booking panel. The slot renderer walked
+`{label, slots:[{time, available}]}` — a shape the endpoint stopped returning in Session 38 — so
+`group.slots.map` throws on real data; it never surfaced because reaching that branch required
+slots to exist, and there never were any. Fixing the availability bug alone would have turned
+"fully booked" into a white screen. The `noSlots` test had the same fault: `.every()` on an empty
+array returns true without calling the predicate, so it was accidentally correct in exactly the one
+case it was written to detect.
+
+**Also fixed: a locale bug that broke every booking path.** Four Feign `LocalDate` params carried
+no `@DateTimeFormat`, so Spring encoded them with the JVM's default locale — `06/09/2026` on an
+Indian machine — while the receiving controller parses ISO only. It compiles, and it passes on any
+machine whose locale happens to be ISO, so it reads as "works on my machine". `FeignDateEncodingTest`
+now asserts the annotation on every date param by reflection.
+
+**Docs (Session 68).** All three `RUN_LOCALLY.md` files gained a fast path and a complete
+install-this table. Two real drifts fixed while doing it: the backend guide claimed **3** infra
+containers when `docker-compose.yml` has **4**, and **MinIO was never mentioned anywhere** — so a
+teammate following the guide had image upload fail with a connection error and nothing explaining
+it. The console guide now documents the `LOCKED-NO-PASSWORD-SET` sentinel and the seed file, which
+had cost two sessions.
 
 ## How to Add to This File
 

@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
@@ -57,10 +58,38 @@ public class NotificationLogService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "NOTIFICATION_LOG_NOT_FOUND"));
     }
 
+    /*
+     * ════════════════════════════════════════════════════════════════════════════════════════════
+     * Session 63 — @Transactional. THESE TWO WROTE NOTHING TO THE DATABASE.
+     * ════════════════════════════════════════════════════════════════════════════════════════════
+     * `repo.findById(...).ifPresent(entity::markSent)` loads the row, mutates the object, and
+     * returns. With no transaction open, the persistence context closes at the end of findById and
+     * the entity is DETACHED — so the mutation happens in memory and is silently discarded. No
+     * exception, no log line, nothing.
+     *
+     * The result: every notification_log row stayed at `status = 'queued'` with a null
+     * `error_reason`, forever, whether the send worked or not. That made the table actively
+     * misleading rather than merely incomplete:
+     *
+     *   · A successful email looked like it had never been attempted.
+     *   · A FAILED email — the SMTP authentication error, the rejected From address — recorded
+     *     nothing. The one field built to explain "the code didn't arrive" was permanently empty.
+     *
+     * `NotificationDispatcher` was written carefully around this: it logs the full cause chain,
+     * comments at length about WHY the root cause matters, and calls markFailed to persist it.
+     * All of that work landed in a method that couldn't save. The diagnosis existed and was thrown
+     * away one layer down.
+     *
+     * Worth stating as a rule: a setter on a JPA entity is not a write. Either a transaction is
+     * open, or nothing happened — and "nothing happened" is indistinguishable from success unless
+     * something later reads the row back.
+     */
+    @Transactional
     public void markSent(UUID id) {
         repo.findById(id).ifPresent(NotificationLog::markSent);
     }
 
+    @Transactional
     public void markFailed(UUID id, String reason) {
         repo.findById(id).ifPresent(n -> n.markFailed(reason));
     }

@@ -1,0 +1,648 @@
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.4.1)
+
+2026-08-24T22:32:42.640+05:30  INFO 25284 --- [api-gateway] [           main] com.bmp.gateway.ApiGatewayApplication    : Starting ApiGatewayApplication using Java 21.0.11 with PID 25284 (C:\BMP -PRJ\BMP\api-gateway\target\classes started by Lenovo in C:\BMP -PRJ\BMP\api-gateway)
+2026-08-24T22:32:42.644+05:30  INFO 25284 --- [api-gateway] [           main] com.bmp.gateway.ApiGatewayApplication    : No active profile set, falling back to 1 default profile: "default"
+2026-08-24T22:32:42.705+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.c.c.ConfigServerConfigDataLoader   : Fetching config from server at : http://localhost:8888
+2026-08-24T22:32:42.705+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.c.c.ConfigServerConfigDataLoader   : Located environment: name=api-gateway, profiles=[default], label=null, version=e49a1a5dcfcb36643a08d9529e85f702a6d4d502, state=
+2026-08-24T22:32:44.545+05:30  INFO 25284 --- [api-gateway] [           main] faultConfiguringBeanFactoryPostProcessor : No bean named 'errorChannel' has been explicitly defined. Therefore, a default PublishSubscribeChannel will be created.
+2026-08-24T22:32:44.557+05:30  INFO 25284 --- [api-gateway] [           main] faultConfiguringBeanFactoryPostProcessor : No bean named 'integrationHeaderChannelRegistry' has been explicitly defined. Therefore, a default DefaultHeaderChannelRegistry will be created.
+2026-08-24T22:32:44.736+05:30  INFO 25284 --- [api-gateway] [           main] o.s.cloud.context.scope.GenericScope     : BeanFactory id=c8769c04-4054-3385-bc3f-8119bf18370f
+2026-08-24T22:32:46.082+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [After]
+2026-08-24T22:32:46.082+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [Before]
+2026-08-24T22:32:46.082+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [Between]
+2026-08-24T22:32:46.082+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [Cookie]
+2026-08-24T22:32:46.082+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [Header]
+2026-08-24T22:32:46.082+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [Host]
+2026-08-24T22:32:46.082+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [Method]
+2026-08-24T22:32:46.082+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [Path]
+2026-08-24T22:32:46.082+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [Query]
+2026-08-24T22:32:46.082+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [ReadBody]
+2026-08-24T22:32:46.082+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [RemoteAddr]
+2026-08-24T22:32:46.082+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [XForwardedRemoteAddr]
+2026-08-24T22:32:46.082+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [Weight]
+2026-08-24T22:32:46.082+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.g.r.RouteDefinitionRouteLocator    : Loaded RoutePredicateFactory [CloudFoundryRouteService]
+2026-08-24T22:32:46.531+05:30  INFO 25284 --- [api-gateway] [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 4 endpoints beneath base path '/actuator'
+2026-08-24T22:32:46.933+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.s.m.DirectWithAttributesChannel    : Channel 'api-gateway.springCloudBusInput' has 1 subscriber(s).
+2026-08-24T22:32:47.192+05:30  INFO 25284 --- [api-gateway] [           main] DiscoveryClientOptionalArgsConfiguration : Eureka HTTP Client uses RestTemplate.
+2026-08-24T22:32:47.261+05:30  WARN 25284 --- [api-gateway] [           main] iguration$LoadBalancerCaffeineWarnLogger : Spring Cloud LoadBalancer is currently working with the default cache. While this cache implementation is useful for development and tests, it's recommended to use Caffeine cache in production.You can switch to using Caffeine cache, by adding it and org.springframework.cache.caffeine.CaffeineCacheManager to the classpath.
+2026-08-24T22:32:47.400+05:30  INFO 25284 --- [api-gateway] [           main] o.s.i.endpoint.EventDrivenConsumer       : Adding {logging-channel-adapter:_org.springframework.integration.errorLogger} as a subscriber to the 'errorChannel' channel
+2026-08-24T22:32:47.401+05:30  INFO 25284 --- [api-gateway] [           main] o.s.i.channel.PublishSubscribeChannel    : Channel 'api-gateway.errorChannel' has 1 subscriber(s).
+2026-08-24T22:32:47.402+05:30  INFO 25284 --- [api-gateway] [           main] o.s.i.endpoint.EventDrivenConsumer       : started bean '_org.springframework.integration.errorLogger'
+2026-08-24T22:32:47.422+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.n.eureka.InstanceInfoFactory       : Setting initial instance status as: STARTING
+2026-08-24T22:32:47.447+05:30  INFO 25284 --- [api-gateway] [           main] com.netflix.discovery.DiscoveryClient    : Initializing Eureka in region us-east-1
+2026-08-24T22:32:47.452+05:30  INFO 25284 --- [api-gateway] [           main] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-24T22:32:47.463+05:30  INFO 25284 --- [api-gateway] [           main] com.netflix.discovery.DiscoveryClient    : Disable delta property : false
+2026-08-24T22:32:47.463+05:30  INFO 25284 --- [api-gateway] [           main] com.netflix.discovery.DiscoveryClient    : Single vip registry refresh property : null
+2026-08-24T22:32:47.463+05:30  INFO 25284 --- [api-gateway] [           main] com.netflix.discovery.DiscoveryClient    : Force full registry fetch : false
+2026-08-24T22:32:47.463+05:30  INFO 25284 --- [api-gateway] [           main] com.netflix.discovery.DiscoveryClient    : Application is null : false
+2026-08-24T22:32:47.463+05:30  INFO 25284 --- [api-gateway] [           main] com.netflix.discovery.DiscoveryClient    : Registered Applications size is zero : true
+2026-08-24T22:32:47.463+05:30  INFO 25284 --- [api-gateway] [           main] com.netflix.discovery.DiscoveryClient    : Application version is -1: true
+2026-08-24T22:32:47.463+05:30  INFO 25284 --- [api-gateway] [           main] com.netflix.discovery.DiscoveryClient    : Getting all instance registry info from the eureka server
+2026-08-24T22:32:47.776+05:30  INFO 25284 --- [api-gateway] [           main] com.netflix.discovery.DiscoveryClient    : The response status is 200
+2026-08-24T22:32:47.779+05:30  INFO 25284 --- [api-gateway] [           main] com.netflix.discovery.DiscoveryClient    : Starting heartbeat executor: renew interval is: 30
+2026-08-24T22:32:47.782+05:30  INFO 25284 --- [api-gateway] [           main] c.n.discovery.InstanceInfoReplicator     : InstanceInfoReplicator onDemand update allowed rate per min is 4
+2026-08-24T22:32:47.783+05:30  INFO 25284 --- [api-gateway] [           main] com.netflix.discovery.DiscoveryClient    : Discovery Client initialized at timestamp 1787590967783 with initial instances count: 2
+2026-08-24T22:32:47.787+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.n.e.s.EurekaServiceRegistry        : Registering application API-GATEWAY with eureka with status UP
+2026-08-24T22:32:47.788+05:30  INFO 25284 --- [api-gateway] [           main] com.netflix.discovery.DiscoveryClient    : Saw local status change event StatusChangeEvent [timestamp=1787590967788, current=UP, previous=STARTING]
+2026-08-24T22:32:47.790+05:30  INFO 25284 --- [api-gateway] [foReplicator-%d] com.netflix.discovery.DiscoveryClient    : DiscoveryClient_API-GATEWAY/Darshan.mshome.net:api-gateway:8080: registering service...
+2026-08-24T22:32:47.842+05:30  INFO 25284 --- [api-gateway] [foReplicator-%d] com.netflix.discovery.DiscoveryClient    : DiscoveryClient_API-GATEWAY/Darshan.mshome.net:api-gateway:8080 - registration status: 204
+2026-08-24T22:32:48.046+05:30  INFO 25284 --- [api-gateway] [           main] o.s.b.web.embedded.netty.NettyWebServer  : Netty started on port 8080 (http)
+2026-08-24T22:32:48.047+05:30  INFO 25284 --- [api-gateway] [           main] .s.c.n.e.s.EurekaAutoServiceRegistration : Updating port to 8080
+2026-08-24T22:32:48.062+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.s.binder.DefaultBinderFactory      : Creating binder: kafka
+2026-08-24T22:32:48.063+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.s.binder.DefaultBinderFactory      : Constructing binder child context for kafka
+2026-08-24T22:32:48.349+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.s.binder.DefaultBinderFactory      : Caching the binder: kafka
+2026-08-24T22:32:48.399+05:30  INFO 25284 --- [api-gateway] [           main] o.a.k.clients.admin.AdminClientConfig    : AdminClientConfig values: 
+	auto.include.jmx.reporter = true
+	bootstrap.controllers = []
+	bootstrap.servers = [localhost:9092]
+	client.dns.lookup = use_all_dns_ips
+	client.id = 
+	connections.max.idle.ms = 300000
+	default.api.timeout.ms = 60000
+	enable.metrics.push = true
+	metadata.max.age.ms = 300000
+	metadata.recovery.strategy = none
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	receive.buffer.bytes = 65536
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retries = 2147483647
+	retry.backoff.max.ms = 1000
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = PLAINTEXT
+	security.providers = null
+	send.buffer.bytes = 131072
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+
+2026-08-24T22:32:48.532+05:30  INFO 25284 --- [api-gateway] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka version: 3.8.1
+2026-08-24T22:32:48.532+05:30  INFO 25284 --- [api-gateway] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka commitId: 70d6ff42debf7e17
+2026-08-24T22:32:48.532+05:30  INFO 25284 --- [api-gateway] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka startTimeMs: 1787590968531
+2026-08-24T22:32:49.036+05:30  INFO 25284 --- [api-gateway] [| adminclient-1] o.a.kafka.common.utils.AppInfoParser     : App info kafka.admin.client for adminclient-1 unregistered
+2026-08-24T22:32:49.039+05:30  INFO 25284 --- [api-gateway] [| adminclient-1] o.apache.kafka.common.metrics.Metrics    : Metrics scheduler closed
+2026-08-24T22:32:49.039+05:30  INFO 25284 --- [api-gateway] [| adminclient-1] o.apache.kafka.common.metrics.Metrics    : Closing reporter org.apache.kafka.common.metrics.JmxReporter
+2026-08-24T22:32:49.039+05:30  INFO 25284 --- [api-gateway] [| adminclient-1] o.apache.kafka.common.metrics.Metrics    : Metrics reporters closed
+2026-08-24T22:32:49.054+05:30  INFO 25284 --- [api-gateway] [           main] o.a.k.clients.consumer.ConsumerConfig    : ConsumerConfig values: 
+	allow.auto.create.topics = true
+	auto.commit.interval.ms = 100
+	auto.include.jmx.reporter = true
+	auto.offset.reset = latest
+	bootstrap.servers = [localhost:9092]
+	check.crcs = true
+	client.dns.lookup = use_all_dns_ips
+	client.id = consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-1
+	client.rack = 
+	connections.max.idle.ms = 540000
+	default.api.timeout.ms = 60000
+	enable.auto.commit = false
+	enable.metrics.push = true
+	exclude.internal.topics = true
+	fetch.max.bytes = 52428800
+	fetch.max.wait.ms = 500
+	fetch.min.bytes = 1
+	group.id = anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51
+	group.instance.id = null
+	group.protocol = classic
+	group.remote.assignor = null
+	heartbeat.interval.ms = 3000
+	interceptor.classes = []
+	internal.leave.group.on.close = true
+	internal.throw.on.fetch.stable.offset.unsupported = false
+	isolation.level = read_uncommitted
+	key.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+	max.partition.fetch.bytes = 1048576
+	max.poll.interval.ms = 300000
+	max.poll.records = 500
+	metadata.max.age.ms = 300000
+	metadata.recovery.strategy = none
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	partition.assignment.strategy = [class org.apache.kafka.clients.consumer.RangeAssignor, class org.apache.kafka.clients.consumer.CooperativeStickyAssignor]
+	receive.buffer.bytes = 65536
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retry.backoff.max.ms = 1000
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = PLAINTEXT
+	security.providers = null
+	send.buffer.bytes = 131072
+	session.timeout.ms = 45000
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+	value.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+
+2026-08-24T22:32:49.091+05:30  INFO 25284 --- [api-gateway] [           main] o.a.k.c.t.i.KafkaMetricsCollector        : initializing Kafka metrics collector
+2026-08-24T22:32:49.145+05:30  INFO 25284 --- [api-gateway] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka version: 3.8.1
+2026-08-24T22:32:49.145+05:30  INFO 25284 --- [api-gateway] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka commitId: 70d6ff42debf7e17
+2026-08-24T22:32:49.145+05:30  INFO 25284 --- [api-gateway] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka startTimeMs: 1787590969144
+2026-08-24T22:32:49.171+05:30  INFO 25284 --- [api-gateway] [           main] org.apache.kafka.clients.Metadata        : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-1, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Cluster ID: 5L6g3nShT-eMCtK--X86sw
+2026-08-24T22:32:49.174+05:30  INFO 25284 --- [api-gateway] [           main] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-1, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Resetting generation and member id due to: consumer pro-actively leaving the group
+2026-08-24T22:32:49.174+05:30  INFO 25284 --- [api-gateway] [           main] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-1, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Request joining group due to: consumer pro-actively leaving the group
+2026-08-24T22:32:49.178+05:30  INFO 25284 --- [api-gateway] [           main] o.apache.kafka.common.metrics.Metrics    : Metrics scheduler closed
+2026-08-24T22:32:49.179+05:30  INFO 25284 --- [api-gateway] [           main] o.apache.kafka.common.metrics.Metrics    : Closing reporter org.apache.kafka.common.metrics.JmxReporter
+2026-08-24T22:32:49.179+05:30  INFO 25284 --- [api-gateway] [           main] o.apache.kafka.common.metrics.Metrics    : Closing reporter org.apache.kafka.common.telemetry.internals.ClientTelemetryReporter
+2026-08-24T22:32:49.179+05:30  INFO 25284 --- [api-gateway] [           main] o.apache.kafka.common.metrics.Metrics    : Metrics reporters closed
+2026-08-24T22:32:49.182+05:30  INFO 25284 --- [api-gateway] [           main] o.a.kafka.common.utils.AppInfoParser     : App info kafka.consumer for consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-1 unregistered
+2026-08-24T22:32:49.220+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.stream.binder.BinderErrorChannel   : Channel 'kafka-1571547080.springCloudBusInput.errors' has 1 subscriber(s).
+2026-08-24T22:32:49.221+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.stream.binder.BinderErrorChannel   : Channel 'kafka-1571547080.springCloudBusInput.errors' has 0 subscriber(s).
+2026-08-24T22:32:49.222+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.stream.binder.BinderErrorChannel   : Channel 'kafka-1571547080.springCloudBusInput.errors' has 1 subscriber(s).
+2026-08-24T22:32:49.222+05:30  INFO 25284 --- [api-gateway] [           main] o.s.c.stream.binder.BinderErrorChannel   : Channel 'kafka-1571547080.springCloudBusInput.errors' has 2 subscriber(s).
+2026-08-24T22:32:49.246+05:30  INFO 25284 --- [api-gateway] [           main] o.a.k.clients.consumer.ConsumerConfig    : ConsumerConfig values: 
+	allow.auto.create.topics = true
+	auto.commit.interval.ms = 100
+	auto.include.jmx.reporter = true
+	auto.offset.reset = latest
+	bootstrap.servers = [localhost:9092]
+	check.crcs = true
+	client.dns.lookup = use_all_dns_ips
+	client.id = consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2
+	client.rack = 
+	connections.max.idle.ms = 540000
+	default.api.timeout.ms = 60000
+	enable.auto.commit = false
+	enable.metrics.push = true
+	exclude.internal.topics = true
+	fetch.max.bytes = 52428800
+	fetch.max.wait.ms = 500
+	fetch.min.bytes = 1
+	group.id = anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51
+	group.instance.id = null
+	group.protocol = classic
+	group.remote.assignor = null
+	heartbeat.interval.ms = 3000
+	interceptor.classes = []
+	internal.leave.group.on.close = true
+	internal.throw.on.fetch.stable.offset.unsupported = false
+	isolation.level = read_uncommitted
+	key.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+	max.partition.fetch.bytes = 1048576
+	max.poll.interval.ms = 300000
+	max.poll.records = 500
+	metadata.max.age.ms = 300000
+	metadata.recovery.strategy = none
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	partition.assignment.strategy = [class org.apache.kafka.clients.consumer.RangeAssignor, class org.apache.kafka.clients.consumer.CooperativeStickyAssignor]
+	receive.buffer.bytes = 65536
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retry.backoff.max.ms = 1000
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = PLAINTEXT
+	security.providers = null
+	send.buffer.bytes = 131072
+	session.timeout.ms = 45000
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+	value.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+
+2026-08-24T22:32:49.246+05:30  INFO 25284 --- [api-gateway] [           main] o.a.k.c.t.i.KafkaMetricsCollector        : initializing Kafka metrics collector
+2026-08-24T22:32:49.252+05:30  INFO 25284 --- [api-gateway] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka version: 3.8.1
+2026-08-24T22:32:49.252+05:30  INFO 25284 --- [api-gateway] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka commitId: 70d6ff42debf7e17
+2026-08-24T22:32:49.252+05:30  INFO 25284 --- [api-gateway] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka startTimeMs: 1787590969252
+2026-08-24T22:32:49.257+05:30  INFO 25284 --- [api-gateway] [           main] o.a.k.c.c.internals.LegacyKafkaConsumer  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Subscribed to topic(s): springCloudBus
+2026-08-24T22:32:49.264+05:30  INFO 25284 --- [api-gateway] [           main] s.i.k.i.KafkaMessageDrivenChannelAdapter : started org.springframework.integration.kafka.inbound.KafkaMessageDrivenChannelAdapter@14af9f51
+2026-08-24T22:32:49.282+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] org.apache.kafka.clients.Metadata        : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Cluster ID: 5L6g3nShT-eMCtK--X86sw
+2026-08-24T22:32:49.285+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T22:32:49.289+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] (Re-)joining group
+2026-08-24T22:32:49.306+05:30  INFO 25284 --- [api-gateway] [           main] com.bmp.gateway.ApiGatewayApplication    : Started ApiGatewayApplication in 22.321 seconds (process running for 22.878)
+2026-08-24T22:32:49.323+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Request joining group due to: need to re-join with the given member-id: consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2-988f318e-38c7-4f74-9369-b71fc9062aef
+2026-08-24T22:32:49.323+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] (Re-)joining group
+2026-08-24T22:32:50.284+05:30  INFO 25284 --- [api-gateway] [pool-4-thread-1] o.a.k.clients.consumer.ConsumerConfig    : ConsumerConfig values: 
+	allow.auto.create.topics = true
+	auto.commit.interval.ms = 5000
+	auto.include.jmx.reporter = true
+	auto.offset.reset = latest
+	bootstrap.servers = [localhost:9092]
+	check.crcs = true
+	client.dns.lookup = use_all_dns_ips
+	client.id = consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-3
+	client.rack = 
+	connections.max.idle.ms = 540000
+	default.api.timeout.ms = 60000
+	enable.auto.commit = true
+	enable.metrics.push = true
+	exclude.internal.topics = true
+	fetch.max.bytes = 52428800
+	fetch.max.wait.ms = 500
+	fetch.min.bytes = 1
+	group.id = anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51
+	group.instance.id = null
+	group.protocol = classic
+	group.remote.assignor = null
+	heartbeat.interval.ms = 3000
+	interceptor.classes = []
+	internal.leave.group.on.close = true
+	internal.throw.on.fetch.stable.offset.unsupported = false
+	isolation.level = read_uncommitted
+	key.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+	max.partition.fetch.bytes = 1048576
+	max.poll.interval.ms = 300000
+	max.poll.records = 500
+	metadata.max.age.ms = 300000
+	metadata.recovery.strategy = none
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	partition.assignment.strategy = [class org.apache.kafka.clients.consumer.RangeAssignor, class org.apache.kafka.clients.consumer.CooperativeStickyAssignor]
+	receive.buffer.bytes = 65536
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retry.backoff.max.ms = 1000
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = PLAINTEXT
+	security.providers = null
+	send.buffer.bytes = 131072
+	session.timeout.ms = 45000
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+	value.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+
+2026-08-24T22:32:50.286+05:30  INFO 25284 --- [api-gateway] [pool-4-thread-1] o.a.k.c.t.i.KafkaMetricsCollector        : initializing Kafka metrics collector
+2026-08-24T22:32:50.298+05:30  INFO 25284 --- [api-gateway] [pool-4-thread-1] o.a.kafka.common.utils.AppInfoParser     : Kafka version: 3.8.1
+2026-08-24T22:32:50.298+05:30  INFO 25284 --- [api-gateway] [pool-4-thread-1] o.a.kafka.common.utils.AppInfoParser     : Kafka commitId: 70d6ff42debf7e17
+2026-08-24T22:32:50.299+05:30  INFO 25284 --- [api-gateway] [pool-4-thread-1] o.a.kafka.common.utils.AppInfoParser     : Kafka startTimeMs: 1787590970298
+2026-08-24T22:32:50.312+05:30  INFO 25284 --- [api-gateway] [pool-4-thread-1] org.apache.kafka.clients.Metadata        : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-3, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Cluster ID: 5L6g3nShT-eMCtK--X86sw
+2026-08-24T22:32:50.342+05:30  INFO 25284 --- [api-gateway] [pool-4-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-3, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T22:32:50.356+05:30  INFO 25284 --- [api-gateway] [pool-4-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-3, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:32:52.319+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Successfully joined group with generation Generation{generationId=1, memberId='consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2-988f318e-38c7-4f74-9369-b71fc9062aef', protocol='range'}
+2026-08-24T22:32:52.327+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Finished assignment for group at generation 1: {consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2-988f318e-38c7-4f74-9369-b71fc9062aef=Assignment(partitions=[springCloudBus-0])}
+2026-08-24T22:32:52.454+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Successfully synced group in generation Generation{generationId=1, memberId='consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2-988f318e-38c7-4f74-9369-b71fc9062aef', protocol='range'}
+2026-08-24T22:32:52.455+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Notifying assignor about the new Assignment(partitions=[springCloudBus-0])
+2026-08-24T22:32:52.457+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] k.c.c.i.ConsumerRebalanceListenerInvoker : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Adding newly assigned partitions: springCloudBus-0
+2026-08-24T22:32:52.461+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:32:52.465+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Found no committed offset for partition springCloudBus-0
+2026-08-24T22:32:52.472+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.SubscriptionState    : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Resetting offset for partition springCloudBus-0 to position FetchPosition{offset=0, offsetEpoch=Optional.empty, currentLeader=LeaderAndEpoch{leader=Optional[localhost:9092 (id: 1 rack: null)], epoch=0}}.
+2026-08-24T22:32:52.479+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.s.c.s.b.k.KafkaMessageChannelBinder$2  : anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51: partitions assigned: [springCloudBus-0]
+2026-08-24T22:33:29.407+05:30  INFO 25284 --- [api-gateway] [binder-health-1] o.a.k.clients.consumer.ConsumerConfig    : ConsumerConfig values: 
+	allow.auto.create.topics = true
+	auto.commit.interval.ms = 5000
+	auto.include.jmx.reporter = true
+	auto.offset.reset = latest
+	bootstrap.servers = [localhost:9092]
+	check.crcs = true
+	client.dns.lookup = use_all_dns_ips
+	client.id = consumer-null-4
+	client.rack = 
+	connections.max.idle.ms = 540000
+	default.api.timeout.ms = 60000
+	enable.auto.commit = false
+	enable.metrics.push = true
+	exclude.internal.topics = true
+	fetch.max.bytes = 52428800
+	fetch.max.wait.ms = 500
+	fetch.min.bytes = 1
+	group.id = null
+	group.instance.id = null
+	group.protocol = classic
+	group.remote.assignor = null
+	heartbeat.interval.ms = 3000
+	interceptor.classes = []
+	internal.leave.group.on.close = true
+	internal.throw.on.fetch.stable.offset.unsupported = false
+	isolation.level = read_uncommitted
+	key.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+	max.partition.fetch.bytes = 1048576
+	max.poll.interval.ms = 300000
+	max.poll.records = 500
+	metadata.max.age.ms = 300000
+	metadata.recovery.strategy = none
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	partition.assignment.strategy = [class org.apache.kafka.clients.consumer.RangeAssignor, class org.apache.kafka.clients.consumer.CooperativeStickyAssignor]
+	receive.buffer.bytes = 65536
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retry.backoff.max.ms = 1000
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = PLAINTEXT
+	security.providers = null
+	send.buffer.bytes = 131072
+	session.timeout.ms = 45000
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+	value.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+
+2026-08-24T22:33:29.408+05:30  INFO 25284 --- [api-gateway] [binder-health-1] o.a.k.c.t.i.KafkaMetricsCollector        : initializing Kafka metrics collector
+2026-08-24T22:33:29.412+05:30  INFO 25284 --- [api-gateway] [binder-health-1] o.a.kafka.common.utils.AppInfoParser     : Kafka version: 3.8.1
+2026-08-24T22:33:29.412+05:30  INFO 25284 --- [api-gateway] [binder-health-1] o.a.kafka.common.utils.AppInfoParser     : Kafka commitId: 70d6ff42debf7e17
+2026-08-24T22:33:29.412+05:30  INFO 25284 --- [api-gateway] [binder-health-1] o.a.kafka.common.utils.AppInfoParser     : Kafka startTimeMs: 1787591009412
+2026-08-24T22:33:29.420+05:30  INFO 25284 --- [api-gateway] [binder-health-1] org.apache.kafka.clients.Metadata        : [Consumer clientId=consumer-null-4, groupId=null] Cluster ID: 5L6g3nShT-eMCtK--X86sw
+2026-08-24T22:37:47.495+05:30  INFO 25284 --- [api-gateway] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-24T22:41:49.518+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Node -1 disconnected.
+2026-08-24T22:41:50.542+05:30  INFO 25284 --- [api-gateway] [pool-4-thread-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-3, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Node -1 disconnected.
+2026-08-24T22:42:47.535+05:30  INFO 25284 --- [api-gateway] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-24T22:42:48.479+05:30  INFO 25284 --- [api-gateway] [binder-health-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-null-4, groupId=null] Node -1 disconnected.
+2026-08-24T22:47:47.550+05:30  INFO 25284 --- [api-gateway] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-24T22:51:49.497+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Node -1 disconnected.
+2026-08-24T22:51:50.760+05:30  INFO 25284 --- [api-gateway] [pool-4-thread-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-3, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Node -1 disconnected.
+2026-08-24T22:52:47.572+05:30  INFO 25284 --- [api-gateway] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-24T22:53:28.469+05:30  INFO 25284 --- [api-gateway] [binder-health-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-null-4, groupId=null] Node -1 disconnected.
+2026-08-24T22:57:47.586+05:30  INFO 25284 --- [api-gateway] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-24T23:02:47.613+05:30  INFO 25284 --- [api-gateway] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-24T23:07:47.638+05:30  INFO 25284 --- [api-gateway] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-24T23:12:47.658+05:30  INFO 25284 --- [api-gateway] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-24T23:17:47.672+05:30  INFO 25284 --- [api-gateway] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-24T23:22:47.688+05:30  INFO 25284 --- [api-gateway] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-24T23:36:04.361+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Node 1 disconnected.
+2026-08-24T23:36:04.529+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Cancelled in-flight FETCH request with correlation id 6959 due to node 1 being disconnected (elapsed time since creation: 790883ms, elapsed time since send: 790883ms, throttle time: 0ms, request timeout: 30000ms)
+2026-08-24T23:36:04.753+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Disconnecting from node 2147483646 due to request timeout.
+2026-08-24T23:36:04.775+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Cancelled in-flight HEARTBEAT request with correlation id 6960 due to node 2147483646 being disconnected (elapsed time since creation: 789558ms, elapsed time since send: 789558ms, throttle time: 0ms, request timeout: 30000ms)
+2026-08-24T23:36:04.871+05:30  INFO 25284 --- [api-gateway] [6e-a096eb9a1f51] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Group coordinator localhost:9092 (id: 2147483646 rack: null) is unavailable or invalid due to cause: null. isDisconnected: true. Rediscovery will be attempted.
+2026-08-24T23:36:08.874+05:30  INFO 25284 --- [api-gateway] [6e-a096eb9a1f51] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:08.951+05:30  WARN 25284 --- [api-gateway] [6e-a096eb9a1f51] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] consumer poll timeout has expired. This means the time between subsequent calls to poll() was longer than the configured max.poll.interval.ms, which typically implies that the poll loop is spending too much time processing messages. You can address this either by increasing max.poll.interval.ms or by reducing the maximum size of batches returned in poll() with max.poll.records.
+2026-08-24T23:36:09.002+05:30  INFO 25284 --- [api-gateway] [6e-a096eb9a1f51] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Member consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2-988f318e-38c7-4f74-9369-b71fc9062aef sending LeaveGroup request to coordinator localhost:9092 (id: 2147483646 rack: null) due to consumer poll timeout has expired.
+2026-08-24T23:36:04.869+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.kafka.clients.FetchSessionHandler    : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Error sending fetch request (sessionId=1586877091, epoch=5928) to node 1:
+
+org.apache.kafka.common.errors.DisconnectException: null
+
+2026-08-24T23:36:09.173+05:30  INFO 25284 --- [api-gateway] [6e-a096eb9a1f51] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Resetting generation and member id due to: consumer pro-actively leaving the group
+2026-08-24T23:36:09.204+05:30  INFO 25284 --- [api-gateway] [6e-a096eb9a1f51] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Request joining group due to: consumer pro-actively leaving the group
+2026-08-24T23:36:09.291+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Giving away all assigned partitions as lost since generation/memberID has been reset,indicating that consumer is in old state or no longer part of the group
+2026-08-24T23:36:09.393+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] k.c.c.i.ConsumerRebalanceListenerInvoker : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Lost previously assigned partitions springCloudBus-0
+2026-08-24T23:36:10.096+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.s.c.s.b.k.KafkaMessageChannelBinder$2  : anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51: partitions lost: [springCloudBus-0]
+2026-08-24T23:36:10.127+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.s.c.s.b.k.KafkaMessageChannelBinder$2  : anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51: partitions revoked: [springCloudBus-0]
+2026-08-24T23:36:10.391+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] (Re-)joining group
+2026-08-24T23:36:10.606+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:10.854+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:10.862+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:10.869+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:10.870+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:10.877+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:10.878+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:10.887+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:10.887+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:10.893+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:11.108+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Request joining group due to: need to re-join with the given member-id: consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2-af32773e-96bf-4fe8-bd59-4f29caa14c5e
+2026-08-24T23:36:11.109+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] (Re-)joining group
+2026-08-24T23:36:14.153+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Successfully joined group with generation Generation{generationId=3, memberId='consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2-af32773e-96bf-4fe8-bd59-4f29caa14c5e', protocol='range'}
+2026-08-24T23:36:14.232+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Finished assignment for group at generation 3: {consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2-af32773e-96bf-4fe8-bd59-4f29caa14c5e=Assignment(partitions=[springCloudBus-0])}
+2026-08-24T23:36:14.281+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Successfully synced group in generation Generation{generationId=3, memberId='consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2-af32773e-96bf-4fe8-bd59-4f29caa14c5e', protocol='range'}
+2026-08-24T23:36:14.283+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Notifying assignor about the new Assignment(partitions=[springCloudBus-0])
+2026-08-24T23:36:14.283+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] k.c.c.i.ConsumerRebalanceListenerInvoker : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-2, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Adding newly assigned partitions: springCloudBus-0
+2026-08-24T23:36:14.364+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.a.k.c.c.internals.ConsumerUtils        : Setting offset for partition springCloudBus-0 to the committed offset FetchPosition{offset=0, offsetEpoch=Optional.empty, currentLeader=LeaderAndEpoch{leader=Optional[localhost:9092 (id: 1 rack: null)], epoch=0}}
+2026-08-24T23:36:14.369+05:30  INFO 25284 --- [api-gateway] [container-0-C-1] o.s.c.s.b.k.KafkaMessageChannelBinder$2  : anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51: partitions assigned: [springCloudBus-0]
+2026-08-24T23:36:57.867+05:30  INFO 25284 --- [api-gateway] [pool-4-thread-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-3, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Node 2147483646 disconnected.
+2026-08-24T23:36:57.880+05:30  INFO 25284 --- [api-gateway] [pool-4-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-3, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Group coordinator localhost:9092 (id: 2147483646 rack: null) is unavailable or invalid due to cause: coordinator unavailable. isDisconnected: true. Rediscovery will be attempted.
+2026-08-24T23:36:57.881+05:30  INFO 25284 --- [api-gateway] [pool-4-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-3, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:57.882+05:30  INFO 25284 --- [api-gateway] [pool-4-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-3, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Group coordinator localhost:9092 (id: 2147483646 rack: null) is unavailable or invalid due to cause: coordinator unavailable. isDisconnected: false. Rediscovery will be attempted.
+2026-08-24T23:36:57.882+05:30  INFO 25284 --- [api-gateway] [pool-4-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-3, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Requesting disconnect from last known coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-24T23:36:57.982+05:30  INFO 25284 --- [api-gateway] [pool-4-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51-3, groupId=anonymous.c0506eaa-4698-4867-b36e-a096eb9a1f51] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)

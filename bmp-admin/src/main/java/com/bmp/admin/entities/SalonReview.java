@@ -56,14 +56,40 @@ public class SalonReview {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    /**
+     * Which attempt this row is. V007 (Session 46).
+     *
+     * <p>A salon now has ONE ROW PER SUBMISSION rather than one row forever, so a rejection is
+     * never overwritten by a retry. See the migration header.
+     */
+    @Column(name = "submission_count", nullable = false)
+    private int submissionCount;
+
+    /** What the owner says they fixed. Null on a first submission. */
+    @Column(name = "resubmission_note")
+    private String resubmissionNote;
+
     protected SalonReview() {} // JPA
 
+    /** A salon's first submission. */
     public SalonReview(UUID salonId) {
+        this(salonId, 1, null);
+    }
+
+    /**
+     * A submission, first or later.
+     *
+     * @param submissionCount 1 for a new salon; previous + 1 for a resubmission after rejection.
+     * @param resubmissionNote what the owner changed. Null for a first submission.
+     */
+    public SalonReview(UUID salonId, int submissionCount, String resubmissionNote) {
         this.id = UuidV7.generate();
         this.salonId = salonId;
         this.status = "pending";
         this.submittedAt = Instant.now();
         this.checks = "{}";
+        this.submissionCount = submissionCount;
+        this.resubmissionNote = resubmissionNote;
         this.createdAt = Instant.now();
         this.updatedAt = Instant.now();
     }
@@ -77,6 +103,9 @@ public class SalonReview {
         this.decidedAt = Instant.now();
         this.updatedAt = Instant.now();
     }
+
+    public int getSubmissionCount() { return submissionCount; }
+    public String getResubmissionNote() { return resubmissionNote; }
 
     public UUID getId() { return id; }
     public UUID getSalonId() { return salonId; }

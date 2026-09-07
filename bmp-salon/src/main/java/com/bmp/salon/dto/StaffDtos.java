@@ -2,6 +2,7 @@ package com.bmp.salon.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -31,16 +32,38 @@ public final class StaffDtos {
         String phone,
         @Pattern(regexp = "^(manager|stylist)$", message = "role must be manager or stylist")
         String role,
-        String inviteeName
+        String inviteeName,
+        /*
+         * V028 (Session 65) — email the code instead of reading it out.
+         *
+         * OPTIONAL, and the regexp only runs when something is supplied (an empty string matches
+         * nothing here, so blank is normalised to null in the service rather than rejected). An
+         * owner inviting somebody standing at the desk has no reason to know their email, and
+         * making this required would block the commonest case to serve the convenient one.
+         */
+        @Pattern(regexp = "^$|^[^@\\s]+@[^@\\s]+\\.[^@\\s]{2,}$", message = "not a valid email address")
+        @Size(max = 160)
+        String inviteeEmail
     ) {
         /** Absent role means manager — the only kind that existed before Session 17. */
         public String roleOrDefault() {
             return role == null || role.isBlank() ? "manager" : role;
         }
+
+        /** Blank and absent are the same thing: no address, so nothing to send to. */
+        public String emailOrNull() {
+            return inviteeEmail == null || inviteeEmail.isBlank() ? null : inviteeEmail.trim();
+        }
     }
 
+    /**
+     * @param inviteeEmail echoed back so the owner's pending list can say where it went
+     * @param emailedAt null with an email present means the send FAILED or has not run — a state
+     *                  the owner needs to see, because they are the fallback delivery channel
+     */
     public record InviteResponse(UUID id, UUID salonId, String phone, String token, String status,
-                                  Instant expiresAt, String role, String inviteeName) {}
+                                  Instant expiresAt, String role, String inviteeName,
+                                  String inviteeEmail, Instant emailedAt) {}
 
     /**
      * Session 15 — owner-facing team roster.

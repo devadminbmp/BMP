@@ -89,7 +89,7 @@ public class CouponRequestController {
     @Operation(
         summary = "Ask for a coupon above your limit",
         description = "What a support agent does instead of hitting a wall. Justification is required and is read by whoever decides.")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','OPS_ADMIN','SUPPORT_AGENT')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','OPS_ADMIN','SUPPORT_LEAD','SUPPORT_AGENT')")
     @PostMapping
     public ResponseEntity<RewardsServiceClient.CouponRequestDto> raise(
             @org.springframework.web.bind.annotation.RequestBody RaiseBody body,
@@ -124,21 +124,21 @@ public class CouponRequestController {
     }
 
     @Operation(summary = "The pending queue", description = "Oldest first — there's an unhappy customer behind the oldest one.")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','OPS_ADMIN','SUPPORT_AGENT')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','OPS_ADMIN','SUPPORT_LEAD','SUPPORT_AGENT')")
     @GetMapping("/queue")
     public List<RewardsServiceClient.CouponRequestDto> queue() {
         return rewards.requestQueue();
     }
 
     @Operation(summary = "Every request, newest first")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','OPS_ADMIN','SUPPORT_AGENT')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','OPS_ADMIN','SUPPORT_LEAD','SUPPORT_AGENT')")
     @GetMapping
     public List<RewardsServiceClient.CouponRequestDto> all() {
         return rewards.allRequests();
     }
 
     @Operation(summary = "My own requests", description = "What a support agent has asked for, and what came of it.")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','OPS_ADMIN','SUPPORT_AGENT')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','OPS_ADMIN','SUPPORT_LEAD','SUPPORT_AGENT')")
     @GetMapping("/mine")
     public List<RewardsServiceClient.CouponRequestDto> mine(@AuthenticationPrincipal StaffPrincipal caller) {
         return rewards.requestsByRequester(caller.staffId());
@@ -154,7 +154,7 @@ public class CouponRequestController {
     @Operation(
         summary = "Approve, optionally for less than was asked",
         description = "Leave value/maxDiscountPaise/activeTo null to grant exactly what was requested. The coupon is minted under YOUR identity — you are the one authorising it.")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','OPS_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','OPS_ADMIN')")
     @PostMapping("/{requestId}/approve")
     public RewardsServiceClient.CouponRequestDto approve(
             @PathVariable UUID requestId,
@@ -174,7 +174,7 @@ public class CouponRequestController {
     }
 
     @Operation(summary = "Reject, with a reason", description = "The reason is shown to the requester. Without one they'll simply ask again.")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','OPS_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','OPS_ADMIN')")
     @PostMapping("/{requestId}/reject")
     public RewardsServiceClient.CouponRequestDto reject(
             @PathVariable UUID requestId,
@@ -203,21 +203,21 @@ public class CouponRequestController {
     }
 
     @Operation(summary = "One agent's allowance")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','OPS_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','OPS_ADMIN')")
     @GetMapping("/allowance/{staffId}")
     public RewardsServiceClient.AllowanceDto allowance(@PathVariable UUID staffId) {
         return rewards.allowance(staffId);
     }
 
     @Operation(summary = "Everyone with a bespoke allowance", description = "A set of exceptions nobody reviews quietly becomes the real policy — hence a screen for it.")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','OPS_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','OPS_ADMIN')")
     @GetMapping("/allowance")
     public List<RewardsServiceClient.AllowanceOverrideDto> overrides() {
         return rewards.allowanceOverrides();
     }
 
     @Operation(summary = "Change what one agent may give away", description = "A reason is required. An expiry is strongly recommended — a temporary raise with no expiry becomes permanent.")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','OPS_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','OPS_ADMIN')")
     @PutMapping("/allowance")
     public RewardsServiceClient.AllowanceOverrideDto setAllowance(
             @org.springframework.web.bind.annotation.RequestBody AllowanceBody body,
@@ -246,7 +246,7 @@ public class CouponRequestController {
     }
 
     @Operation(summary = "Back to the platform default")
-    @PreAuthorize("hasAnyRole('SUPER_ADMIN','OPS_ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','ADMIN','OPS_ADMIN')")
     @DeleteMapping("/allowance/{staffId}")
     public ResponseEntity<Void> clearAllowance(@PathVariable UUID staffId,
                                                 @AuthenticationPrincipal StaffPrincipal caller,

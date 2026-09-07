@@ -40,6 +40,27 @@ public class StaffInvites {
     /** Display-only, for the issuer's pending list. Never trusted as the invitee's real name. */
     @Column(name = "invitee_name", length = 120)
     private String inviteeName;
+    /**
+     * V028 (Session 65) — where to email the code.
+     *
+     * <p>Darshan: "we need take stylist email id also hence we can send him invitation and code
+     * beautifully in email but u r taking only name and number". Before this the code was only
+     * ever shown on the owner's screen, which means it reaches the stylist by being read out over
+     * a phone — and that is how a 32-character token gets mistyped and the app gets blamed.
+     *
+     * <p>NULLABLE on purpose. An owner inviting the person standing in front of them has no
+     * reason to know their email, and demanding one would block the commonest case to serve the
+     * convenient one.
+     */
+    @Column(name = "invitee_email", length = 160)
+    private String inviteeEmail;
+    /**
+     * When we managed to send it. Deliberately distinct from "an email was supplied", so an owner
+     * can tell "I never gave an address" apart from "we tried and it didn't go" — they are the
+     * fallback delivery channel and need to know which situation they are in.
+     */
+    @Column(name = "emailed_at")
+    private Instant emailedAt;
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
     @Column(name = "created_at", nullable = false)
@@ -52,8 +73,18 @@ public class StaffInvites {
         this(salonId, phone, token, status, expiresAt, "manager", null);
     }
 
+    /**
+     * Pre-V028 constructor — kept so existing call sites still compile; no email, so the code is
+     * shared by the owner exactly as it was before Session 65.
+     */
     public StaffInvites(UUID salonId, String phone, String token, String status, Instant expiresAt,
                         String role, String inviteeName) {
+        this(salonId, phone, token, status, expiresAt, role, inviteeName, null);
+    }
+
+    public StaffInvites(UUID salonId, String phone, String token, String status, Instant expiresAt,
+                        String role, String inviteeName, String inviteeEmail) {
+        this.inviteeEmail = inviteeEmail;
         this.id = UuidV7.generate();
         this.salonId = salonId;
         this.phone = phone;
@@ -74,6 +105,18 @@ public class StaffInvites {
     public Instant getCreatedAt() { return createdAt; }
     public String getRole() { return role; }
     public String getInviteeName() { return inviteeName; }
+    public String getInviteeEmail() { return inviteeEmail; }
+    public Instant getEmailedAt() { return emailedAt; }
+
+    /**
+     * Record that the code was emailed. V028.
+     *
+     * <p>Set only on a CONFIRMED send, never optimistically before calling the mail sender. The
+     * whole value of this column is telling the owner whether they still have to pass the code on
+     * themselves, and a timestamp written before the send would answer that question wrongly in
+     * exactly the case where the answer matters.
+     */
+    public void markEmailed() { this.emailedAt = Instant.now(); }
 
     /** Session 6: pending -> accepted/declined/expired transition, needed once invites are
      * actually consumed (StaffService.consumeInvite). Not a free-form setter — status is a

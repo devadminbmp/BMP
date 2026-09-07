@@ -24,4 +24,21 @@ public interface SlotLockRepository extends JpaRepository<SlotLock, UUID> {
             @Param("stylistId") UUID stylistId,
             @Param("lockDate") LocalDate lockDate,
             @Param("now") Instant now);
+
+    /**
+     * Active checkout holds for MANY stylists at once. Session 52.
+     *
+     * <p>The salon-wide availability query batches its busy-window lookup into one call; this is
+     * the slot-lock half of it. Takes the stylist ids rather than a salonId because slot_lock has
+     * no salon column — the caller already knows the salon's team.
+     *
+     * <p>An empty id list would produce {@code IN ()}, which is invalid SQL in some dialects, so
+     * the caller must skip this when the salon has no stylists.
+     */
+    @Query("SELECT s FROM SlotLock s WHERE s.stylistId IN :stylistIds AND s.lockDate = :lockDate " +
+           "AND s.releaseReason IS NULL AND s.expiresAt > :now")
+    List<SlotLock> findActiveLocksForStylists(
+            @Param("stylistIds") java.util.Collection<UUID> stylistIds,
+            @Param("lockDate") LocalDate lockDate,
+            @Param("now") Instant now);
 }

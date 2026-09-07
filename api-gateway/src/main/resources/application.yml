@@ -54,16 +54,121 @@ spring:
           predicates:
             - Path=/api/v1/auth/**
 
+        # Session 45: `/api/v1/support/**` is the USER-facing support door (SupportController in
+        # bmp-user) — customers, owners, managers and stylists raising and following up tickets.
+        #
+        # Three similar-looking paths, three different audiences — worth stating exactly, because
+        # I got this wrong on the first pass and wrote a comment that was simply false:
+        #
+        #   /api/v1/support/**         THIS route. End users. Normal user JWT.
+        #   /api/v1/admin/support/**   Staff console (SupportDeskController). Routed to bmp-admin
+        #                              below, behind AdminSecurityConfig's separate signing key.
+        #   /api/v1/support-tickets/** Service-to-service (SupportTicketController). IS reachable
+        #                              through the gateway — the admin-service route's
+        #                              `/api/v1/support-tickets/**` predicate matches it — and is
+        #                              defended at the service by hasRole('SERVICE'), which only a
+        #                              valid X-Internal-Service-Key grants. Same arrangement as
+        #                              every other internal endpoint; GatewayRouteTest asserts the
+        #                              guard is present on all six.
+        #
+        # This route was missing on the first pass and GatewayRouteTest caught it before it
+        # shipped — the fourth instance of a bug class that previously reached production twice.
         - id: user-service
           uri: lb://bmp-user-service
           predicates:
-            - Path=/api/v1/users/**
+            # Session 61 — `/api/v1/me/**` is the customer's own rights surface: report content,
+            # ask for a copy of your data, ask to be deleted. It belongs to bmp-user because that
+            # is where the token's identity lives, even though the QUEUES it writes to live in
+            # bmp-admin.
+            #
+            # Note what is deliberately NOT routed anywhere: `/api/v1/content-reports/**` and
+            # `/api/v1/data-requests/**`. Those are the ROLE_SERVICE receivers in bmp-admin, called
+            # over the internal network by bmp-user. Adding a gateway route for them would put a
+            # service-to-service endpoint on the public internet — protected by the internal-key
+            # check, but with no reason to be reachable at all. The fifth instance of the
+            # salon-shaped-path lesson: a route exists because something needs it, not because the
+            # path exists.
+            - Path=/api/v1/users/**,/api/v1/support/**,/api/v1/me/**
+
+        # ═══════════════════════════════════════════════════════════════════════════════════════
+        # SESSION 49 — SALON-SHAPED PATHS THAT ARE NOT SERVED BY bmp-salon.
+        #
+        # THESE MUST STAY ABOVE `salon-service`. Spring Cloud Gateway matches routes in the order
+        # they are declared, and `salon-service` below claims the whole of /api/v1/salons/**. A
+        # route for a narrower salon path placed AFTER it never matches.
+        #
+        # Three endpoints are salon-scoped by URL but owned by another service:
+        #
+        #   /api/v1/salons/*/reviews            -> bmp-review    (pre-existing bug, see below)
+        #   /api/v1/salons/*/bookings/*/invoice -> bmp-booking   (V008, Session 49)
+        #   /api/v1/salons/*/invoices/**        -> bmp-booking   (V008, Session 49)
+        #
+        # The reviews one has been broken since the endpoint was written: bmp-review declares
+        # `GET /api/v1/salons/{salonId}/reviews`, the gateway sent it to bmp-salon, which has no
+        # such handler, and it 404'd. Nothing on the customer app called it, so nobody noticed.
+        #
+        # The two invoice routes are Session 49's own near-miss. The endpoints were written under
+        # a salon-scoped URL for consistency with the rest of the owner's surface, which would
+        # have 404'd at the gateway on the first real call — the FIFTH instance of this exact bug
+        # class in this file. It is caught here rather than in testing because the pattern is now
+        # written down: A SALON-SHAPED PATH DOES NOT IMPLY bmp-salon.
+        # ═══════════════════════════════════════════════════════════════════════════════════════
+        - id: salon-scoped-reviews
+          uri: lb://bmp-review-service
+          predicates:
+            - Path=/api/v1/salons/*/reviews
+
+        # ═══════════════════════════════════════════════════════════════════════════════════════
+        # SEVENTH INSTANCE OF THE SAME BUG CLASS. Session 54.
+        #
+        # A BOOKING-SHAPED PATH DOES NOT IMPLY bmp-booking, exactly as a salon-shaped one does not
+        # imply bmp-salon. `POST /api/v1/bookings/{id}/review` and its GET sibling are declared in
+        # bmp-REVIEW; without this route the gateway hands them to bmp-booking, which has no such
+        # handler, and they 404.
+        #
+        # This one had been broken since the endpoint was written. It went unnoticed for an unusual
+        # reason worth recording: the endpoint had NO FRONTEND either, so nobody ever called it
+        # through the gateway. A feature that is unreachable from both ends looks like a feature
+        # that simply hasn't shipped, and its routing never gets tested.
+        #
+        # `*` is one segment, so this matches /bookings/{id}/review and NOTHING deeper — the rest
+        # of /api/v1/bookings/** still goes to bmp-booking below.
+        # ═══════════════════════════════════════════════════════════════════════════════════════
+        - id: booking-scoped-review
+          uri: lb://bmp-review-service
+          predicates:
+            - Path=/api/v1/bookings/*/review
+
+        - id: salon-scoped-billing
+          uri: lb://bmp-booking-service
+          predicates:
+            - Path=/api/v1/salons/*/bookings/**,/api/v1/salons/*/invoices/**
 
         - id: salon-service
           uri: lb://bmp-salon-service
           predicates:
             # /api/v1/availability/** added Session 8 (availability algorithm)
-            - Path=/api/v1/salons/**,/api/v1/stylists/**,/api/v1/availability/**
+            #
+            # NOTE the two routes ABOVE this one. They carve three narrower salon-shaped paths out
+            # to other services and only work because they are declared first.
+            #
+            # `/api/v1/stylist-profile/**` (Session 48/49) was MISSING from this list and every
+            # endpoint under it — register as a stylist, my profile, my work history, ask to join
+            # a salon, request leave, "I'm not in today" — 404'd at the gateway. The whole
+            # stylist self-service feature was unreachable in a real deployment.
+            #
+            # It does NOT come free with `/api/v1/stylists/**`: Spring's Ant matcher treats `-`
+            # as an ordinary character, so `stylists` and `stylist-profile` are unrelated strings.
+            # Exactly the trap that hid `/api/v1/coupon-requests/**` behind `/api/v1/coupons/**`
+            # in Session 44. Caught by the ordering test in GatewayRouteTest, which listed the
+            # first matching route for each real path and found none for this one.
+            #
+            # `/api/v1/salon-customers/**` (Session 52) is listed EXPLICITLY for the same reason
+            # `/api/v1/stylist-profile/**` had to be: `-` is an ordinary character to the Ant
+            # matcher, so `/api/v1/salons/**` does NOT cover `salon-customers`. Sixth instance of
+            # this bug class in this file; the pattern is now: IF THE SEGMENT ISN'T CHARACTER-FOR-
+            # CHARACTER IDENTICAL, IT NEEDS ITS OWN ENTRY.
+            - Path=/api/v1/salons/**,/api/v1/salon-customers/**,/api/v1/stylists/**,/api/v1/stylist-profile/**,/api/v1/availability/**
 
         - id: booking-service
           uri: lb://bmp-booking-service
@@ -80,10 +185,25 @@ spring:
           predicates:
             - Path=/api/v1/reviews/**
 
+        # Session 44: `/api/v1/coupon-requests/**` was MISSING from this list, so the salon
+        # owner's Offers tab has never worked against a real backend — every request 404'd at
+        # the gateway and never reached bmp-rewards. The panel showed "That didn't load · Not
+        # Found", which reads like a bug in the panel; nothing in bmp-rewards or the frontend
+        # was wrong.
+        #
+        # This is the SAME failure as the bmp-admin `/api/v1/admin/**` omission described a few
+        # lines below — and it is the third time. The pattern: a service gains a new path prefix,
+        # the controller and the client are both written correctly, and the one file that has to
+        # know about it is somewhere else entirely. `/coupons/**` does not match
+        # `/coupon-requests/**`; Spring's Ant matcher treats the hyphen as an ordinary character,
+        # so the near-identical prefix reads as covered and isn't.
+        #
+        # Worth a CI guard: every @RequestMapping prefix in every service should appear in some
+        # route predicate here. Logged in docs/PENDING_WORK.md.
         - id: rewards-service
           uri: lb://bmp-rewards-service
           predicates:
-            - Path=/api/v1/coupons/**,/api/v1/wallet/**,/api/v1/referrals/**
+            - Path=/api/v1/coupons/**,/api/v1/coupon-requests/**,/api/v1/wallet/**,/api/v1/referrals/**
 
         # bmp-admin serves TWO groups of paths and both must be listed here.
         #

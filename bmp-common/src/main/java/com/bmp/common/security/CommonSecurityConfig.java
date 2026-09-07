@@ -1,5 +1,6 @@
 package com.bmp.common.security;
 
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -84,6 +85,44 @@ public class CommonSecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(publicPaths).permitAll()
                 .anyRequest().authenticated())
+            /*
+             * ══════════════════════════════════════════════════════════════════════════════════
+             * 401 WHEN THERE IS NO TOKEN. 403 ONLY WHEN THERE IS ONE AND IT IS NOT ENOUGH.
+             * Session 65 — this is the root cause of "refreshing the browser logs me out".
+             * ══════════════════════════════════════════════════════════════════════════════════
+             *
+             * Without an explicit entry point, Spring Security 6 answers an UNAUTHENTICATED
+             * request to a protected path with 403. Every service built on this config did that,
+             * and the customer/owner web app was destroyed by it on every single page refresh:
+             *
+             *   1. The ACCESS token is deliberately never persisted — it lives in memory and is
+             *      re-minted from the refresh token on launch (see BMP-FE/src/api/storage.ts).
+             *      So immediately after F5 there is no Authorization header. By design.
+             *   2. hydrate() calls GET /auth/me to restore the session.
+             *   3. No token -> Spring denies -> 403.
+             *   4. The client's interceptor refreshes on 401 ONLY. A 403 is not a 401, so the
+             *      refresh never fired — the one mechanism built to handle exactly this case.
+             *   5. The session store read 403 as "the server has rejected this credential",
+             *      DELETED the refresh token from localStorage, and dropped to the login screen.
+             *
+             * Every step is reasonable in isolation. Together they mean a correct, unexpired,
+             * thirty-day refresh token was thrown away because a page was reloaded.
+             *
+             * Session 64 tried to fix this by retrying transient failures. It could not work: a
+             * 403 is not transient, it is an answer — the wrong one.
+             *
+             * The two codes exist to be different. 401: "I do not know who you are — refresh or
+             * sign in." 403: "I know exactly who you are and the answer is still no." Only the
+             * second is about permissions, and only the first should ever cost somebody a session.
+             */
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.getWriter().write(
+                            "{\"error\":\"UNAUTHENTICATED\","
+                            + "\"message\":\"No valid credential on this request.\"}");
+                }))
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

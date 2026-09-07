@@ -135,6 +135,35 @@ public class SalonPolicy {
     @Column(name = "reschedule_keeps_original_clock", nullable = false)
     private boolean rescheduleKeepsOriginalClock = true;
 
+    // ══ the booking window. V022 (Session 49). ════════════════════════════════════════════════
+
+    /**
+     * Customers can book up to this many days ahead. Today is day 0, so 1 means "today and
+     * tomorrow".
+     *
+     * <p>Defaults to 30 — deliberately the behaviour that existed before this column, so adding
+     * it changed nothing for salons already trading. A shorter default would have quietly closed
+     * bookings people were taking.
+     */
+    @Setter
+    @Column(name = "booking_horizon_days", nullable = false)
+    private int bookingHorizonDays = 30;
+
+    /**
+     * Refuse slots that start sooner than this from now. <b>Defaults to 0 — no wait.</b>
+     *
+     * <h2>Why zero and not the "sensible" two hours</h2>
+     * Somebody who needs a haircut before a function tonight is the customer a walk-in-heavy
+     * salon most wants, and a platform-imposed wait sends them next door. The salon decides:
+     * a colour specialist who needs prep sets 120, a barber leaves it at 0.
+     *
+     * <p>This is a lever, not a policy. BMP does not have an opinion about how much notice a
+     * salon needs.
+     */
+    @Setter
+    @Column(name = "min_notice_minutes", nullable = false)
+    private int minNoticeMinutes = 0;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
     @Column(name = "updated_at", nullable = false)

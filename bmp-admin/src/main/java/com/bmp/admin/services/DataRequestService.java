@@ -44,15 +44,68 @@ public class DataRequestService {
     private final AuditLogService audit;
     private final PlatformSettingService settings;
     private final int fallbackDueDays;
+    /** Session 60 — the export half of the right of access. See DataExportService. */
+    private final DataExportService exports;
 
     public DataRequestService(DataRequestRepository requests, UserServiceClient users,
                               AuditLogService audit, PlatformSettingService settings,
+                              DataExportService exports,
                               @Value("${bmp.admin.data-request-due-days:30}") int fallbackDueDays) {
         this.requests = requests;
         this.users = users;
         this.audit = audit;
         this.settings = settings;
+        this.exports = exports;
         this.fallbackDueDays = fallbackDueDays;
+    }
+
+    /**
+     * Assemble the subject's data. Session 60.
+     *
+     * <h2>Verified first, same as fulfilment</h2>
+     * Generating the bundle IS the disclosure — after this returns, a full copy of somebody's
+     * history exists on a staff member's machine. Gating only the "mark complete" button would make
+     * the verification step decorative, and the commonest reason for an export request nobody made
+     * is that the account has been taken over.
+     *
+     * <h2>Read-only, and audited as a disclosure</h2>
+     * Does not change the request's status. Generating an export and DECIDING it is finished are
+     * two acts, and an agent will usually do the first, check the bundle, then do the second — a
+     * method that silently completed the request would take that check away.
+     *
+     * @throws ResponseStatusException 409 if identity is unverified, or if this is not an export
+     *         request. A deletion request has no bundle to produce, and producing one anyway would
+     *         hand out data somebody asked us to erase.
+     */
+    @Transactional(readOnly = true)
+    public DataExportService.ExportBundle export(UUID id, StaffPrincipal caller, String ip) {
+        DataRequest request = load(id);
+        requireFulfilPermission(caller);
+
+        if (!request.isIdentityVerified()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Verify the requester's identity before producing their data. Handing a full "
+                    + "history to whoever asked is itself a breach.");
+        }
+        if (!"export".equals(request.getRequestType())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "This is a '" + request.getRequestType() + "' request, not an export. There is "
+                    + "nothing to hand over.");
+        }
+
+        DataExportService.ExportBundle bundle = exports.build(request.getSubjectUserId(), caller.email());
+
+        audit.record("bmp_staff", caller.staffId(), "DATA_EXPORT_GENERATED", "user",
+                request.getSubjectUserId(),
+                Map.of("requestId", id.toString(),
+                       "sections", String.valueOf(bundle.sections().keySet()),
+                       "complete", String.valueOf(bundle.problems().isEmpty())),
+                ip, caller.email(), caller.role(),
+                "Full data export produced for a verified subject access request.");
+
+        log.info("Data export generated for request {} by {} — {} sections, {} problems.",
+                id, caller.email(), bundle.sections().size(), bundle.problems().size());
+        return bundle;
     }
 
     /**
@@ -90,6 +143,60 @@ public class DataRequestService {
         return toResponse(request);
     }
 
+    /**
+     * The same request, raised by the CUSTOMER rather than by an agent. Session 61.
+     *
+     * <h2>Why a separate method and not a nullable caller</h2>
+     * {@link #create} takes a {@link StaffPrincipal} and writes an audit row naming the staff
+     * member who raised it. Threading a nullable caller through that would produce audit rows with
+     * an empty actor, and "who raised this" is the first question asked about a deletion request.
+     * Here the actor is the data subject, and the audit row says so.
+     *
+     * <h2>One open request per person per type</h2>
+     * Somebody who taps twice, or who asks again a week later because nothing has visibly happened,
+     * gets their EXISTING request back rather than a second one. A duplicate would restart nothing
+     * — the statutory clock runs from the first — and would put two identical items in front of an
+     * agent who then has to work out whether they are the same person.
+     *
+     * <p>Deliberately does NOT block a delete when an export is open, or vice versa. They are
+     * different requests and somebody may legitimately want a copy of their data before erasing it
+     * — arguably that is the sensible order.
+     */
+    @Transactional
+    public DataRequest raiseBySubject(String requestType, UUID subjectUserId) {
+        UserServiceClient.UserDto user = users.getUserById(subjectUserId).getBody();
+        if (user == null) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "USER_NOT_FOUND");
+
+        DataRequest existing = requests.findBySubjectUserId(subjectUserId).stream()
+                .filter(r -> requestType.equals(r.getRequestType()))
+                .filter(r -> !FINISHED.contains(r.getStatus()))
+                .findFirst()
+                .orElse(null);
+        if (existing != null) {
+            log.info("{} already has an open '{}' request ({}) — returning it rather than opening "
+                    + "a second.", subjectUserId, requestType, existing.getId());
+            return existing;
+        }
+
+        DataRequest request = requests.save(new DataRequest(
+                requestType, user.id(), user.email(),
+                Instant.now().plus(dueDays(), ChronoUnit.DAYS)));
+
+        /*
+         * Actor type "user", not "bmp_staff". The audit log's whole value is that it answers "who
+         * did this" — recording a customer's own request as a staff action would be a false answer
+         * on the one row where it matters most.
+         */
+        audit.record("user", subjectUserId, "DATA_REQUEST_RAISED_BY_SUBJECT", "user", user.id(),
+                Map.of("type", requestType, "requestId", request.getId().toString()),
+                null, user.email(), "customer",
+                "Raised by the account holder through the app.");
+
+        log.info("Data request {} ({}) raised by the account holder {}",
+                request.getId(), requestType, subjectUserId);
+        return request;
+    }
+
     @Transactional
     public DataRequestResponse verifyIdentity(UUID id, DataRequestActionRequest req, StaffPrincipal caller, String ip) {
         DataRequest request = load(id);
@@ -124,9 +231,17 @@ public class DataRequestService {
      * completed while silently doing less than the customer asked would be the worse failure:
      * you'd have a signed record claiming compliance you didn't achieve.
      *
-     * <p>TODO(bmp-user): POST /internal/users/{id}/anonymise — null the name, phone, email and
-     * profile fields, keep the id so bookings still join.
-     * TODO(export): compile a machine-readable bundle across user/booking/review and deliver it.
+     * <p><b>Session 56 — the anonymise step now exists and this calls it.</b> The paragraphs above
+     * describe what used to happen and are kept because the distinction still matters: erasure
+     * removes PERSONAL DATA and keeps the commercial record. bmp-user clears the name, email,
+     * gender, age, photo and hair profile, and replaces the phone with a non-dialable tombstone
+     * that frees the real number for a future signup. The id survives so bookings and invoices
+     * still resolve to something.
+     *
+     * <p><b>Session 60 — the export path exists too.</b> {@link #export} assembles the bundle across
+     * profile, bookings, reviews and support tickets. What is still a human step, deliberately, is
+     * DELIVERY: the agent who verified the requester's identity sends it through the channel they
+     * verified. See {@code DataExportService} for why auto-emailing would defeat the check.
      */
     @Transactional
     public DataRequestResponse complete(UUID id, DataRequestActionRequest req, StaffPrincipal caller, String ip) {
@@ -146,17 +261,46 @@ public class DataRequestService {
         String actionTaken;
         if ("delete".equals(request.getRequestType())) {
             try {
-                users.deactivate(request.getSubjectUserId());
-                actionTaken = "Account deactivated. NOTE: full anonymisation is not implemented — "
-                        + "personal fields remain on the user record pending TODO(bmp-user) anonymise.";
+                /*
+                 * Session 56 — anonymise, not deactivate.
+                 *
+                 * Deactivation was never erasure. It left every personal field on the row, and
+                 * bmp-auth reverses it on the next successful OTP login, so a "deleted" account
+                 * returned intact whenever its owner signed in again. Recording that as a
+                 * completed erasure request produced a signed compliance record for something
+                 * that had not happened.
+                 *
+                 * Failure is fatal to the whole operation on purpose: the request stays open
+                 * rather than being marked complete, because a half-actioned erasure that LOOKS
+                 * done is worse than one still visibly in the queue.
+                 */
+                users.anonymise(request.getSubjectUserId(), "deletion_request");
+                actionTaken = "Personal data erased: name, email, gender, age, photo and hair "
+                        + "profile cleared; phone replaced with a non-dialable placeholder. The "
+                        + "account cannot be restored. Booking and invoice records are retained "
+                        + "without personal identifiers, as required for tax and accounting.";
             } catch (Exception e) {
-                log.error("Deactivation failed for data request {} ({})", id, e.toString());
+                log.error("Anonymisation failed for data request {} ({}) — the request has NOT "
+                        + "been marked complete.", id, e.toString());
                 throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                        "Could not deactivate the account — nothing was marked complete.");
+                        "Could not erase the account — nothing was marked complete. Try again; "
+                        + "if it keeps failing, escalate rather than closing this by hand.");
             }
+        } else if ("export".equals(request.getRequestType())) {
+            /*
+             * The bundle is produced by its own endpoint, on purpose — see export().
+             *
+             * This branch does NOT generate it. An agent completes the request AFTER they have
+             * downloaded the bundle and sent it, so generating one here would either duplicate a
+             * disclosure that already happened or produce one nobody sent. What this records is the
+             * fact the agent is asserting.
+             */
+            actionTaken = "Data export handed over by " + caller.email()
+                    + ". The bundle is generated by the console (profile, bookings, reviews and "
+                    + "help requests) and delivered through the channel used to verify identity.";
         } else {
             actionTaken = "Marked complete by " + caller.email()
-                    + ". Export/correction is performed manually until the automated path exists.";
+                    + ". Correction requests are actioned by hand until an automated path exists.";
         }
 
         request.complete(caller.staffId(),

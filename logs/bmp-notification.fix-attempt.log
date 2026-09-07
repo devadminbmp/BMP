@@ -1,0 +1,48 @@
+﻿BMP local secrets loaded: email=smtp (devadmin.bmp@gmail.com)
+Loaded local-secrets.ps1
+
+  EMAIL: REAL DELIVERY (smtp as devadmin.bmp@gmail.com)
+
+Starting bmp-notification ...
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ----------------< in.bemyprofessional:bmp-notification >----------------
+[INFO] Building BMP :: bmp-notification-service (independent Spring Boot service, port 8089) 0.1.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot:3.4.1:run (default-cli) > test-compile @ bmp-notification >>>
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ bmp-notification ---
+[INFO] Copying 5 resources from src\main\resources to target\classes
+[INFO] Copying 4 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.13.0:compile (default-compile) @ bmp-notification ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 25 source files with javac [debug parameters release 21] to target\classes
+[INFO] -------------------------------------------------------------
+[ERROR] COMPILATION ERROR : 
+[INFO] -------------------------------------------------------------
+[ERROR] /C:/BMP -PRJ/BMP/bmp-notification/src/main/java/com/bmp/notification/services/NotificationDispatcher.java:[161,63] cannot find symbol
+  symbol:   class ContactChangeCodeRequested
+  location: package com.bmp.common.events
+[INFO] 1 error
+[INFO] -------------------------------------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  15.981 s
+[INFO] Finished at: 2026-09-06T02:37:26+05:30
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.13.0:compile (default-compile) on project bmp-notification: Compilation failure
+[ERROR] /C:/BMP -PRJ/BMP/bmp-notification/src/main/java/com/bmp/notification/services/NotificationDispatcher.java:[161,63] cannot find symbol
+[ERROR]   symbol:   class ContactChangeCodeRequested
+[ERROR]   location: package com.bmp.common.events
+[ERROR] 
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException

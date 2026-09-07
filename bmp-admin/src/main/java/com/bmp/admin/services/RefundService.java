@@ -170,18 +170,22 @@ public class RefundService {
 
     private BookingServiceClient.SupportBooking loadBooking(UUID bookingId) {
         try {
-            // Search by reference is the only lookup bmp-booking exposes for staff; the console
-            // passes an id it already has, so match on it directly from the customer's list.
-            // TODO(bmp-booking): a by-id internal lookup would make this one call instead of a
-            // scan — worth doing before the booking table is large.
-            return bookings.search(bookingId.toString()).stream()
-                    .filter(b -> b.id().equals(bookingId))
-                    .findFirst()
-                    .orElseGet(() -> bookings.byCustomer(bookingId).stream()
-                            .filter(b -> b.id().equals(bookingId))
-                            .findFirst()
-                            .orElseThrow(() -> new ResponseStatusException(
-                                    HttpStatus.NOT_FOUND, "BOOKING_NOT_FOUND")));
+            /*
+             * Session 60 — one call by id.
+             *
+             * This used to search by reference and then, failing that, pull a customer's ENTIRE
+             * booking list to find one row. The TODO beside it said a by-id lookup would fix it
+             * "before the booking table is large". That endpoint now exists (Session 59, added for
+             * the goodwill cap), so the workaround and its justification both go.
+             *
+             * Worth naming as a pattern: a guard justified by a limitation has to be revisited when
+             * the limitation goes, or the codebase keeps paying for a constraint that lifted.
+             */
+            var booking = bookings.getById(bookingId);
+            if (booking == null) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "BOOKING_NOT_FOUND");
+            }
+            return booking;
         } catch (ResponseStatusException e) {
             throw e;
         } catch (Exception e) {

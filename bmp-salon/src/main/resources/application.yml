@@ -4,6 +4,18 @@ server:
 spring:
   application:
     name: bmp-salon-service
+  # Session 44: image upload. Spring Boot's DEFAULT multipart limit is 1MB, which would
+  # reject a normal phone photo inside Tomcat — before the controller runs, so before
+  # ImageIngest's friendly "that image is 4MB, the limit is 8MB" message could ever be
+  # produced. The user would get a bare 500 with no explanation of what to do.
+  #
+  # Set slightly ABOVE bmp.storage.max-upload-bytes (8MB) on purpose: the application-level
+  # check should be the one that fires, because it's the one that can explain itself. This is
+  # the backstop that stops a 500MB request from being buffered at all.
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 12MB
   # Session 7: pulls hot-reloadable properties from bmp-config-server (config-repo/ in
   # this same GitHub repo). "optional:" means this service still starts fine if the
   # config server isn't running (falls back to this file's own defaults).
@@ -21,6 +33,31 @@ spring:
       kafka:
         binder:
           brokers: ${BMP_KAFKA_BOOTSTRAP:localhost:9092}
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  # Session 63 — EXPLICIT STRING SERIALIZERS. Do not delete; this is not boilerplate.
+  #
+  # Spring Cloud Bus's Kafka binder (KafkaBinderEnvironmentPostProcessor) silently DEFAULTS
+  # spring.kafka's serializers to ByteArraySerializer when nothing sets them. OutboxKafkaRelay
+  # uses KafkaTemplate<String,String> and sends the event type as the key, so without this it
+  # fails on every message with:
+  #
+  #     Can't convert key of class java.lang.String to class
+  #     org.apache.kafka.common.serialization.ByteArraySerializer specified in key.serializer
+  #
+  # This was diagnosed and fixed in bmp-auth in Session 16 — and ONLY in bmp-auth. The outbox
+  # table is SHARED (common_schema.outbox) and every service with bmp.outbox.relay.enabled polls
+  # it, so an `otp.requested` row written by bmp-auth is routinely picked up by whichever relay
+  # polls first. Five services were failing on other services' events and burning the attempt
+  # counter, until bmp-auth's relay happened to win a poll.
+  #
+  # Worth stating: a shared table means shared configuration requirements. Fixing the service
+  # where a bug was NOTICED is not the same as fixing the service where it LIVES.
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  kafka:
+    bootstrap-servers: ${BMP_KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
   datasource:
     # Local default (docker-compose) unless overridden — set these 4 env vars to point
     # at a shared cloud instance instead (e.g. your Neon dev branch) without editing this file.
@@ -51,8 +88,54 @@ eureka:
     prefer-ip-address: true
 
 bmp:
+  # ═══════════════════════════════════════════════════════════════════════════════════════════
+  # Session 47: the outbox → Kafka relay. THIS WAS OFF, AND IT MEANT NO EMAIL EVER ARRIVED.
+  # ═══════════════════════════════════════════════════════════════════════════════════════════
+  # OutboxKafkaRelay is @ConditionalOnProperty(havingValue = "true") with NO matchIfMissing, so
+  # omitting this key doesn't disable a feature loudly — the bean is simply never created and
+  # nothing anywhere says so. bmp-salon publishes SalonStatusChanged, and without the relay those rows are
+  # written to the outbox table, committed, and then sit there forever: a salon owner is never told they were approved or rejected.
+  #
+  # bmp-auth has had this since Session 16 (which is why OTP email works and nothing else did).
+  # The other publishing services were never given it — a per-service opt-in that three services
+  # silently opted out of.
+  #
+  # Requires: Kafka up (docker compose) AND @EnableScheduling on the application class, since
+  # the relay is a @Scheduled poll. Both are now in place.
+  outbox:
+    relay:
+      enabled: ${BMP_OUTBOX_RELAY_ENABLED:true}
   auth:
     jwt-secret: ${BMP_JWT_SECRET:dev-only-secret-change-in-real-environment-min-32-bytes-long}
+
+  # ═══════════════════════════════════════════════════════════════════════════════════════════
+  # Session 44: object storage for uploaded images.
+  # ═══════════════════════════════════════════════════════════════════════════════════════════
+  # THESE SIX VALUES ARE THE ENTIRE S3 MIGRATION. MinIO, S3, Cloudflare R2 and DigitalOcean
+  # Spaces all speak the S3 API, and bmp-salon talks to all of them through the same AWS SDK
+  # client. Moving to production means changing what's below — not a line of Java.
+  #
+  #   Cloudflare R2 example:
+  #     endpoint:        https://<account-id>.r2.cloudflarestorage.com
+  #     region:          auto
+  #     public-base-url: https://media.bemyprofessional.in
+  #
+  # `endpoint` is where the SERVICE WRITES; `public-base-url` is where BROWSERS READ. They're
+  # the same host in dev and diverge the moment a CDN or custom domain exists — which is why
+  # they are two settings rather than one. See StorageProperties.
+  #
+  # Credentials default to the dev MinIO values in docker-compose.yml. In any real environment
+  # they come from the environment and never from this file.
+  storage:
+    endpoint: ${BMP_STORAGE_ENDPOINT:http://localhost:9000}
+    bucket: ${BMP_STORAGE_BUCKET:bmp-media}
+    region: ${BMP_STORAGE_REGION:us-east-1}
+    access-key: ${BMP_STORAGE_ACCESS_KEY:bmp-dev}
+    secret-key: ${BMP_STORAGE_SECRET_KEY:devonly-minio-password}
+    public-base-url: ${BMP_STORAGE_PUBLIC_BASE_URL:http://localhost:9000/bmp-media}
+    # Pre-decode byte cap. The pixel cap that stops decompression bombs is separate and lives
+    # in ImageIngest — a byte limit cannot catch a 40KB PNG that declares 30000x30000.
+    max-upload-bytes: 8388608
   security:
     # ═════════════════════════════════════════════════════════════════════════════════════════
     # Session 29 authorization pass. This property is now MANDATORY — CommonSecurityConfig has
@@ -83,15 +166,66 @@ bmp:
     # "search nearby" and "create a salon"). permitAll here is path-based, not method-based, so
     # the WRITE side is protected by @PreAuthorize on the method — see SalonController. Both
     # layers are required; neither is sufficient alone.
+    # ─────────────────────────────────────────────────────────────────────────────────────────
+    # V014 (Session 44) — /salons/*/photos is public.
+    #
+    # A guest browsing salons must see the gallery; that IS the feature, and gating it would
+    # defeat it. Same reasoning as /services and /reviews above it.
+    #
+    # NOTE THE SHAPE OF THIS RISK: public-paths are PATH-ONLY AND METHOD-BLIND, so this entry
+    # also exempts POST /salons/{id}/photos from the JWT filter — exactly as the /reviews entry
+    # once left PUT /reviews/{id} world-writable (Session 40). It is safe ONLY because every
+    # write on that path carries its own @PreAuthorize, which CI verifies on every push.
+    #
+    # The ITEM path (/photos/*) is deliberately absent: nothing public reads one photo by id, so
+    # PUT and DELETE need a token before they ever reach the annotation.
+    # ─────────────────────────────────────────────────────────────────────────────────────────
+    # Session 48 — /salons/*/detail was MISSING, and it is the whole public salon page.
+    #
+    # `/api/v1/salons/*` (line below) looks like it covers it. It does not: in Ant a single `*`
+    # matches exactly ONE segment, so it matches /salons/{id} and stops there. /salons/{id}/detail
+    # is two segments past /salons and was never exempted — every logged-out visitor who tapped a
+    # salon card got a 401 from the JWT filter before SalonController.detail ever ran.
+    #
+    # It presented as the page saying "Loading salon…" forever rather than as an error, because
+    # the screen treated "no data" as "still loading" (fixed in SalonDetailScreen the same
+    # session). So the single most important page in the funnel was dead, and nothing anywhere —
+    # not the UI, not the logs — said the word "unauthorised".
+    #
+    # This is the exact failure the comment above warns about, which is worth noting: knowing the
+    # rule did not stop us adding an endpoint that breaks it. Only the guest-path check in CI
+    # does, and that check now covers /detail.
+    #
+    # Safe to expose: `detail` serves ONLY publicly visible salons (SalonService.PUBLICLY_VISIBLE
+    # — approved or active) and returns nothing an anonymous browser shouldn't see. The
+    # administrative view with status and timestamps is /salons/{id}, which is a different method.
+    #
+    # These lines live ABOVE the key on purpose. Inside a YAML folded scalar (`>-`) a `#` is NOT
+    # a comment — it is literal text, so comments written between the entries below would be
+    # split on the commas and handed to the path matcher as junk patterns. Found by checking the
+    # parsed value rather than the file, which is the only way to see it.
+    # ─────────────────────────────────────────────────────────────────────────────────────────
     public-paths: >-
       /api/v1/salons,
       /api/v1/salons/*,
+      /api/v1/salons/*/detail,
+      # Session 51 — the customer's salon page already shows a composed opening-hours line from
+      # exactly these rows. Serving them structured reveals nothing new, and the owner's editor
+      # needs to READ them: only the PUT existed, so any editor would have opened blank and
+      # saving would have replaced real hours with a form default.
+      /api/v1/salons/*/hours,
       /api/v1/salons/*/services,
+      /api/v1/salons/*/photos,
       /api/v1/salons/*/reviews,
       /api/v1/salons/*/stylists,
       /api/v1/stylists/*,
       /api/v1/availability/slots,
       /api/v1/availability/slots/any,
+      # Session 52 — the batched "who's free today" the picker uses. Same disclosure as the two
+      # above (who works here, and when they're free); it exists because doing it per-stylist was
+      # the source of the lag. Method-blind like every entry here, but the only write on
+      # /api/v1/availability is /walk-in, which is a different path and keeps its @PreAuthorize.
+      /api/v1/availability/salon-day,
       /actuator/health, /actuator/info,
       /swagger-ui/**, /swagger-ui.html, /v3/api-docs/**
     internal-service-key: ${BMP_INTERNAL_SERVICE_KEY:dev-only-internal-key-change-in-real-environment}

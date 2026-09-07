@@ -1,0 +1,650 @@
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.4.1)
+
+2026-08-28T22:36:04.950+05:30  INFO 32628 --- [bmp-admin-service] [           main] com.bmp.admin.BmpAdminApplication        : Starting BmpAdminApplication using Java 21.0.11 with PID 32628 (C:\BMP -PRJ\BMP\bmp-admin\target\classes started by Lenovo in C:\BMP -PRJ\BMP\bmp-admin)
+2026-08-28T22:36:04.959+05:30  INFO 32628 --- [bmp-admin-service] [           main] com.bmp.admin.BmpAdminApplication        : No active profile set, falling back to 1 default profile: "default"
+2026-08-28T22:36:05.193+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.c.c.c.ConfigServerConfigDataLoader   : Fetching config from server at : http://localhost:8888
+2026-08-28T22:36:05.194+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.c.c.c.ConfigServerConfigDataLoader   : Located environment: name=bmp-admin-service, profiles=[default], label=null, version=e49a1a5dcfcb36643a08d9529e85f702a6d4d502, state=
+2026-08-28T22:36:09.190+05:30  INFO 32628 --- [bmp-admin-service] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-08-28T22:36:09.965+05:30  INFO 32628 --- [bmp-admin-service] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 715 ms. Found 11 JPA repository interfaces.
+2026-08-28T22:36:13.783+05:30  INFO 32628 --- [bmp-admin-service] [           main] faultConfiguringBeanFactoryPostProcessor : No bean named 'errorChannel' has been explicitly defined. Therefore, a default PublishSubscribeChannel will be created.
+2026-08-28T22:36:13.846+05:30  INFO 32628 --- [bmp-admin-service] [           main] faultConfiguringBeanFactoryPostProcessor : No bean named 'integrationHeaderChannelRegistry' has been explicitly defined. Therefore, a default DefaultHeaderChannelRegistry will be created.
+2026-08-28T22:36:14.515+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.cloud.context.scope.GenericScope     : BeanFactory id=fd0f5180-6c7a-3075-b256-54460f4ceda8
+2026-08-28T22:36:18.238+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8088 (http)
+2026-08-28T22:36:18.310+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-08-28T22:36:18.310+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.34]
+2026-08-28T22:36:18.726+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-08-28T22:36:18.728+05:30  INFO 32628 --- [bmp-admin-service] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 13524 ms
+2026-08-28T22:36:20.628+05:30  INFO 32628 --- [bmp-admin-service] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-08-28T22:36:23.183+05:30  INFO 32628 --- [bmp-admin-service] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@62f73b0c
+2026-08-28T22:36:23.186+05:30  INFO 32628 --- [bmp-admin-service] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-08-28T22:36:23.251+05:30  INFO 32628 --- [bmp-admin-service] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:postgresql://localhost:5432/bmp (PostgreSQL 16.4)
+2026-08-28T22:36:23.438+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 8 migrations (execution time 00:00.126s)
+2026-08-28T22:36:23.481+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "common_schema": 007
+2026-08-28T22:36:23.490+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.f.core.internal.command.DbMigrate      : Schema "common_schema" is up to date. No migration necessary.
+2026-08-28T22:36:23.791+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-08-28T22:36:23.952+05:30  INFO 32628 --- [bmp-admin-service] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.6.4.Final
+2026-08-28T22:36:24.042+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-08-28T22:36:25.313+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-08-28T22:36:25.620+05:30  INFO 32628 --- [bmp-admin-service] [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 16.4
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-08-28T22:36:27.928+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-08-28T22:36:28.050+05:30  INFO 32628 --- [bmp-admin-service] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-08-28T22:36:29.408+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.c.openfeign.FeignClientFactoryBean   : For 'bmp-salon-service' URL not provided. Will try picking an instance via load-balancing.
+2026-08-28T22:36:29.540+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.c.openfeign.FeignClientFactoryBean   : For 'bmp-user-service' URL not provided. Will try picking an instance via load-balancing.
+2026-08-28T22:36:29.581+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.c.openfeign.FeignClientFactoryBean   : For 'bmp-auth-service' URL not provided. Will try picking an instance via load-balancing.
+2026-08-28T22:36:29.725+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-08-28T22:36:30.606+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.c.openfeign.FeignClientFactoryBean   : For 'bmp-booking-service' URL not provided. Will try picking an instance via load-balancing.
+2026-08-28T22:36:30.717+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.c.openfeign.FeignClientFactoryBean   : For 'bmp-rewards-service' URL not provided. Will try picking an instance via load-balancing.
+2026-08-28T22:36:31.172+05:30  WARN 32628 --- [bmp-admin-service] [           main] .s.s.UserDetailsServiceAutoConfiguration : 
+
+Using generated security password: 78ec6845-4f26-404c-ae06-efac7efdb770
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-08-28T22:36:31.179+05:30  INFO 32628 --- [bmp-admin-service] [           main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
+2026-08-28T22:36:31.816+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 6 endpoints beneath base path '/actuator'
+2026-08-28T22:36:34.497+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.c.s.m.DirectWithAttributesChannel    : Channel 'bmp-admin-service.springCloudBusInput' has 1 subscriber(s).
+2026-08-28T22:36:36.524+05:30  INFO 32628 --- [bmp-admin-service] [           main] DiscoveryClientOptionalArgsConfiguration : Eureka HTTP Client uses RestTemplate.
+2026-08-28T22:36:36.712+05:30  WARN 32628 --- [bmp-admin-service] [           main] iguration$LoadBalancerCaffeineWarnLogger : Spring Cloud LoadBalancer is currently working with the default cache. While this cache implementation is useful for development and tests, it's recommended to use Caffeine cache in production.You can switch to using Caffeine cache, by adding it and org.springframework.cache.caffeine.CaffeineCacheManager to the classpath.
+2026-08-28T22:36:37.374+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.i.endpoint.EventDrivenConsumer       : Adding {logging-channel-adapter:_org.springframework.integration.errorLogger} as a subscriber to the 'errorChannel' channel
+2026-08-28T22:36:37.375+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.i.channel.PublishSubscribeChannel    : Channel 'bmp-admin-service.errorChannel' has 1 subscriber(s).
+2026-08-28T22:36:37.376+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.i.endpoint.EventDrivenConsumer       : started bean '_org.springframework.integration.errorLogger'
+2026-08-28T22:36:37.489+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.c.n.eureka.InstanceInfoFactory       : Setting initial instance status as: STARTING
+2026-08-28T22:36:37.815+05:30  INFO 32628 --- [bmp-admin-service] [           main] com.netflix.discovery.DiscoveryClient    : Initializing Eureka in region us-east-1
+2026-08-28T22:36:37.838+05:30  INFO 32628 --- [bmp-admin-service] [           main] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-28T22:36:37.901+05:30  INFO 32628 --- [bmp-admin-service] [           main] com.netflix.discovery.DiscoveryClient    : Disable delta property : false
+2026-08-28T22:36:37.911+05:30  INFO 32628 --- [bmp-admin-service] [           main] com.netflix.discovery.DiscoveryClient    : Single vip registry refresh property : null
+2026-08-28T22:36:37.912+05:30  INFO 32628 --- [bmp-admin-service] [           main] com.netflix.discovery.DiscoveryClient    : Force full registry fetch : false
+2026-08-28T22:36:37.912+05:30  INFO 32628 --- [bmp-admin-service] [           main] com.netflix.discovery.DiscoveryClient    : Application is null : false
+2026-08-28T22:36:37.912+05:30  INFO 32628 --- [bmp-admin-service] [           main] com.netflix.discovery.DiscoveryClient    : Registered Applications size is zero : true
+2026-08-28T22:36:37.912+05:30  INFO 32628 --- [bmp-admin-service] [           main] com.netflix.discovery.DiscoveryClient    : Application version is -1: true
+2026-08-28T22:36:37.912+05:30  INFO 32628 --- [bmp-admin-service] [           main] com.netflix.discovery.DiscoveryClient    : Getting all instance registry info from the eureka server
+2026-08-28T22:36:38.736+05:30  INFO 32628 --- [bmp-admin-service] [           main] com.netflix.discovery.DiscoveryClient    : The response status is 200
+2026-08-28T22:36:38.740+05:30  INFO 32628 --- [bmp-admin-service] [           main] com.netflix.discovery.DiscoveryClient    : Starting heartbeat executor: renew interval is: 30
+2026-08-28T22:36:38.756+05:30  INFO 32628 --- [bmp-admin-service] [           main] c.n.discovery.InstanceInfoReplicator     : InstanceInfoReplicator onDemand update allowed rate per min is 4
+2026-08-28T22:36:38.758+05:30  INFO 32628 --- [bmp-admin-service] [           main] com.netflix.discovery.DiscoveryClient    : Discovery Client initialized at timestamp 1787936798758 with initial instances count: 5
+2026-08-28T22:36:38.781+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.c.n.e.s.EurekaServiceRegistry        : Registering application BMP-ADMIN-SERVICE with eureka with status UP
+2026-08-28T22:36:38.783+05:30  INFO 32628 --- [bmp-admin-service] [           main] com.netflix.discovery.DiscoveryClient    : Saw local status change event StatusChangeEvent [timestamp=1787936798781, current=UP, previous=STARTING]
+2026-08-28T22:36:38.786+05:30  INFO 32628 --- [bmp-admin-service] [foReplicator-%d] com.netflix.discovery.DiscoveryClient    : DiscoveryClient_BMP-ADMIN-SERVICE/Darshan.mshome.net:bmp-admin-service:8088: registering service...
+2026-08-28T22:36:38.846+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8088 (http) with context path '/'
+2026-08-28T22:36:38.849+05:30  INFO 32628 --- [bmp-admin-service] [           main] .s.c.n.e.s.EurekaAutoServiceRegistration : Updating port to 8088
+2026-08-28T22:36:38.875+05:30  INFO 32628 --- [bmp-admin-service] [foReplicator-%d] com.netflix.discovery.DiscoveryClient    : DiscoveryClient_BMP-ADMIN-SERVICE/Darshan.mshome.net:bmp-admin-service:8088 - registration status: 204
+2026-08-28T22:36:38.902+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.c.s.binder.DefaultBinderFactory      : Creating binder: kafka
+2026-08-28T22:36:38.902+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.c.s.binder.DefaultBinderFactory      : Constructing binder child context for kafka
+2026-08-28T22:36:39.736+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.c.s.binder.DefaultBinderFactory      : Caching the binder: kafka
+2026-08-28T22:36:39.844+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.a.k.clients.admin.AdminClientConfig    : AdminClientConfig values: 
+	auto.include.jmx.reporter = true
+	bootstrap.controllers = []
+	bootstrap.servers = [localhost:9092]
+	client.dns.lookup = use_all_dns_ips
+	client.id = 
+	connections.max.idle.ms = 300000
+	default.api.timeout.ms = 60000
+	enable.metrics.push = true
+	metadata.max.age.ms = 300000
+	metadata.recovery.strategy = none
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	receive.buffer.bytes = 65536
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retries = 2147483647
+	retry.backoff.max.ms = 1000
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = PLAINTEXT
+	security.providers = null
+	send.buffer.bytes = 131072
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+
+2026-08-28T22:36:40.102+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka version: 3.8.1
+2026-08-28T22:36:40.102+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka commitId: 70d6ff42debf7e17
+2026-08-28T22:36:40.103+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka startTimeMs: 1787936800100
+2026-08-28T22:36:41.183+05:30  INFO 32628 --- [bmp-admin-service] [| adminclient-1] o.a.kafka.common.utils.AppInfoParser     : App info kafka.admin.client for adminclient-1 unregistered
+2026-08-28T22:36:41.189+05:30  INFO 32628 --- [bmp-admin-service] [| adminclient-1] o.apache.kafka.common.metrics.Metrics    : Metrics scheduler closed
+2026-08-28T22:36:41.190+05:30  INFO 32628 --- [bmp-admin-service] [| adminclient-1] o.apache.kafka.common.metrics.Metrics    : Closing reporter org.apache.kafka.common.metrics.JmxReporter
+2026-08-28T22:36:41.190+05:30  INFO 32628 --- [bmp-admin-service] [| adminclient-1] o.apache.kafka.common.metrics.Metrics    : Metrics reporters closed
+2026-08-28T22:36:41.209+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.a.k.clients.consumer.ConsumerConfig    : ConsumerConfig values: 
+	allow.auto.create.topics = true
+	auto.commit.interval.ms = 100
+	auto.include.jmx.reporter = true
+	auto.offset.reset = latest
+	bootstrap.servers = [localhost:9092]
+	check.crcs = true
+	client.dns.lookup = use_all_dns_ips
+	client.id = consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-1
+	client.rack = 
+	connections.max.idle.ms = 540000
+	default.api.timeout.ms = 60000
+	enable.auto.commit = false
+	enable.metrics.push = true
+	exclude.internal.topics = true
+	fetch.max.bytes = 52428800
+	fetch.max.wait.ms = 500
+	fetch.min.bytes = 1
+	group.id = anonymous.1bd0f843-933b-40da-ba34-460a1596141f
+	group.instance.id = null
+	group.protocol = classic
+	group.remote.assignor = null
+	heartbeat.interval.ms = 3000
+	interceptor.classes = []
+	internal.leave.group.on.close = true
+	internal.throw.on.fetch.stable.offset.unsupported = false
+	isolation.level = read_uncommitted
+	key.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+	max.partition.fetch.bytes = 1048576
+	max.poll.interval.ms = 300000
+	max.poll.records = 500
+	metadata.max.age.ms = 300000
+	metadata.recovery.strategy = none
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	partition.assignment.strategy = [class org.apache.kafka.clients.consumer.RangeAssignor, class org.apache.kafka.clients.consumer.CooperativeStickyAssignor]
+	receive.buffer.bytes = 65536
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retry.backoff.max.ms = 1000
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = PLAINTEXT
+	security.providers = null
+	send.buffer.bytes = 131072
+	session.timeout.ms = 45000
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+	value.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+
+2026-08-28T22:36:41.286+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.a.k.c.t.i.KafkaMetricsCollector        : initializing Kafka metrics collector
+2026-08-28T22:36:41.397+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka version: 3.8.1
+2026-08-28T22:36:41.397+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka commitId: 70d6ff42debf7e17
+2026-08-28T22:36:41.397+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka startTimeMs: 1787936801395
+2026-08-28T22:36:41.436+05:30  INFO 32628 --- [bmp-admin-service] [           main] org.apache.kafka.clients.Metadata        : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-1, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] Cluster ID: 5L6g3nShT-eMCtK--X86sw
+2026-08-28T22:36:41.442+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-1, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] Resetting generation and member id due to: consumer pro-actively leaving the group
+2026-08-28T22:36:41.443+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-1, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] Request joining group due to: consumer pro-actively leaving the group
+2026-08-28T22:36:41.451+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.apache.kafka.common.metrics.Metrics    : Metrics scheduler closed
+2026-08-28T22:36:41.451+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.apache.kafka.common.metrics.Metrics    : Closing reporter org.apache.kafka.common.metrics.JmxReporter
+2026-08-28T22:36:41.452+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.apache.kafka.common.metrics.Metrics    : Closing reporter org.apache.kafka.common.telemetry.internals.ClientTelemetryReporter
+2026-08-28T22:36:41.452+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.apache.kafka.common.metrics.Metrics    : Metrics reporters closed
+2026-08-28T22:36:41.458+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.a.kafka.common.utils.AppInfoParser     : App info kafka.consumer for consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-1 unregistered
+2026-08-28T22:36:41.551+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.c.stream.binder.BinderErrorChannel   : Channel 'kafka-1387548248.springCloudBusInput.errors' has 1 subscriber(s).
+2026-08-28T22:36:41.552+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.c.stream.binder.BinderErrorChannel   : Channel 'kafka-1387548248.springCloudBusInput.errors' has 0 subscriber(s).
+2026-08-28T22:36:41.552+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.c.stream.binder.BinderErrorChannel   : Channel 'kafka-1387548248.springCloudBusInput.errors' has 1 subscriber(s).
+2026-08-28T22:36:41.552+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.s.c.stream.binder.BinderErrorChannel   : Channel 'kafka-1387548248.springCloudBusInput.errors' has 2 subscriber(s).
+2026-08-28T22:36:41.588+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.a.k.clients.consumer.ConsumerConfig    : ConsumerConfig values: 
+	allow.auto.create.topics = true
+	auto.commit.interval.ms = 100
+	auto.include.jmx.reporter = true
+	auto.offset.reset = latest
+	bootstrap.servers = [localhost:9092]
+	check.crcs = true
+	client.dns.lookup = use_all_dns_ips
+	client.id = consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-2
+	client.rack = 
+	connections.max.idle.ms = 540000
+	default.api.timeout.ms = 60000
+	enable.auto.commit = false
+	enable.metrics.push = true
+	exclude.internal.topics = true
+	fetch.max.bytes = 52428800
+	fetch.max.wait.ms = 500
+	fetch.min.bytes = 1
+	group.id = anonymous.1bd0f843-933b-40da-ba34-460a1596141f
+	group.instance.id = null
+	group.protocol = classic
+	group.remote.assignor = null
+	heartbeat.interval.ms = 3000
+	interceptor.classes = []
+	internal.leave.group.on.close = true
+	internal.throw.on.fetch.stable.offset.unsupported = false
+	isolation.level = read_uncommitted
+	key.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+	max.partition.fetch.bytes = 1048576
+	max.poll.interval.ms = 300000
+	max.poll.records = 500
+	metadata.max.age.ms = 300000
+	metadata.recovery.strategy = none
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	partition.assignment.strategy = [class org.apache.kafka.clients.consumer.RangeAssignor, class org.apache.kafka.clients.consumer.CooperativeStickyAssignor]
+	receive.buffer.bytes = 65536
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retry.backoff.max.ms = 1000
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = PLAINTEXT
+	security.providers = null
+	send.buffer.bytes = 131072
+	session.timeout.ms = 45000
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+	value.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+
+2026-08-28T22:36:41.589+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.a.k.c.t.i.KafkaMetricsCollector        : initializing Kafka metrics collector
+2026-08-28T22:36:41.604+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka version: 3.8.1
+2026-08-28T22:36:41.604+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka commitId: 70d6ff42debf7e17
+2026-08-28T22:36:41.604+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.a.kafka.common.utils.AppInfoParser     : Kafka startTimeMs: 1787936801604
+2026-08-28T22:36:41.614+05:30  INFO 32628 --- [bmp-admin-service] [           main] o.a.k.c.c.internals.LegacyKafkaConsumer  : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-2, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] Subscribed to topic(s): springCloudBus
+2026-08-28T22:36:41.628+05:30  INFO 32628 --- [bmp-admin-service] [           main] s.i.k.i.KafkaMessageDrivenChannelAdapter : started org.springframework.integration.kafka.inbound.KafkaMessageDrivenChannelAdapter@1a8868f2
+2026-08-28T22:36:41.648+05:30  INFO 32628 --- [bmp-admin-service] [container-0-C-1] org.apache.kafka.clients.Metadata        : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-2, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] Cluster ID: 5L6g3nShT-eMCtK--X86sw
+2026-08-28T22:36:41.650+05:30  INFO 32628 --- [bmp-admin-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-2, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-28T22:36:41.654+05:30  INFO 32628 --- [bmp-admin-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-2, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] (Re-)joining group
+2026-08-28T22:36:41.686+05:30  INFO 32628 --- [bmp-admin-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-2, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] Request joining group due to: need to re-join with the given member-id: consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-2-95fa81a1-64a7-42a7-923c-77e2f4223b79
+2026-08-28T22:36:41.687+05:30  INFO 32628 --- [bmp-admin-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-2, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] (Re-)joining group
+2026-08-28T22:36:41.749+05:30  INFO 32628 --- [bmp-admin-service] [           main] com.bmp.admin.BmpAdminApplication        : Started BmpAdminApplication in 46.384 seconds (process running for 47.269)
+2026-08-28T22:36:42.022+05:30  WARN 32628 --- [bmp-admin-service] [           main] com.bmp.admin.security.StaffBootstrap    : No staff account has a usable password. The console cannot be signed into. Set BMP_ADMIN_BOOTSTRAP_EMAIL and BMP_ADMIN_BOOTSTRAP_PASSWORD once, restart, then remove them.
+2026-08-28T22:36:42.640+05:30  INFO 32628 --- [bmp-admin-service] [pool-2-thread-1] o.a.k.clients.consumer.ConsumerConfig    : ConsumerConfig values: 
+	allow.auto.create.topics = true
+	auto.commit.interval.ms = 5000
+	auto.include.jmx.reporter = true
+	auto.offset.reset = latest
+	bootstrap.servers = [localhost:9092]
+	check.crcs = true
+	client.dns.lookup = use_all_dns_ips
+	client.id = consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-3
+	client.rack = 
+	connections.max.idle.ms = 540000
+	default.api.timeout.ms = 60000
+	enable.auto.commit = true
+	enable.metrics.push = true
+	exclude.internal.topics = true
+	fetch.max.bytes = 52428800
+	fetch.max.wait.ms = 500
+	fetch.min.bytes = 1
+	group.id = anonymous.1bd0f843-933b-40da-ba34-460a1596141f
+	group.instance.id = null
+	group.protocol = classic
+	group.remote.assignor = null
+	heartbeat.interval.ms = 3000
+	interceptor.classes = []
+	internal.leave.group.on.close = true
+	internal.throw.on.fetch.stable.offset.unsupported = false
+	isolation.level = read_uncommitted
+	key.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+	max.partition.fetch.bytes = 1048576
+	max.poll.interval.ms = 300000
+	max.poll.records = 500
+	metadata.max.age.ms = 300000
+	metadata.recovery.strategy = none
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	partition.assignment.strategy = [class org.apache.kafka.clients.consumer.RangeAssignor, class org.apache.kafka.clients.consumer.CooperativeStickyAssignor]
+	receive.buffer.bytes = 65536
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retry.backoff.max.ms = 1000
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = PLAINTEXT
+	security.providers = null
+	send.buffer.bytes = 131072
+	session.timeout.ms = 45000
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+	value.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+
+2026-08-28T22:36:42.641+05:30  INFO 32628 --- [bmp-admin-service] [pool-2-thread-1] o.a.k.c.t.i.KafkaMetricsCollector        : initializing Kafka metrics collector
+2026-08-28T22:36:42.663+05:30  INFO 32628 --- [bmp-admin-service] [pool-2-thread-1] o.a.kafka.common.utils.AppInfoParser     : Kafka version: 3.8.1
+2026-08-28T22:36:42.663+05:30  INFO 32628 --- [bmp-admin-service] [pool-2-thread-1] o.a.kafka.common.utils.AppInfoParser     : Kafka commitId: 70d6ff42debf7e17
+2026-08-28T22:36:42.663+05:30  INFO 32628 --- [bmp-admin-service] [pool-2-thread-1] o.a.kafka.common.utils.AppInfoParser     : Kafka startTimeMs: 1787936802661
+2026-08-28T22:36:42.675+05:30  INFO 32628 --- [bmp-admin-service] [pool-2-thread-1] org.apache.kafka.clients.Metadata        : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-3, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] Cluster ID: 5L6g3nShT-eMCtK--X86sw
+2026-08-28T22:36:42.705+05:30  INFO 32628 --- [bmp-admin-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-3, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] Discovered group coordinator localhost:9092 (id: 2147483646 rack: null)
+2026-08-28T22:36:42.720+05:30  INFO 32628 --- [bmp-admin-service] [pool-2-thread-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-3, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] Found no committed offset for partition springCloudBus-0
+2026-08-28T22:36:44.692+05:30  INFO 32628 --- [bmp-admin-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-2, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] Successfully joined group with generation Generation{generationId=1, memberId='consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-2-95fa81a1-64a7-42a7-923c-77e2f4223b79', protocol='range'}
+2026-08-28T22:36:44.709+05:30  INFO 32628 --- [bmp-admin-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-2, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] Finished assignment for group at generation 1: {consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-2-95fa81a1-64a7-42a7-923c-77e2f4223b79=Assignment(partitions=[springCloudBus-0])}
+2026-08-28T22:36:44.723+05:30  INFO 32628 --- [bmp-admin-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-2, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] Successfully synced group in generation Generation{generationId=1, memberId='consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-2-95fa81a1-64a7-42a7-923c-77e2f4223b79', protocol='range'}
+2026-08-28T22:36:44.725+05:30  INFO 32628 --- [bmp-admin-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-2, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] Notifying assignor about the new Assignment(partitions=[springCloudBus-0])
+2026-08-28T22:36:44.733+05:30  INFO 32628 --- [bmp-admin-service] [container-0-C-1] k.c.c.i.ConsumerRebalanceListenerInvoker : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-2, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] Adding newly assigned partitions: springCloudBus-0
+2026-08-28T22:36:44.739+05:30  INFO 32628 --- [bmp-admin-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-2, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] Found no committed offset for partition springCloudBus-0
+2026-08-28T22:36:44.745+05:30  INFO 32628 --- [bmp-admin-service] [container-0-C-1] o.a.k.c.c.internals.ConsumerCoordinator  : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-2, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] Found no committed offset for partition springCloudBus-0
+2026-08-28T22:36:44.755+05:30  INFO 32628 --- [bmp-admin-service] [container-0-C-1] o.a.k.c.c.internals.SubscriptionState    : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-2, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] Resetting offset for partition springCloudBus-0 to position FetchPosition{offset=0, offsetEpoch=Optional.empty, currentLeader=LeaderAndEpoch{leader=Optional[localhost:9092 (id: 1 rack: null)], epoch=0}}.
+2026-08-28T22:36:44.766+05:30  INFO 32628 --- [bmp-admin-service] [container-0-C-1] o.s.c.s.b.k.KafkaMessageChannelBinder$2  : anonymous.1bd0f843-933b-40da-ba34-460a1596141f: partitions assigned: [springCloudBus-0]
+2026-08-28T22:37:03.081+05:30  INFO 32628 --- [bmp-admin-service] [nio-8088-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-08-28T22:37:03.083+05:30  INFO 32628 --- [bmp-admin-service] [nio-8088-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-08-28T22:37:03.091+05:30  INFO 32628 --- [bmp-admin-service] [nio-8088-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 7 ms
+2026-08-28T22:37:03.293+05:30  INFO 32628 --- [bmp-admin-service] [binder-health-1] o.a.k.clients.consumer.ConsumerConfig    : ConsumerConfig values: 
+	allow.auto.create.topics = true
+	auto.commit.interval.ms = 5000
+	auto.include.jmx.reporter = true
+	auto.offset.reset = latest
+	bootstrap.servers = [localhost:9092]
+	check.crcs = true
+	client.dns.lookup = use_all_dns_ips
+	client.id = consumer-null-4
+	client.rack = 
+	connections.max.idle.ms = 540000
+	default.api.timeout.ms = 60000
+	enable.auto.commit = false
+	enable.metrics.push = true
+	exclude.internal.topics = true
+	fetch.max.bytes = 52428800
+	fetch.max.wait.ms = 500
+	fetch.min.bytes = 1
+	group.id = null
+	group.instance.id = null
+	group.protocol = classic
+	group.remote.assignor = null
+	heartbeat.interval.ms = 3000
+	interceptor.classes = []
+	internal.leave.group.on.close = true
+	internal.throw.on.fetch.stable.offset.unsupported = false
+	isolation.level = read_uncommitted
+	key.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+	max.partition.fetch.bytes = 1048576
+	max.poll.interval.ms = 300000
+	max.poll.records = 500
+	metadata.max.age.ms = 300000
+	metadata.recovery.strategy = none
+	metric.reporters = []
+	metrics.num.samples = 2
+	metrics.recording.level = INFO
+	metrics.sample.window.ms = 30000
+	partition.assignment.strategy = [class org.apache.kafka.clients.consumer.RangeAssignor, class org.apache.kafka.clients.consumer.CooperativeStickyAssignor]
+	receive.buffer.bytes = 65536
+	reconnect.backoff.max.ms = 1000
+	reconnect.backoff.ms = 50
+	request.timeout.ms = 30000
+	retry.backoff.max.ms = 1000
+	retry.backoff.ms = 100
+	sasl.client.callback.handler.class = null
+	sasl.jaas.config = null
+	sasl.kerberos.kinit.cmd = /usr/bin/kinit
+	sasl.kerberos.min.time.before.relogin = 60000
+	sasl.kerberos.service.name = null
+	sasl.kerberos.ticket.renew.jitter = 0.05
+	sasl.kerberos.ticket.renew.window.factor = 0.8
+	sasl.login.callback.handler.class = null
+	sasl.login.class = null
+	sasl.login.connect.timeout.ms = null
+	sasl.login.read.timeout.ms = null
+	sasl.login.refresh.buffer.seconds = 300
+	sasl.login.refresh.min.period.seconds = 60
+	sasl.login.refresh.window.factor = 0.8
+	sasl.login.refresh.window.jitter = 0.05
+	sasl.login.retry.backoff.max.ms = 10000
+	sasl.login.retry.backoff.ms = 100
+	sasl.mechanism = GSSAPI
+	sasl.oauthbearer.clock.skew.seconds = 30
+	sasl.oauthbearer.expected.audience = null
+	sasl.oauthbearer.expected.issuer = null
+	sasl.oauthbearer.jwks.endpoint.refresh.ms = 3600000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.max.ms = 10000
+	sasl.oauthbearer.jwks.endpoint.retry.backoff.ms = 100
+	sasl.oauthbearer.jwks.endpoint.url = null
+	sasl.oauthbearer.scope.claim.name = scope
+	sasl.oauthbearer.sub.claim.name = sub
+	sasl.oauthbearer.token.endpoint.url = null
+	security.protocol = PLAINTEXT
+	security.providers = null
+	send.buffer.bytes = 131072
+	session.timeout.ms = 45000
+	socket.connection.setup.timeout.max.ms = 30000
+	socket.connection.setup.timeout.ms = 10000
+	ssl.cipher.suites = null
+	ssl.enabled.protocols = [TLSv1.2, TLSv1.3]
+	ssl.endpoint.identification.algorithm = https
+	ssl.engine.factory.class = null
+	ssl.key.password = null
+	ssl.keymanager.algorithm = SunX509
+	ssl.keystore.certificate.chain = null
+	ssl.keystore.key = null
+	ssl.keystore.location = null
+	ssl.keystore.password = null
+	ssl.keystore.type = JKS
+	ssl.protocol = TLSv1.3
+	ssl.provider = null
+	ssl.secure.random.implementation = null
+	ssl.trustmanager.algorithm = PKIX
+	ssl.truststore.certificates = null
+	ssl.truststore.location = null
+	ssl.truststore.password = null
+	ssl.truststore.type = JKS
+	value.deserializer = class org.apache.kafka.common.serialization.ByteArrayDeserializer
+
+2026-08-28T22:37:03.295+05:30  INFO 32628 --- [bmp-admin-service] [binder-health-1] o.a.k.c.t.i.KafkaMetricsCollector        : initializing Kafka metrics collector
+2026-08-28T22:37:03.305+05:30  INFO 32628 --- [bmp-admin-service] [binder-health-1] o.a.kafka.common.utils.AppInfoParser     : Kafka version: 3.8.1
+2026-08-28T22:37:03.305+05:30  INFO 32628 --- [bmp-admin-service] [binder-health-1] o.a.kafka.common.utils.AppInfoParser     : Kafka commitId: 70d6ff42debf7e17
+2026-08-28T22:37:03.305+05:30  INFO 32628 --- [bmp-admin-service] [binder-health-1] o.a.kafka.common.utils.AppInfoParser     : Kafka startTimeMs: 1787936823305
+2026-08-28T22:37:03.318+05:30  INFO 32628 --- [bmp-admin-service] [binder-health-1] org.apache.kafka.clients.Metadata        : [Consumer clientId=consumer-null-4, groupId=null] Cluster ID: 5L6g3nShT-eMCtK--X86sw
+2026-08-28T22:41:37.928+05:30  INFO 32628 --- [bmp-admin-service] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-28T22:45:41.972+05:30  INFO 32628 --- [bmp-admin-service] [container-0-C-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-2, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] Node -1 disconnected.
+2026-08-28T22:45:42.925+05:30  INFO 32628 --- [bmp-admin-service] [pool-2-thread-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-3, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] Node -1 disconnected.
+2026-08-28T22:46:18.761+05:30  INFO 32628 --- [bmp-admin-service] [binder-health-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-null-4, groupId=null] Node -1 disconnected.
+2026-08-28T22:46:37.941+05:30  INFO 32628 --- [bmp-admin-service] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-28T22:51:37.961+05:30  INFO 32628 --- [bmp-admin-service] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-28T22:55:41.846+05:30  INFO 32628 --- [bmp-admin-service] [container-0-C-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-2, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] Node -1 disconnected.
+2026-08-28T22:55:43.149+05:30  INFO 32628 --- [bmp-admin-service] [pool-2-thread-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-anonymous.1bd0f843-933b-40da-ba34-460a1596141f-3, groupId=anonymous.1bd0f843-933b-40da-ba34-460a1596141f] Node -1 disconnected.
+2026-08-28T22:56:37.980+05:30  INFO 32628 --- [bmp-admin-service] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-28T22:56:58.767+05:30  INFO 32628 --- [bmp-admin-service] [binder-health-1] org.apache.kafka.clients.NetworkClient   : [Consumer clientId=consumer-null-4, groupId=null] Node -1 disconnected.
+2026-08-28T22:57:45.790+05:30  WARN 32628 --- [bmp-admin-service] [nio-8088-exec-1] o.s.s.c.bcrypt.BCryptPasswordEncoder     : Encoded password does not look like BCrypt
+2026-08-28T22:57:45.791+05:30  INFO 32628 --- [bmp-admin-service] [nio-8088-exec-1] c.bmp.admin.services.StaffAuthService    : Console login failed (no such account) email=super@bemyprofessional.in ip=0:0:0:0:0:0:0:1
+2026-08-28T22:57:52.549+05:30  WARN 32628 --- [bmp-admin-service] [nio-8088-exec-2] o.s.s.c.bcrypt.BCryptPasswordEncoder     : Encoded password does not look like BCrypt
+2026-08-28T22:57:52.550+05:30  INFO 32628 --- [bmp-admin-service] [nio-8088-exec-2] c.bmp.admin.services.StaffAuthService    : Console login failed (no such account) email=super@bemyprofessional.in ip=0:0:0:0:0:0:0:1
+2026-08-28T22:57:53.576+05:30  WARN 32628 --- [bmp-admin-service] [nio-8088-exec-3] o.s.s.c.bcrypt.BCryptPasswordEncoder     : Encoded password does not look like BCrypt
+2026-08-28T22:57:53.576+05:30  INFO 32628 --- [bmp-admin-service] [nio-8088-exec-3] c.bmp.admin.services.StaffAuthService    : Console login failed (no such account) email=super@bemyprofessional.in ip=0:0:0:0:0:0:0:1
+2026-08-28T22:57:54.356+05:30  WARN 32628 --- [bmp-admin-service] [nio-8088-exec-4] o.s.s.c.bcrypt.BCryptPasswordEncoder     : Encoded password does not look like BCrypt
+2026-08-28T22:57:54.356+05:30  INFO 32628 --- [bmp-admin-service] [nio-8088-exec-4] c.bmp.admin.services.StaffAuthService    : Console login failed (no such account) email=super@bemyprofessional.in ip=0:0:0:0:0:0:0:1
+2026-08-28T22:58:04.086+05:30  WARN 32628 --- [bmp-admin-service] [nio-8088-exec-6] o.s.s.c.bcrypt.BCryptPasswordEncoder     : Encoded password does not look like BCrypt
+2026-08-28T22:58:04.086+05:30  INFO 32628 --- [bmp-admin-service] [nio-8088-exec-6] c.bmp.admin.services.StaffAuthService    : Console login failed (no such account) email=super@bemyprofessional.in ip=0:0:0:0:0:0:0:1
+2026-08-28T22:58:16.131+05:30  WARN 32628 --- [bmp-admin-service] [nio-8088-exec-8] o.s.s.c.bcrypt.BCryptPasswordEncoder     : Encoded password does not look like BCrypt
+2026-08-28T22:58:16.132+05:30  INFO 32628 --- [bmp-admin-service] [nio-8088-exec-8] c.bmp.admin.services.StaffAuthService    : Console login failed (no such account) email=super@bemyprofessional.in ip=0:0:0:0:0:0:0:1
+2026-08-28T23:01:38.007+05:30  INFO 32628 --- [bmp-admin-service] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+2026-08-28T23:06:38.046+05:30  INFO 32628 --- [bmp-admin-service] [rap-executor-%d] c.n.d.s.r.aws.ConfigClusterResolver      : Resolving eureka endpoints via configuration
+[ERROR] Failed to execute goal org.springframework.boot:spring-boot-maven-plugin:3.4.1:run (default-cli) on project bmp-admin: Process terminated with exit code: 1 -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException

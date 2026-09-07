@@ -109,10 +109,33 @@ public class StaffAuthService {
             log.info("Console login on non-active account {} (status={}) ip={}", staff.getEmail(), staff.getStatus(), ip);
             throw unauthorized();
         }
-        // The bootstrap sentinel is not a bcrypt hash, so matches() would fail anyway — this
-        // just makes the intent explicit and skips a pointless hash.
-        if (StaffBootstrap.LOCKED.equals(staff.getPasswordHash())
-                || !encoder.matches(password, staff.getPasswordHash())) {
+        /*
+         * ── AN ACCOUNT THAT HAS NEVER BEEN CLAIMED. Session 65. ─────────────────────────────────
+         *
+         * The sentinel is not a bcrypt hash, so matches() would fail anyway — but failing here
+         * SILENTLY, with the same "Email or password is incorrect" as a typo, cost two sessions of
+         * debugging. devadmin.bmp@gmail.com is a real, active super_admin row seeded by V003 with
+         * no password; it is the obvious address to type, and every attempt looks exactly like a
+         * mistyped password. Nothing on the screen or in the log said otherwise.
+         *
+         * The RESPONSE stays generic, deliberately. A distinct message would tell an unauthenticated
+         * caller that this address has an account, which is precisely what the constant-time branch
+         * above goes to trouble to avoid leaking. Weakening that to save a developer some time would
+         * be trading a real property for a convenience.
+         *
+         * The LOG is where the distinction belongs: it is already inside the trust boundary, and
+         * anyone debugging a login has access to it. So it says exactly what is wrong and how to
+         * fix it, at WARN, rather than filing this under "wrong password" like everything else.
+         */
+        if (StaffBootstrap.LOCKED.equals(staff.getPasswordHash())) {
+            log.warn("Console login on an UNCLAIMED account: {} has never had a password set "
+                    + "(password_hash is still the V003 bootstrap sentinel). No password will ever "
+                    + "work for it. Claim it with BMP_ADMIN_BOOTSTRAP_EMAIL/_PASSWORD and a restart, "
+                    + "or run seed/dev-staff-logins.sql locally. ip={}", staff.getEmail(), ip);
+            registerFailure(staff, ip);
+            throw unauthorized();
+        }
+        if (!encoder.matches(password, staff.getPasswordHash())) {
             registerFailure(staff, ip);
             throw unauthorized();
         }
@@ -244,6 +267,127 @@ public class StaffAuthService {
         audit.record("bmp_staff", staff.getId(), "STAFF_ACTIVATED", "bmp_staff", staff.getId(),
                 java.util.Map.of("purpose", activation.getPurpose()), ip, staff.getEmail(), staff.getRole(), null);
         log.info("Staff account activated: {}", staff.getEmail());
+    }
+
+    /**
+     * CHANGE YOUR OWN PASSWORD. Session 65.
+     *
+     * <h2>Why this did not exist, and why that was wrong</h2>
+     * The only way to get a new password was {@code reissueActivation} — an ops admin clearing
+     * your password AND your two-factor secret and handing you a fresh code. That is the right
+     * tool for somebody LOCKED OUT. It is absurd for somebody who simply wants to rotate a
+     * password they still know: it costs an admin's time, wipes 2FA that was working fine, and it
+     * teaches people not to bother.
+     *
+     * <h2>CURRENT PASSWORD <b>AND</b> A 2FA CODE. Both.</h2>
+     * The password alone is not enough, and this is the whole point of the design. If somebody's
+     * password leaks, an attacker who can change it with only that password owns the account
+     * permanently — they lock the real owner out and 2FA never gets a chance to matter. Requiring
+     * the current code means a leaked password buys an attacker one session, not the account.
+     *
+     * <p>The same reasoning is why there is no "forgot password" email: a reset link landing in a
+     * compromised inbox defeats two-factor entirely. See {@code reissueActivation}.
+     *
+     * <h2>EVERY SESSION ENDS, including this one</h2>
+     * A password change is the thing people do when they think somebody else has been in the
+     * account. Leaving other sessions alive would make the change cosmetic in exactly the case it
+     * matters most. Signing the CALLER out too is a small annoyance and the honest behaviour —
+     * "all your sessions ended" is a promise that has to be true without an asterisk.
+     */
+    @Transactional
+    public void changeOwnPassword(UUID staffId, String currentPassword, String totpCode,
+                                   String newPassword, String ip) {
+        BmpStaff staff = staffRepo.findById(staffId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "STAFF_NOT_FOUND"));
+
+        if (!encoder.matches(currentPassword, staff.getPasswordHash())) {
+            /*
+             * Counts toward the lockout, like a failed login. Without this, this endpoint is an
+             * un-rate-limited password oracle for anybody holding a valid access token — which is
+             * exactly what an attacker with one stolen session has.
+             */
+            staff.setFailedLoginCount(staff.getFailedLoginCount() + 1);
+            staffRepo.save(staff);
+            audit.record("bmp_staff", staffId, "STAFF_PASSWORD_CHANGE_FAILED", "bmp_staff", staffId,
+                    java.util.Map.of("reason", "wrong current password"), ip,
+                    staff.getEmail(), staff.getRole(), null);
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "That is not your current password.");
+        }
+
+        if (!staff.isTotpEnrolled() || !totp.verify(staff.getTotpSecret(), totpCode)) {
+            audit.record("bmp_staff", staffId, "STAFF_PASSWORD_CHANGE_FAILED", "bmp_staff", staffId,
+                    java.util.Map.of("reason", "bad 2FA code"), ip,
+                    staff.getEmail(), staff.getRole(), null);
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "That code isn't right. Use the current code from your authenticator app.");
+        }
+
+        /*
+         * Refusing to "change" it to what it already is. Not security theatre — somebody who has
+         * been told to rotate a password and gets a success message without changing anything
+         * believes they have complied.
+         */
+        if (encoder.matches(newPassword, staff.getPasswordHash())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "That is already your password. Choose a different one.");
+        }
+
+        staff.setPasswordHash(encoder.encode(newPassword));
+        staff.setFailedLoginCount(0);
+        staff.setLockedUntil(null);
+        staff.touch();
+        staffRepo.save(staff);
+
+        int revoked = sessionRepo.revokeAllForStaff(staffId);
+
+        audit.record("bmp_staff", staffId, "STAFF_PASSWORD_CHANGED", "bmp_staff", staffId,
+                java.util.Map.of("sessionsRevoked", String.valueOf(revoked)), ip,
+                staff.getEmail(), staff.getRole(), null);
+        log.info("Password changed by {} — {} session(s) revoked", staff.getEmail(), revoked);
+    }
+
+    /**
+     * Edit YOUR OWN name and phone. Session 65.
+     *
+     * <h2>What is deliberately not here</h2>
+     * <ul>
+     *   <li><b>Email.</b> It is the sign-in address. Somebody who takes over a session could
+     *       otherwise point the account at an inbox they control and keep it. Ops changes it —
+     *       see StaffAdminService.updateIdentity.</li>
+     *   <li><b>Role, tier, status.</b> Self-promotion, in three different spellings.</li>
+     *   <li><b>Job title, reporting line, dates.</b> Somebody else's record of you, not yours to
+     *       write. TeamController's employment edit, behind {@code team:edit}.</li>
+     * </ul>
+     *
+     * <p>Which leaves name and phone: how colleagues recognise you and how they reach you. Both
+     * are things a person should not have to file a ticket to correct.
+     */
+    @Transactional
+    public StaffProfile updateOwnProfile(UUID staffId, String name, String phone, String ip) {
+        BmpStaff staff = staffRepo.findById(staffId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "STAFF_NOT_FOUND"));
+
+        java.util.Map<String, Object> changed = new java.util.LinkedHashMap<>();
+        if (name != null && !name.isBlank() && !name.trim().equals(staff.getName())) {
+            changed.put("name", staff.getName() + " → " + name.trim());
+            staff.setName(name.trim());
+        }
+        if (phone != null && !phone.isBlank() && !phone.equals(staff.getPhone())) {
+            if (staffRepo.existsByPhone(phone)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Another staff account already uses that phone number.");
+            }
+            changed.put("phone", "changed");     // never the number itself in a shared log
+            staff.setPhone(phone);
+        }
+
+        if (changed.isEmpty()) return toProfile(staff);
+
+        staff.touch();
+        staffRepo.save(staff);
+        audit.record("bmp_staff", staffId, "STAFF_SELF_PROFILE_UPDATED", "bmp_staff", staffId,
+                changed, ip, staff.getEmail(), staff.getRole(), null);
+        return toProfile(staff);
     }
 
     /** Issues a code and returns it ONCE — only the hash is stored. */

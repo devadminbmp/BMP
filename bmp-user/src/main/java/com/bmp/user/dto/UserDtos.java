@@ -40,10 +40,21 @@ public final class UserDtos {
         String profilePhotoUrl, String hairType, String hairLength
     ) {}
 
+    /**
+     * @param deactivatedAt the person deactivated THEMSELVES. Reversed by their next OTP login.
+     * @param blockedAt     STAFF stopped them. Session 65. A login does not clear it, and bmp-auth
+     *                      refuses the account outright while it is set. The two are separate
+     *                      fields because they mean opposite things — see V006.
+     * @param blockedReason for staff eyes. Never rendered in the customer app; the block response
+     *                      the app receives deliberately carries no reason, because telling
+     *                      somebody exactly which rule caught them tells them how to avoid it next
+     *                      time under a new number.
+     */
     public record UserResponse(
         UUID id, String phone, String name, String gender, Integer age, String email,
         String profilePhotoUrl, String hairType, String hairLength, String defaultRole,
-        boolean isVerified, Instant deactivatedAt, Instant createdAt, Instant updatedAt
+        boolean isVerified, Instant deactivatedAt, Instant createdAt, Instant updatedAt,
+        Instant blockedAt, String blockedReason
     ) {}
 
     public record CreateRoleRequest(@NotBlank @Pattern(regexp = ROLE) String role, UUID salonId) {}

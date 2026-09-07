@@ -37,6 +37,87 @@ Who to sign in as, in every app: **`docs/TEST_CREDENTIALS.md`**.
 
 ---
 
+## 0b. THE FAST PATH — you have done this before and just want it running
+
+Everything below this section is the careful first-time walkthrough. If your machine is already
+set up, this is the whole thing:
+
+```powershell
+cd C:\BMP -PRJ\BMP
+
+docker compose up -d                       # postgres, redis, kafka, minio
+mvn -q -DskipTests install                 # ~2 min first time, seconds after
+.\run-service.ps1 eureka-server            # wait for it to say "Started"
+.\run-service.ps1 bmp-config-server
+.\run-service.ps1 api-gateway
+.\run-service.ps1 bmp-auth                 # then the rest, any order
+```
+
+**Order matters for exactly three of them** — Eureka, Config Server, Gateway — because everything
+else registers with Eureka on startup. The nine business services can start in any order after
+that, and can be started only as you need them: a customer-booking change needs
+`bmp-user`, `bmp-salon`, `bmp-booking` and nothing else.
+
+Use **`.\run-service.ps1 <name>`** rather than `mvn spring-boot:run` directly. It dot-sources
+`local-secrets.ps1` into the same shell that starts the service — PowerShell's `$env:X` only
+affects the current shell and its children, so setting secrets in one terminal and starting the
+service from another (or from the IDE's run button) leaves the service with none of them. Three
+sessions were lost to that before this script existed.
+
+Then, in two more terminals:
+
+```powershell
+cd ..\BMP-FE    ; npm install ; npm start     # http://localhost:19000
+cd ..\BMP-ADMIN ; npm install ; npm run dev   # http://localhost:5180
+```
+
+**Not sure something is running?**
+
+```powershell
+docker compose ps                                  # 4 containers, all "Up"
+curl http://localhost:8761                         # Eureka dashboard — lists every registered service
+curl http://localhost:8080/actuator/health         # gateway
+```
+
+If a service is missing from the Eureka list, it either failed to start or cannot reach Eureka —
+its own terminal window has the reason. **Read that window rather than restarting**; the two
+commonest causes (wrong JDK, Postgres not up) both print a clear line and both survive a restart.
+
+---
+
+## 0c. Everything you must install, in one table
+
+Detail and download links are in §1; this is the checklist and how to prove each one works.
+
+| Software | Version | Needed by | Verify with |
+|---|---|---|---|
+| **JDK** (Temurin) | **21 exactly** | BMP backend | `java -version` → `21.x` |
+| **Maven** | 3.9+ | BMP backend | `mvn -v` → also check it reports Java 21 |
+| **Docker Desktop** | any recent | BMP backend | `docker compose version` |
+| **Node.js** | **20 LTS or newer** | BMP-FE, BMP-ADMIN | `node -v` |
+| **npm** | ships with Node | BMP-FE, BMP-ADMIN | `npm -v` |
+| **Git** | any recent | all three | `git --version` |
+
+Optional but useful:
+
+| Software | Why |
+|---|---|
+| **IntelliJ IDEA** | Best multi-module Maven + Spring Boot support. VS Code + "Extension Pack for Java" works too. |
+| **psql** | Not required — `docker exec bmp-postgres-1 psql -U bmp -d bmp` gets you a shell inside the container without installing anything. |
+| **Postman** | Swagger UI at `http://localhost:<port>/swagger-ui.html` covers most of it. |
+| **Expo Go** (phone app) | Only to run BMP-FE on a real phone. The web target needs nothing extra. |
+
+**No global npm installs are required.** Expo and Vite both come from each repo's own
+`package.json`, so `npm install` in the repo is the entire setup — do NOT `npm i -g expo-cli`,
+which is the deprecated tool and conflicts with the local one.
+
+**JDK 21 EXACTLY, not 17 and not 22.** The root `pom.xml` sets `java.version=21` and
+`maven.compiler.release=21`. On an older JDK the build fails with a release-version error; on a
+newer one Lombok's annotation processing can break in ways whose message names neither Lombok nor
+the JDK. If you have several JDKs installed, set `JAVA_HOME` explicitly — see the end of §1.
+
+---
+
 ## 1. Required tools & versions
 
 Install these before doing anything else. Versions matter — an older JDK or an IDE
@@ -92,6 +173,41 @@ Reactor Summary listing all 14 modules. If anything fails here, fix it before mo
 You only need to re-run this after pulling changes that touch `.java`/`pom.xml` files.
 Changing only an `application.yml` does not require a rebuild.
 
+### 2b. Why it must be `install`, and why you must restart afterwards
+
+**`install`, not `package`.** `mvn -pl bmp-auth spring-boot:run` resolves `bmp-common` from your
+local `.m2` repository — **not** from the sibling folder on disk. `package` writes
+`bmp-common/target/…jar` and stops; `.m2` keeps whatever was there before. So a service can
+happily start against a copy of `bmp-common` that is weeks old.
+
+**This bites more often than it sounds like it should.** `bmp-common` has changed in five recent
+sessions — four new domain events, a security filter, `Money`. Every one of those is a class some
+other service loads.
+
+**And restart the service afterwards.** A JVM resolves classes *lazily*, on first use. If
+`bmp-auth` was started while `bmp-common/target/classes` was mid-rebuild — which is exactly what a
+failed build leaves behind — it starts fine, serves most requests fine, and then throws on the one
+request that first touches a class that wasn't there yet:
+
+```
+Handler dispatch failed: java.lang.NoClassDefFoundError: com/bmp/common/ids/UuidV7
+```
+
+The slash-separated name is the tell: that is the classloader saying *not found*. A class that was
+found but whose static initialiser blew up gives you *"Could not initialize class
+com.bmp.common.ids.UuidV7"* instead — a different problem with a different fix.
+
+Session 42 hit exactly this: a build failed at 19:14 and wiped `bmp-common/target/classes`, the
+good build landed at 19:29, but `bmp-auth` had been started in between and kept its stale view
+until it was restarted.
+
+**The safe sequence after any `bmp-common` change:**
+
+```powershell
+mvn -DskipTests install          # from the repo root, not from a module
+# then stop and restart every service you already had running
+```
+
 ---
 
 ## 3. Configure & start infrastructure (Docker: Postgres, Redis, Kafka)
@@ -121,19 +237,20 @@ any BMP service, since every service connects to Postgres on startup.
 
 ### 3b. What `docker-compose.yml` actually gives you
 
-The repo's `docker-compose.yml` (root of the repo) defines exactly **3 containers** —
-this is infrastructure only, not the app itself (see §3d for why that matters):
+The repo's `docker-compose.yml` (root of the repo) defines **4 containers** — this is
+infrastructure only, not the app itself (see §3d for why that matters):
 
 | Container | Image | Port | What it's for | Credentials |
 |---|---|---|---|---|
 | `bmp-postgres-1` | `postgis/postgis:16-3.4` | 5432 | The one shared Postgres — every service gets its own schema in the same `bmp` database (e.g. `user_schema`, `salon_schema`, `booking_schema`...). PostGIS extension is bundled though not actively used by app code yet. | db `bmp`, user `bmp`, password `devonly` |
 | `bmp-redis-1` | `redis:7-alpine` | 6379 | Short-lived slot locks during booking (5-minute holds) — not a general cache. | none |
 | `bmp-kafka-1` | `apache/kafka:3.8.0` (KRaft mode, no Zookeeper needed) | 9092 | Backs two things: the transactional-outbox relay (every service's domain events flow through here to `bmp-notification`) and Spring Cloud Bus (config-server-driven `/actuator/busrefresh`). | none |
+| `bmp-minio-1` | `minio/minio` | 9000 API, 9001 console | S3-compatible object storage for uploaded images — salon photos, service photos, salon cover. `bmp-salon` writes here. **Added in Session 44; this table said "3 containers" until Session 68, so anyone who followed the old guide had image upload fail with a connection error and nothing explaining it.** Browse what's stored at `http://localhost:9001`. | user `bmp-dev`, password `devonly-minio-password` |
 
 Postgres data persists in a named Docker volume (`bmp_pgdata`) across `docker compose
 down`/`up` cycles — it survives stopping the containers, but not `docker compose down
--v` (see the reset note below). Redis and Kafka have no persistent volume: their data
-is disposable and always starts empty.
+-v` (see the reset note below). MinIO likewise persists in `bmp_miniodata`. Redis and Kafka have
+no persistent volume: their data is disposable and always starts empty.
 
 ### 3c. Start it
 
@@ -288,11 +405,60 @@ An empty database technically works, but every screen in both frontends is blank
 tell "no data" from "broken query". Load the seed:
 
 ```powershell
-docker exec -i bmp-postgres-1 psql -U bmp -d bmp < seed/dev-seed.sql
+docker cp seed\dev-seed.sql bmp-postgres-1:/tmp/dev-seed.sql
+docker exec bmp-postgres-1 psql -U bmp -d bmp -f /tmp/dev-seed.sql
 ```
+
+> **Not `psql ... < seed/dev-seed.sql`.** That's a bash redirect; in PowerShell `<` is a reserved
+> operator and the line fails with *"The '<' operator is reserved for future use"* before Docker
+> is invoked at all. This doc said the wrong thing until Session 43 — under a `powershell` fence,
+> which made it look verified. Copying the file in also sidesteps pipe re-encoding, which matters
+> because the seed contains `Lumière`.
 
 **Run this AFTER the services have started at least once**, so Flyway has created the schemas.
 Running it first fails with "relation does not exist", which is confusing rather than harmful.
+
+Confirm it worked. All three numbers matter:
+
+```powershell
+docker exec bmp-postgres-1 psql -U bmp -d bmp -c "
+SELECT (SELECT count(*) FROM user_schema.users)          AS users,     -- >= 6
+       (SELECT count(*) FROM salon_schema.salon)         AS salons,    -- 8
+       (SELECT count(*) FROM salon_schema.salon_service) AS services,  -- 55
+       (SELECT count(*) FROM salon_schema.salon_staff)   AS staff;"    -- 3
+```
+
+**`staff` is the one people forget.** Those three rows are what tie Kavya, Rahul and Sneha to a
+salon. `AuthService.resolveSalonScope()` re-reads `salon_staff` on every token mint, so with no
+seat the owner logs in perfectly well and then gets 403 from every salon-scoped endpoint —
+their JWT carries `salonId = null`. It presents as "the dashboard is broken", not as "the seed
+is incomplete".
+
+If `users` is 0, login fails with **"No account found for this number"** — the correct answer to
+the question asked, just not the one you wanted.
+
+### It's genuinely idempotent now (Session 43)
+
+Run it as many times as you like. It also **repairs** the state that used to break it.
+
+The old file claimed idempotency on the strength of `ON CONFLICT (id) DO NOTHING`, which only
+protects against re-running *itself*. When the app created an account on a seeded phone — which
+it did, because a fail-open user lookup and a too-loose phone validator conspired to sign people
+up — that row had a random id. The conflict target never matched, the `uk_users_phone` unique
+index did, and since the whole file is one transaction, *every statement after it* failed with
+`current transaction is aborted` and the lot rolled back. One stale row, and the seed silently
+did nothing.
+
+Fixed three ways:
+
+1. A reclaim step at the top deletes any row squatting a seeded phone under the wrong id
+   (children first — `user_roles`, `refresh_tokens`, `onboarding_state` have real FKs). It can
+   only ever match the six seeded numbers, so **accounts you created on other numbers survive**.
+2. `salon_service` and `salon_staff` inserts no longer reference `updated_at` / `status` —
+   columns that have never existed on those tables. The seed had been written against an
+   imagined schema, and the users error was failing first and hiding it.
+3. Verified against a real PostgreSQL built from all 9 services' migrations: three consecutive
+   runs, starting from a database already containing squatter rows.
 
 It's idempotent — every insert is `ON CONFLICT DO NOTHING`, so running it twice is harmless.
 Re-run it after every `docker compose down -v`.
@@ -307,7 +473,46 @@ real difference, not noise.
 > every time a migration changes, and it wipes everything. Anything entered by hand is gone.
 > This file is the durable, version-controlled copy.
 
-Seeded logins are in `docs/TEST_CREDENTIALS.md` — all six use OTP `000000`.
+Seeded logins are in `docs/TEST_CREDENTIALS.md` — those six, and only those six, use OTP
+`000000`. Any other number gets a real code by email (Session 43).
+
+### 5c. The second seed file — the team, leave and goodwill (Sessions 59–61)
+
+`dev-seed.sql` covers customers, salons, services and availability. It does **not** cover the
+staff-side tables added since Session 59, and on a fresh database the console's Team, Leave, Queues,
+Goodwill and approvals-matrix screens are all empty — which is indistinguishable from broken.
+
+```powershell
+docker cp seed\dev-seed-team.sql bmp-postgres-1:/tmp/dev-seed-team.sql
+docker exec bmp-postgres-1 psql -U bmp -d bmp -f /tmp/dev-seed-team.sql
+```
+
+Run it **after** `dev-seed.sql`, and after bmp-admin has started at least once so Flyway has built
+`admin_schema`. Idempotent and re-runnable, same as the first file.
+
+It creates five colleagues (two support agents, a support lead, an ops admin and finance) alongside
+V003's superadmin, gives everyone employment details and a manager, and adds leave in four states,
+a queue cap and two goodwill grants.
+
+> **None of those five accounts can be signed into.** They carry the same non-bcrypt placeholder
+> V003 uses (`LOCKED-NO-PASSWORD-SET`) — not a weak password, not a hash at all, so verification
+> cannot succeed. To actually use one, issue an activation code from the console
+> (Staff accounts → reissue), which is the path a real hire goes through.
+
+Confirm:
+
+```powershell
+docker exec bmp-postgres-1 psql -U bmp -d bmp -c "
+SELECT (SELECT count(*) FROM admin_schema.bmp_staff)      AS staff,     -- 6
+       (SELECT count(*) FROM admin_schema.staff_leave)    AS leave,     -- 4
+       (SELECT count(*) FROM admin_schema.queue_config)   AS queues,    -- 4
+       (SELECT count(*) FROM admin_schema.goodwill_grant) AS goodwill;" -- 2
+```
+
+**If `leave` and `goodwill` come back 0 while the command reported success**, the staff rows are
+missing — that was a real bug in the first version of this file, which guarded every insert on
+staff roles it did not create and so silently inserted nothing. Fixed in Session 61; the check
+above exists because "it ran fine and did nothing" is the failure mode worth catching.
 
 ---
 
@@ -367,26 +572,47 @@ curl -X POST http://localhost:8081/api/v1/auth/otp/verify `
   -d '{ "phone": "+919876543210", "otp": "000000" }'
 ```
 
-**`000000` always works**, for any phone number, in local dev — it's a fixed bypass
-(`bmp.auth.dev-master-otp` in `bmp-auth`'s `application.yml`, defaulting to `000000`,
-overridable via the `BMP_DEV_MASTER_OTP` env var). It's only active on the default
-profile (what runs with no `SPRING_PROFILES_ACTIVE` set, i.e. every local machine) —
-staging/prod profiles don't set it, so it's disabled there. You still need to have
-called Step 1 first for that phone number (an OTP request record has to exist), you
-just don't need to know the *real* generated code.
+**`000000` works for the six seeded test phones only** — `+919876500001` … `+919876500006`,
+listed in `bmp.auth.dev-master-otp-phones`. See `docs/TEST_CREDENTIALS.md`.
+
+> **Changed in Session 43.** It used to work for *any* number. That made it a master key to
+> every account on the platform, and it meant the real path — generate → email → read → type —
+> was never exercised locally, so the first genuine test of it would have been in front of a
+> customer. **Any number outside the list now gets a real emailed code**, which is exactly how
+> you should be testing signup.
+>
+> `AuthService` refuses to start if `dev-master-otp` is set while the allowlist is empty.
+
+The bypass is only active on the default profile (what runs with no `SPRING_PROFILES_ACTIVE`,
+i.e. every local machine); staging/prod don't set it. You still need Step 1 first for that
+phone — an OTP request record has to exist.
+
+**Codes are single-use** (V005). Verifying spends the code; a second attempt with the same one
+returns `410 — This code has already been used`. Run Step 1 again for a fresh code. `000000` is
+no exception: a test account is still an account.
 
 <details>
-<summary>Prefer the real generated code instead? (click to expand)</summary>
+<summary>Using a number that is NOT seeded? Here's where the real code goes. (click to expand)</summary>
 
-Look at the **bmp-notification** terminal/log output after Step 1, for a line like:
+**Check your email.** Email is the only channel that actually delivers. Set
+`BMP_EMAIL_PROVIDER=smtp` plus `BMP_SMTP_USERNAME` / `BMP_SMTP_PASSWORD` on bmp-notification and
+the code arrives in the inbox you supplied at Step 1.
+
+With `BMP_EMAIL_PROVIDER=log` (the default) nothing is sent; the code is printed in the
+**bmp-notification** console instead:
 
 ```
-[SMS STUB — no real gateway configured] to=+919876543210 message="Your BMP OTP is 482913..."
+[EMAIL STUB] to=you@example.com subject="Your BMP verification code" body="Your BMP verification code is 482913..."
 ```
 
-That 6-digit code works too (it's also logged a second time on the `[EMAIL STUB]`
-line) — same 5-minute expiry / 3-attempt lockout rules apply to it, unlike the static
-`000000` bypass which always works regardless of expiry/attempts.
+**SMS and WhatsApp will not show you anything by default.** Both are stubs and both are now
+*disabled* (`bmp.notification.channels.sms.enabled` / `...whatsapp.enabled`, default false), so
+they log nothing at all — a channel described as off is silent. Set the flag to `true` and the
+stub logs what it *would* have sent; it still sends nothing, because SMS is blocked on TRAI DLT
+registration and WhatsApp on a Business account plus template approval. Neither is blocked on
+code.
+
+Real codes obey the 5-minute expiry and the 5-attempt lockout.
 </details>
 
 ### Step 3 — Response: your tokens
@@ -467,6 +693,23 @@ These are deliberately left as dev-only placeholders — don't spend time debugg
 These will be configured service-by-service later; local dev and Swagger testing work
 fine without them.
 
+### Still stubbed as of Session 61
+
+| Thing | State | Blocked on |
+|---|---|---|
+| Razorpay create-order and refund | throw without keys; the rest of the money path (webhook → capture → confirm → invoice paid) is real | a Razorpay account |
+| Customer-facing pay button | absent — the confirm screen says "pay at the salon", which is honest | the above |
+| Push notifications | not built | a decision on FCM/APNs |
+| Referral payout | records the referral, pays nothing, and **says so in the response** | deferred by Darshan |
+| Notification / consent history in the DPDP export | absent, and the export's own notice says so | bmp-notification does not record per-recipient delivery yet |
+| Review reporting | wired end to end (Session 61) with **no button** | the salon page shows a review count, not the reviews |
+
+Everything else a customer, salon or staff member can do is real against a running stack.
+
+> **The rule this table exists to enforce:** a stub that pretends to work is worse than a stub that
+> refuses. Each row above either throws, returns 501, or states its own limitation in the response
+> — none of them silently succeed.
+
 ---
 
 ## 10. Other credentials (non-login, ops tools only)
@@ -481,6 +724,83 @@ fine without them.
 All of the above are hardcoded **dev-only defaults** baked into each service's
 `application.yml` (with env-var overrides available, e.g. `BMP_JWT_SECRET`,
 `BMP_DB_PASSWORD`) — fine for local dev, must never be used anywhere real.
+
+---
+
+## 10a. Getting into the console with no authenticator app (Session 61)
+
+Two-factor **cannot be skipped** — `StaffAuthService` routes an un-enrolled account into enrolment
+rather than past it, deliberately: a 2FA bypass flag is the thing that eventually ships enabled. So
+if you have no authenticator app on your phone, you cannot sign in to your own local console.
+
+`tools/totp.mjs` closes that. It is an authenticator, **not a bypass** — it needs the same shared
+secret an app would hold, and computes the same RFC 6238 code.
+
+### 1. Turn on the dev staff accounts and restart bmp-admin
+
+```powershell
+$env:BMP_ADMIN_DEV_STAFF = "true"
+$env:BMP_ADMIN_DEV_STAFF_PASSWORD = "choose-at-least-16-chars"   # optional; one is generated if unset
+mvn -pl bmp-admin spring-boot:run
+```
+
+`DevStaffSeeder` refuses to run unless the datasource is on **localhost**, whatever the flag says.
+That guard is the one that matters: the `dev` profile in this repo points at a shared Neon branch,
+and a profile-gated seeder would have written known-password admin accounts there.
+
+### 2. Read the block it logs
+
+```
+============================================================================
+DEV STAFF ACCOUNTS SEEDED (6 created) — LOCAL DATABASE ONLY
+============================================================================
+Password for ALL of the accounts below:
+    <your password>
+
+  dev.super@bemyprofessional.in        super_admin
+  dev.ops@bemyprofessional.in          ops_admin
+  dev.lead@bemyprofessional.in         support_lead
+  dev.support@bemyprofessional.in      support_agent
+  dev.finance@bemyprofessional.in      finance_admin
+  dev.readonly@bemyprofessional.in     read_only
+
+Two-factor: ONE entry covers every account above.
+  Base32 secret (paste into tools\totp.mjs if you have no authenticator app):
+    <SECRET>
+  ...
+```
+
+**One password and one TOTP secret for all six**, on purpose: five separate QR codes pushes people
+back to using the superadmin for everything, which is the behaviour least-privilege testing exists
+to prevent. The secret is generated per run, so nothing reusable leaks into git.
+
+### 3. Get the code
+
+```powershell
+node tools\totp.mjs <SECRET>            # once
+node tools\totp.mjs <SECRET> --watch    # keeps printing as it rolls
+```
+
+It takes the bare Base32 secret **or** the whole `otpauth://` URI. No dependencies — `node:crypto`
+only. Verified against all five RFC 6238 SHA-1 test vectors.
+
+> The countdown matters. The server accepts ±1 step so a code lives ~90 seconds, but one shown with
+> two seconds left will still be typed too slowly. If it's about to roll, wait for the next one —
+> that is the difference between "my code is wrong" and "I was too slow".
+
+### Which door
+
+| Account | Door |
+|---|---|
+| `dev.super`, `dev.ops` | `http://localhost:5180/admin/login` |
+| `dev.lead`, `dev.support`, `dev.finance`, `dev.readonly` | `http://localhost:5180/support/login` |
+
+A support account at the admin door passes **both** factors and is then told plainly it's the wrong
+console. That is not a bug — it's the check working, and it is worth seeing once.
+
+> **Local only.** Keeping a TOTP secret where a script can read it defeats the point of a *second*
+> factor. Fine for a throwaway secret printed into your own terminal; never paste a real staff
+> member's secret into that script.
 
 ---
 
@@ -581,17 +901,31 @@ a `public-paths` entry written for the GET, and *those patterns are path-only an
 Every guard was verified green against the current tree before being committed — a check that
 fails on day one gets switched off on day two.
 
-### One thing CI can't do: the API contract check
+### The guards are tests now (Session 43)
 
-```bash
-python3 scripts/check-api-contracts.py        # assumes ../BMP-FE
+They used to be inline `python3` heredocs in the CI workflow plus two scripts under `scripts/`.
+They're JUnit tests in `bmp-common/src/test/java/com/bmp/common/repo/`, so they run under the
+`mvn -B -ntp verify` that CI already does — **and on your machine, in your IDE, before the push
+rather than after it.** No second toolchain for a team that writes Java and TypeScript.
+
+```powershell
+mvn -q -pl bmp-common test
 ```
 
-Compares every frontend Zod schema against the Java record it parses. **Run it before touching an
-API shape on either side.** Stdlib only — no node, no maven, no excuse.
+| Test | Checks |
+|---|---|
+| `PublicPathsTest` | every service declares `bmp.security.public-paths`, and none sets `/**` |
+| `WriteEndpointAuthTest` | every POST/PUT/PATCH/DELETE carries `@PreAuthorize` |
+| `SeedSchemaTest` | every seed INSERT names columns that exist |
+| `ApiContractTest` | every Zod schema matches the backend record it parses |
 
-It's a local script rather than a CI job because BMP and BMP-FE are separate repositories and
-neither workflow has the other checked out, so neither could do the comparison honestly.
+Each class's javadoc carries the incident it exists to prevent — read there, not here.
+
+**`ApiContractTest` reads the sibling `../BMP-FE` checkout.** If it isn't there the test *skips*
+rather than fails: a backend-only clone is a legitimate state (CI clones one repo), and failing
+a build over a missing sibling repo teaches people to ignore the failure. So it protects you
+locally, where both repos exist, and stays quiet in CI, where only one does. **Run it before
+changing an API shape on either side** — that's the moment it earns its keep.
 
 It exists because this went wrong **twice**: `getSlots` parsing a shape the server never sent
 (Session 38), then four discovery schemas asking for fields that didn't exist in the database at
@@ -619,3 +953,6 @@ already had one instance of the same bug.
 | Console (5180) 404s on every request | The gateway needs the `/api/v1/admin/**` route predicate. Missing until Session 25 — pull and restart `api-gateway`. |
 | Frontend screens are all empty but nothing errors | You skipped the seed (§5b). |
 | `relation "user_schema.users" does not exist` when seeding | You ran the seed before the services created their schemas. Start them once, then seed. |
+| `NoClassDefFoundError: com/bmp/common/…` at runtime, on a request (not at startup) | **The running JVM is older than your last build.** See §2b — rebuild with `mvn -DskipTests install`, then **restart** the service. The slash-separated name is the classloader saying "not found"; a broken static initialiser would instead say *"Could not initialize class …"*. Hit in Session 42 after a failed build wiped `bmp-common/target/classes` while `bmp-auth` was running. |
+| 100+ `cannot find symbol: method getId()` on an `@Getter` class | Lombok isn't running. Fixed in the root pom (Session 42) via `annotationProcessorPaths`. If it persists, IntelliJ is compiling with its own builder: enable **Settings → Build → Compiler → Annotation Processors**, set **Maven → Runner → Delegate IDE build to Maven**, and check the Project SDK is **21** — Lombok 1.18.36 fails on JDK 24/25 however it's configured. |
+| Every service fails with `relation "<table>" already exists` | Something ran `bmp-app` (the retired monolith) against this database — it lays down the Session-5 schema and the real services then abort. `docker compose down -v && docker compose up -d`. Its Flyway is now disabled so it can't recur. |

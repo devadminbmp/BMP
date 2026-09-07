@@ -21,6 +21,31 @@ spring:
       kafka:
         binder:
           brokers: ${BMP_KAFKA_BOOTSTRAP:localhost:9092}
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  # Session 63 — EXPLICIT STRING SERIALIZERS. Do not delete; this is not boilerplate.
+  #
+  # Spring Cloud Bus's Kafka binder (KafkaBinderEnvironmentPostProcessor) silently DEFAULTS
+  # spring.kafka's serializers to ByteArraySerializer when nothing sets them. OutboxKafkaRelay
+  # uses KafkaTemplate<String,String> and sends the event type as the key, so without this it
+  # fails on every message with:
+  #
+  #     Can't convert key of class java.lang.String to class
+  #     org.apache.kafka.common.serialization.ByteArraySerializer specified in key.serializer
+  #
+  # This was diagnosed and fixed in bmp-auth in Session 16 — and ONLY in bmp-auth. The outbox
+  # table is SHARED (common_schema.outbox) and every service with bmp.outbox.relay.enabled polls
+  # it, so an `otp.requested` row written by bmp-auth is routinely picked up by whichever relay
+  # polls first. Five services were failing on other services' events and burning the attempt
+  # counter, until bmp-auth's relay happened to win a poll.
+  #
+  # Worth stating: a shared table means shared configuration requirements. Fixing the service
+  # where a bug was NOTICED is not the same as fixing the service where it LIVES.
+  # ─────────────────────────────────────────────────────────────────────────────────────────
+  kafka:
+    bootstrap-servers: ${BMP_KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
   datasource:
     # Local default (docker-compose) unless overridden — set these 4 env vars to point
     # at a shared cloud instance instead (e.g. your Neon dev branch) without editing this file.
@@ -51,6 +76,23 @@ eureka:
     prefer-ip-address: true
 
 bmp:
+  # ═══════════════════════════════════════════════════════════════════════════════════════════
+  # Session 47: the outbox → Kafka relay. THIS WAS OFF, AND IT MEANT NO EMAIL EVER ARRIVED.
+  # ═══════════════════════════════════════════════════════════════════════════════════════════
+  # OutboxKafkaRelay is @ConditionalOnProperty(havingValue = "true") with NO matchIfMissing, so
+  # omitting this key doesn't disable a feature loudly — the bean is simply never created and
+  # nothing anywhere says so. bmp-booking publishes BookingCreated/Cancelled/Rescheduled/Completed, and without the relay those rows are
+  # written to the outbox table, committed, and then sit there forever: nobody is ever told about a booking — not the customer, not the salon.
+  #
+  # bmp-auth has had this since Session 16 (which is why OTP email works and nothing else did).
+  # The other publishing services were never given it — a per-service opt-in that three services
+  # silently opted out of.
+  #
+  # Requires: Kafka up (docker compose) AND @EnableScheduling on the application class, since
+  # the relay is a @Scheduled poll. Both are now in place.
+  outbox:
+    relay:
+      enabled: ${BMP_OUTBOX_RELAY_ENABLED:true}
   # Session 6: shared JWT validation (com.bmp.common.security.CommonSecurityConfig).
   auth:
     jwt-secret: ${BMP_JWT_SECRET:dev-only-secret-change-in-real-environment-min-32-bytes-long}

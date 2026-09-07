@@ -47,6 +47,28 @@ public final class AdminAuthDtos {
         String newPassword
     ) {}
 
+    /**
+     * Rotating your own password. Session 65.
+     *
+     * <p>BOTH the current password and a live 2FA code. See StaffAuthService.changeOwnPassword for
+     * why the code is not optional: without it, a leaked password is enough to take the account
+     * permanently rather than for one session.
+     */
+    public record ChangePasswordRequest(
+        @NotBlank String currentPassword,
+        @NotBlank @Size(min = 6, max = 6, message = "Six digits, from your authenticator app.")
+        String totpCode,
+        @NotBlank @Size(min = MIN_PASSWORD_LENGTH, message = "password must be at least 16 characters")
+        String newPassword
+    ) {}
+
+    /** Your own name and phone. Email, role and status are deliberately absent — see the service. */
+    public record UpdateOwnProfileRequest(
+        @Size(max = 120) String name,
+        @Pattern(regexp = "^\\+91[6-9][0-9]{9}$|^$", message = "Use +91 followed by a ten-digit mobile number.")
+        String phone
+    ) {}
+
     public record RefreshRequest(@NotBlank String refreshToken) {}
 
     /** What the console needs to render a signed-in staff member. */
@@ -98,7 +120,19 @@ public final class AdminAuthDtos {
         @NotBlank @Email @Size(max = 160) String email,
         @NotBlank @Pattern(regexp = "^\\+[1-9]\\d{7,14}$", message = "phone must be E.164, e.g. +919876543210")
         String phone,
-        @NotBlank @Pattern(regexp = "^(ops_admin|support_agent|finance_admin|read_only|super_admin)$",
+        /*
+         * Session 65 — support_lead was MISSING from this pattern.
+         *
+         * The role has existed since Session 57, has its own permission set, sits in the seed and
+         * runs the support desk — and could not be created through the API at all. Every attempt
+         * failed validation before reaching any authority check, so it read as "the request is
+         * malformed" rather than "this role is not creatable". Nobody would guess.
+         *
+         * `admin` is the new tier (RoleHierarchy). Being IN this pattern only means the string is
+         * a real role; whether THIS caller may create it is StaffAccountScope's question, and it
+         * refuses anyone who does not outrank the role being created.
+         */
+        @NotBlank @Pattern(regexp = "^(admin|ops_admin|support_lead|support_agent|finance_admin|read_only|super_admin)$",
                 message = "role must be one of: ops_admin, support_agent, finance_admin, read_only, super_admin")
         String role
     ) {}
@@ -117,6 +151,45 @@ public final class AdminAuthDtos {
     public record StaffStatusChangeRequest(
         @NotBlank @Pattern(regexp = "^(active|suspended|offboarded)$") String status,
         String reason
+    ) {}
+
+    /**
+     * Correcting a staff member's identity. Session 65.
+     *
+     * <p>Every field OPTIONAL and null means "leave alone" — a partial edit must not blank the
+     * fields it did not send, which is the same rule UpdateMemberRequest follows.
+     *
+     * <p>Validation here is shape only. WHO may change WHICH field is decided in
+     * StaffAdminService.updateIdentity, because it depends on the caller's permissions and on the
+     * target's rank — neither of which a Bean Validation annotation can see.
+     */
+    public record StaffIdentityRequest(
+        @Size(max = 120) String name,
+        /* Same pattern as CreateEmployeeRequest — +91 and ten digits, no double-91. */
+        @Pattern(regexp = "^\\+91[6-9][0-9]{9}$|^$", message = "Use +91 followed by a ten-digit mobile number.")
+        String phone,
+        @Email @Size(max = 160) String email,
+        /** Why. Optional, and it lands in the audit entry — "corrected typo" beats a bare diff. */
+        @Size(max = 300) String reason
+    ) {}
+
+    /** Promote or demote. The reason is mandatory — a change of authority gets read back later. */
+    public record StaffRoleChangeRequest(
+        @NotBlank String role,
+        @NotBlank @Size(min = 5, max = 300) String reason
+    ) {}
+
+    /**
+     * What one role can do, for the screen that assigns roles. Session 65.
+     *
+     * @param canAssign whether the CALLER may hand this role out. Computed per caller, so the
+     *                  picker shows the whole ladder — you can see what a main admin is without
+     *                  being able to create one — rather than hiding rungs and leaving somebody to
+     *                  wonder whether the role exists.
+     */
+    public record RolePowers(
+        String role, String label, int rank, short supportTier,
+        List<String> permissions, boolean canAssign
     ) {}
 
     public record StaffListResponse(List<StaffProfile> staff) {}

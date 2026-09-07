@@ -8,7 +8,23 @@ spring:
   # this same GitHub repo). "optional:" means this service still starts fine if the
   # config server isn't running (falls back to this file's own defaults).
   config:
-    import: optional:configserver:${BMP_CONFIG_SERVER_URL:http://localhost:8888}
+    # Session 47: read SMTP credentials from a gitignored FILE as well as from env vars.
+    #
+    # Why: local-secrets.ps1 sets PowerShell $env: variables, which only reach processes started
+    # from that same shell. IntelliJ run configurations do NOT inherit them — so a service started
+    # from the IDE saw no credentials however carefully the script had been sourced elsewhere, and
+    # silently fell back to LoggingEmailSender. That is exactly the "notification received, no
+    # email" symptom.
+    #
+    # A file removes the whole class of problem: Spring reads it regardless of how the JVM was
+    # launched. Both paths are tried because the working directory is the repo root when Maven
+    # runs it and the MODULE directory when IntelliJ does.
+    #
+    # `optional:` means a missing file is not an error — teammates who use env vars are unaffected.
+    import:
+      - optional:configserver:${BMP_CONFIG_SERVER_URL:http://localhost:8888}
+      - optional:file:./local-secrets.properties
+      - optional:file:../local-secrets.properties
   cloud:
     bus:
       enabled: true
@@ -42,8 +58,11 @@ spring:
   mail:
     host: ${BMP_SMTP_HOST:smtp.gmail.com}
     port: ${BMP_SMTP_PORT:587}
-    username: ${BMP_SMTP_USERNAME:}
-    password: ${BMP_SMTP_PASSWORD:}
+    # Env var wins; falls back to local-secrets.properties; then empty. Written as a placeholder
+    # CHAIN rather than relying on which document "wins" — config precedence between an importing
+    # file and an imported one is subtle, and credentials are the wrong place to be subtle.
+    username: ${BMP_SMTP_USERNAME:${bmp.smtp.username:}}
+    password: ${BMP_SMTP_PASSWORD:${bmp.smtp.password:}}
     properties:
       mail:
         smtp:
@@ -103,6 +122,17 @@ bmp:
       /swagger-ui/**, /swagger-ui.html, /v3/api-docs/**
     internal-service-key: ${BMP_INTERNAL_SERVICE_KEY:dev-only-internal-key-change-in-real-environment}
   notification:
+    # ── PUSH (Expo). Session 64. ─────────────────────────────────────────────────────────────
+    # false registers LoggingPushSender (logs, sends nothing); true registers ExpoPushSender.
+    # One flag, two mutually exclusive beans — see LoggingPushSender for why that beats @Primary.
+    #
+    # No credentials needed: Expo accepts unauthenticated sends to a valid ExponentPushToken,
+    # because the token IS the capability. There is no account to compromise.
+    #
+    # Push is always an ADDITION to email, never a replacement — see PushSender.
+    push:
+      enabled: ${BMP_PUSH_ENABLED:false}
+
     # Which EmailSender bean is active (Session 14):
     #   log  (default) -> LoggingEmailSender: prints the email to the console. Zero setup,
     #                     what every dev without SMTP creds uses. OTP is still fully testable.
@@ -110,7 +140,7 @@ bmp:
     #                     spring.mail.* creds above (BMP_SMTP_USERNAME/PASSWORD at minimum).
     # SMS is unaffected — it stays the console-log stub (LoggingSmsSender) until a gateway
     # + DLT are set up (tracked separately).
-    email-provider: ${BMP_EMAIL_PROVIDER:log}
+    email-provider: ${BMP_EMAIL_PROVIDER:${bmp.smtp.provider:log}}
     # Where "somebody needs to look at this" mail goes — today, the coupon-approval queue.
     #
     # ONE address, deliberately, not per-admin routing: there is no admin distribution list in
@@ -120,10 +150,52 @@ bmp:
     # Empty by default so a dev machine never emails anyone. Unset in a real environment means
     # the approval queue goes unwatched — NotificationDispatcher logs a warning rather than
     # failing quietly, but set it before launch.
-    ops-email: ${BMP_OPS_EMAIL:}
+    # ═══════════════════════════════════════════════════════════════════════════════════════
+    # Where "somebody needs to look at this" mail goes: new salon requests, coupon requests.
+    # ═══════════════════════════════════════════════════════════════════════════════════════
+    # Session 48 — this defaulted to EMPTY, and the effect was silent. Both handlers check for a
+    # blank address, log "nobody has been told", and return. So a salon owner signed up, the
+    # review was queued, the owner got their receipt — and no human was ever told there was
+    # anything to approve. The queue simply waited for someone to think of opening it.
+    #
+    # A notification channel with no recipient is not a disabled feature, it is a feature that
+    # reports success while doing nothing. Given a default, the dev environment now works out of
+    # the box; override BMP_OPS_EMAIL for anything real.
+    #
+    # Not a personal address by choice — this is committed config. devadmin.bmp@gmail.com is the
+    # same account the seeded super-admin uses, so it is already the address watching this system.
+    ops-email: ${BMP_OPS_EMAIL:devadmin.bmp@gmail.com}
     # The "From" address on outgoing mail. For Gmail this MUST equal BMP_SMTP_USERNAME or
     # Gmail rejects the send; for Brevo/SES it must be a verified sender.
-    email-from: ${BMP_EMAIL_FROM:no-reply@bemyprofessional.in}
+    email-from: ${BMP_EMAIL_FROM:${bmp.smtp.from:no-reply@bemyprofessional.in}}
+
+    # ═════════════════════════════════════════════════════════════════════════════════════════
+    # Session 43 — delivery channels.
+    #
+    # EMAIL IS THE ONLY LIVE CHANNEL. OTPs really are delivered over it (email-provider: smtp).
+    # The two below are wired at the correct call sites in NotificationDispatcher but send
+    # nothing — they are stubs, and both are blocked on external setup, not on code:
+    #
+    #   sms      — blocked on TRAI DLT registration. In India you cannot send transactional SMS
+    #              by buying an API key: the entity, the sender header and EVERY template must be
+    #              registered and approved first. No credential makes this work until that's done.
+    #
+    #   whatsapp — blocked on a WhatsApp Business account plus template approval from Meta. An
+    #              OTP is unsolicited by definition, so it must go out as a pre-approved template
+    #              (see WhatsAppSender for why that shapes the interface).
+    #
+    # Both default to FALSE and the stubs honour the flag — a channel described as off is silent.
+    # Turning one on today only makes the stub log what it WOULD send, which is the point: you
+    # can see the traffic you're about to start paying for before you pay for it.
+    #
+    # To go live on either: add a real @Service implementing SmsSender / WhatsAppSender, mark it
+    # @Primary, and flip the flag. No call-site changes.
+    # ═════════════════════════════════════════════════════════════════════════════════════════
+    channels:
+      sms:
+        enabled: ${BMP_SMS_ENABLED:false}
+      whatsapp:
+        enabled: ${BMP_WHATSAPP_ENABLED:false}
 
 management:
   endpoints:

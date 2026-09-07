@@ -22,8 +22,19 @@ looks identical whether it's reading mocks or the live backend.
 docker compose up -d
 
 # 2. start the services ONCE so Flyway creates the schemas/tables, then:
-docker exec -i bmp-postgres-1 psql -U bmp -d bmp < seed/dev-seed.sql
+docker cp seed/dev-seed.sql bmp-postgres-1:/tmp/dev-seed.sql
+docker exec bmp-postgres-1 psql -U bmp -d bmp -f /tmp/dev-seed.sql
 ```
+
+> **Why `docker cp` and not `psql < file`?** The redirect form is a bash-ism. In PowerShell —
+> which is what this block is labelled as, and what the whole team is on — `<` is a **reserved
+> operator** and the command dies with *"The '<' operator is reserved for future use."* before
+> Docker is even invoked. Session 43: this bit Darshan, and the same wrong line was in three
+> different docs.
+>
+> `Get-Content -Raw seed\dev-seed.sql | docker exec -i bmp-postgres-1 psql -U bmp -d bmp` also
+> works, but piping through PowerShell can re-encode the file, and this seed contains `Lumière`.
+> Copying the file in avoids the question entirely — the bytes psql reads are the bytes in git.
 
 Idempotent (`ON CONFLICT DO NOTHING`) — safe to run repeatedly.
 

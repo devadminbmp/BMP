@@ -109,6 +109,32 @@ public class CouponRedemptionService {
                     existing.getDiscountAppliedPaise().paise(), coupon.getCommissionBase());
         }
 
+        /*
+         * ONE COUPON PER BOOKING. Session 55.
+         *
+         * Darshan: "a customer uses one coupon, he can't apply another one — as standard." It is
+         * the standard: one code per order across every comparable consumer app.
+         *
+         * The check ABOVE does not cover this and reads as though it does. It is keyed on
+         * (coupon_id, booking_id), which makes re-redeeming the SAME coupon idempotent — correct
+         * for a retry — while a DIFFERENT coupon on the same booking sails past it and writes a
+         * second usage row, discounting the booking twice.
+         *
+         * uq_coupon_usage_one_per_booking (V005) is the actual guarantee; this is here so the
+         * customer gets a sentence instead of a constraint violation, and so the log names both
+         * codes when it happens.
+         */
+        var alreadyUsed = usage.findFirstByBookingId(req.bookingId());
+        if (alreadyUsed.isPresent()) {
+            String otherCode = coupons.findById(alreadyUsed.get().getCouponId())
+                    .map(Coupon::getCode).orElse("another code");
+            log.warn("Booking {} already has coupon {} redeemed against it; refusing {}.",
+                    req.bookingId(), otherCode, coupon.getCode());
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "ONE_COUPON_PER_BOOKING: only one code can be used per booking — "
+                    + otherCode + " is already applied.");
+        }
+
         Refusal refusal = evaluate(coupon, req.userId(), req.salonId(), req.basketPaise(), req.isFirstBooking());
         if (refusal != null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, refusal.code() + ": " + refusal.message());

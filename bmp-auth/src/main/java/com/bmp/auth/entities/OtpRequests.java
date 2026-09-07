@@ -36,6 +36,18 @@ public class OtpRequests {
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 
+    /**
+     * Session 43 (V005) — when this code was successfully redeemed; NULL means never used.
+     *
+     * <p>Before this column, a verified OTP kept working for the rest of its 5-minute TTL: the
+     * row was read, matched and left untouched, so the same six digits could be replayed. The
+     * "one-time" in one-time password was a description of intent, not a property of the code.
+     * Email being the only live delivery channel makes that worse than it sounds — the code sits
+     * in an inbox that may be open on a shared screen or forwarded.
+     */
+    @Column(name = "consumed_at")
+    private Instant consumedAt;
+
     protected OtpRequests() {} // JPA
 
     public OtpRequests(String phone, String otpHash, int attempts, Instant lockedUntil, Instant expiresAt) {
@@ -64,6 +76,22 @@ public class OtpRequests {
     public Instant getLockedUntil() { return lockedUntil; }
     public Instant getExpiresAt() { return expiresAt; }
     public Instant getCreatedAt() { return createdAt; }
+    public Instant getConsumedAt() { return consumedAt; }
+
+    /** True once this code has been redeemed — it must never authenticate anyone again. */
+    public boolean isConsumed() { return consumedAt != null; }
+
+    /**
+     * Mark this code as spent. Deliberately NOT a plain setter: there is exactly one legitimate
+     * transition (unused → used, once, now), and a setter would invite "un-consuming" a code,
+     * which is the one thing this column exists to prevent. Idempotent rather than throwing, so
+     * a retried transaction can't fail on its own second pass.
+     */
+    public void markConsumed() {
+        if (consumedAt == null) {
+            this.consumedAt = Instant.now();
+        }
+    }
     public void setPhone(String phone) { this.phone = phone; }
     public void setEmail(String email) { this.email = email; }
     public void setOtpHash(String otpHash) { this.otpHash = otpHash; }

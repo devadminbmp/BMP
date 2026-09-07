@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.time.Instant;
@@ -23,10 +24,16 @@ import java.util.UUID;
 @FeignClient(name = "bmp-user-service", configuration = com.bmp.admin.config.FeignInternalKeyConfig.class)
 public interface UserServiceClient {
 
+    /**
+     * @param deactivatedAt the person paused THEMSELVES; their next login reactivates them.
+     * @param blockedAt     STAFF stopped them (Session 65). A login does not clear it. Two fields
+     *                      because they mean opposite things — see bmp-user's V006.
+     */
     record UserDto(
         UUID id, String phone, String name, String gender, Integer age, String email,
         String profilePhotoUrl, String hairType, String hairLength, String defaultRole,
-        boolean isVerified, Instant deactivatedAt, Instant createdAt, Instant updatedAt
+        boolean isVerified, Instant deactivatedAt, Instant createdAt, Instant updatedAt,
+        Instant blockedAt, String blockedReason
     ) {}
 
     @GetMapping("/api/v1/users/{userId}")
@@ -45,4 +52,44 @@ public interface UserServiceClient {
      */
     @PostMapping("/api/v1/users/{userId}/deactivate")
     ResponseEntity<UserDto> deactivate(@PathVariable("userId") UUID userId);
+
+    /**
+     * Erase the person's personal data. Session 56, and what an erasure request actually needs.
+     *
+     * <p>Deactivation was standing in for this and could not do the job: it leaves every field in
+     * place, and bmp-auth reverses it on the next successful OTP login — so a "deleted" account
+     * came back intact the moment its owner signed in.
+     *
+     * <p>Irreversible. bmp-user refuses to reactivate an anonymised row.
+     */
+    @PostMapping("/api/v1/users/{userId}/anonymise")
+    ResponseEntity<UserDto> anonymise(@PathVariable("userId") UUID userId,
+                                       @org.springframework.web.bind.annotation.RequestParam("reason") String reason);
+
+    /** Session 65 — administered contact change. See ConsoleController's account block. */
+    record ChangeContactRequest(String phone, String email) {}
+
+    @org.springframework.web.bind.annotation.PatchMapping("/api/v1/users/{userId}/contact")
+    UserDto changeContact(@PathVariable UUID userId, @RequestBody ChangeContactRequest req);
+
+    record BlockRequest(UUID staffId, String reason) {}
+
+    /**
+     * Block sign-in. Session 65.
+     *
+     * <h2>NOT {@link #deactivate}, and that distinction is the whole feature</h2>
+     * The console's Block button originally called {@code deactivate}. bmp-auth reactivates a
+     * deactivated account the moment its owner completes an OTP login — correct for somebody who
+     * paused themselves, catastrophic as a block. The button worked, the audit entry was written,
+     * and the person signed straight back in.
+     *
+     * <p>{@code deactivate} still exists and is still right for what it was built for: fulfilling
+     * an erasure request alongside {@link #anonymise}. Do not point Block at it again.
+     */
+    @PostMapping("/api/v1/users/{userId}/block")
+    ResponseEntity<UserDto> block(@PathVariable("userId") UUID userId, @RequestBody BlockRequest req);
+
+    /** Lift a block. Does not reactivate an account the person had deactivated themselves. */
+    @PostMapping("/api/v1/users/{userId}/unblock")
+    ResponseEntity<UserDto> unblock(@PathVariable("userId") UUID userId);
 }

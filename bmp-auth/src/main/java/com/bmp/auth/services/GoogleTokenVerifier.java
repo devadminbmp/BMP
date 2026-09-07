@@ -56,6 +56,24 @@ public class GoogleTokenVerifier {
         if (!expectedClientId.equals(info.aud)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Google token was not issued for this app");
         }
+        /*
+         * Session 56 — the issuer check that was missing.
+         *
+         * In practice tokeninfo only ever returns Google-issued tokens, so this cannot fail today
+         * and is defence rather than a fix. It matters because of what comes next: the natural
+         * optimisation here is to stop calling tokeninfo per login (it is rate-limited, adds a
+         * round trip to every sign-in, and makes Google being reachable a hard dependency of
+         * logging in) and verify the JWT locally against Google's JWKS instead.
+         *
+         * The moment somebody does that, `iss` becomes load-bearing — a locally-verified token
+         * with a valid signature from a DIFFERENT issuer would otherwise pass. Writing the check
+         * now means the swap cannot silently drop it.
+         */
+        if (info.iss != null
+                && !"accounts.google.com".equals(info.iss)
+                && !"https://accounts.google.com".equals(info.iss)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Google token has an unexpected issuer");
+        }
         if (!"true".equals(info.email_verified)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Google account email is not verified");
         }
@@ -71,5 +89,7 @@ public class GoogleTokenVerifier {
         public String aud;
         public String email;
         public String email_verified;
+        /** Session 56 — checked above. Both forms are legitimate for Google ID tokens. */
+        public String iss;
     }
 }

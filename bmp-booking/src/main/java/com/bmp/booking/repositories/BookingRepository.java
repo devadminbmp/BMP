@@ -4,6 +4,8 @@ import com.bmp.booking.entities.Booking;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.UUID;
 
@@ -20,6 +22,53 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
 
     Page<Booking> findBySalonIdAndStatusOrderByCreatedAtDesc(
             UUID salonId, com.bmp.booking.api.BookingStatus status, Pageable pageable);
+
+    /**
+     * Session 44 — the salon's history with filters: by stylist, by customer, or both.
+     *
+     * <h2>Why one query with nullable parameters instead of four derived methods</h2>
+     * Status × stylist × search is eight combinations. As derived method names that is eight
+     * signatures nobody can read; as a {@code @Query} with {@code :param IS NULL OR ...} it's one
+     * statement whose behaviour you can check by reading it. Postgres plans each variant fine
+     * because the null checks fold at plan time.
+     *
+     * <h2>The stylist lives on the ITEM, not the booking</h2>
+     * {@code assigned_stylist_id} is on {@code booking_service_item} — one booking can span two
+     * stylists (colour with one, cut with another). So this is an EXISTS over items rather than a
+     * column comparison, and "Ravi's bookings" means <b>bookings Ravi worked any part of</b>.
+     * A join would have multiplied the row out and broken the paging count; EXISTS keeps one row
+     * per booking, which is what the screen shows.
+     *
+     * <h2>What `search` deliberately does NOT match</h2>
+     * Name and booking reference only — <b>not phone</b>. V006 refused an index on
+     * {@code customer_phone} on the grounds that phone lookup is an effective way to enumerate
+     * the platform's customers and belongs in bmp-admin where it is audited. Adding phone here
+     * would route around that decision through the back door, one salon at a time. The salon
+     * already sees these names on its own desk, so name search grants nothing new; phone search
+     * would.
+     *
+     * <p>Every variant is ANDed with {@code salonId}, so this can only ever return the caller's
+     * own bookings — the search is a filter over rows they already hold, not a lookup across
+     * the platform.
+     */
+    @Query("""
+            SELECT b FROM Booking b
+             WHERE b.salonId = :salonId
+               AND (:status IS NULL OR b.status = :status)
+               AND (:stylistId IS NULL OR EXISTS (
+                     SELECT 1 FROM BookingServiceItem i
+                      WHERE i.bookingId = b.id AND i.assignedStylistId = :stylistId))
+               AND (:search IS NULL
+                    OR LOWER(b.customerName) LIKE LOWER(CONCAT('%', :search, '%'))
+                    OR LOWER(b.bookingRef)  LIKE LOWER(CONCAT('%', :search, '%')))
+             ORDER BY b.createdAt DESC
+            """)
+    Page<Booking> searchSalonHistory(
+            @Param("salonId") UUID salonId,
+            @Param("status") com.bmp.booking.api.BookingStatus status,
+            @Param("stylistId") UUID stylistId,
+            @Param("search") String search,
+            Pageable pageable);
 
     /**
      * Session 21: the staff console's booking lookup.
@@ -59,6 +108,17 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
      * somebody has to remember. There is deliberately no single-argument variant for the salon
      * side.
      */
+    /**
+     * The same boundary, for a COUNTER customer. Session 52.
+     *
+     * <p>`salon_customer` rows are already salon-scoped, so a stranger's id would return nothing
+     * anyway — but the pair is in the method name for the identical reason as the method below it:
+     * a single-argument variant is the thing that gets misused later, and there is no legitimate
+     * query in this product that asks for one salon-customer's bookings across salons.
+     */
+    Page<Booking> findBySalonIdAndSalonCustomerIdOrderByCreatedAtDesc(
+            UUID salonId, UUID salonCustomerId, Pageable pageable);
+
     Page<Booking> findBySalonIdAndCustomerIdOrderByCreatedAtDesc(
             UUID salonId, UUID customerId, Pageable pageable);
 

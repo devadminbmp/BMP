@@ -12,8 +12,9 @@ the live Swagger UI (`http://localhost:8081/swagger-ui/index.html`) mirrors it.
 - **Tokens:** a short-lived **access token** (JWT, ~15 min) sent as
   `Authorization: Bearer <accessToken>` on every authenticated call, and a long-lived opaque
   **refresh token** (~30 days, `selector.verifier` format) exchanged for new access tokens.
-- **Local dev shortcut:** the OTP `000000` **always works** for any phone (see §7). You
-  still must call `/otp/request` first so a code record exists.
+- **Local dev shortcut:** the OTP `000000` works for the **six seeded test phones only**
+  (Session 43 — see §7). Every other number gets a real code by email. You still must call
+  `/otp/request` first so a code record exists, and codes are now single-use.
 
 ---
 
@@ -205,14 +206,31 @@ with the HTTP status carrying the real meaning (`400/401/410/423/429/501`).
 
 ## 7. Local dev notes
 
-- **`otp: "000000"` always verifies**, for any phone, on the local (default) profile —
-  `bmp.auth.dev-master-otp`, disabled on staging/prod. You still call `/otp/request` first.
-- Prefer the real code? It's printed in the **bmp-notification** console log after
-  `/otp/request` (SMS + email stubs) — same expiry/attempt rules apply to it.
-- SMS/WhatsApp are console-log stubs (need a gateway + DLT). **Email can now send for real**
-  — set `BMP_EMAIL_PROVIDER=smtp` + `BMP_SMTP_USERNAME`/`BMP_SMTP_PASSWORD` on
-  bmp-notification (defaults to Gmail SMTP); leave unset for console-log. Google Sign-In is
-  configured. None of this blocks building/testing auth (`000000` works regardless).
+- **`otp: "000000"` verifies for the six seeded test phones only** (Session 43) — see
+  `bmp.auth.dev-master-otp-phones` and `docs/TEST_CREDENTIALS.md`. It used to work for *any*
+  number; that was a master key to every account, and it meant nobody ever exercised the real
+  emailed-code path. **Any other number gets a real code, by email.** You still call
+  `/otp/request` first. Disabled entirely on staging/prod.
+- **Codes are single-use** (V005, `otp_requests.consumed_at`). A second verify with the same code
+  returns `410 GONE — This code has already been used`, whether or not it has expired. Applies to
+  the master OTP too.
+- **Email is the only live channel.** Set `BMP_EMAIL_PROVIDER=smtp` plus
+  `BMP_SMTP_USERNAME`/`BMP_SMTP_PASSWORD` on bmp-notification (Gmail SMTP by default); leave
+  unset for a console-log stub. Google Sign-In is configured.
+- **SMS and WhatsApp send nothing.** Both are stubs wired at the correct call sites and disabled
+  by default (`bmp.notification.channels.sms.enabled`, `...whatsapp.enabled`). Neither is blocked
+  on code: SMS needs TRAI DLT registration of the entity, header and every template; WhatsApp
+  needs a Business account plus Meta template approval. Turning a flag on today only makes the
+  stub log what it *would* send — useful for seeing the traffic before you pay for it.
+
+### Errors worth knowing about (Session 43)
+
+| Status | When | Note |
+|---|---|---|
+| `404` | verify with `loginOnly: true` and no account exists | Sign-in doors set this so a mistyped number fails instead of quietly creating a customer account. |
+| `400` | verify, unknown phone, no email | Message now says *"No account exists for this number yet"* — it used to say *"email is required to sign up"*, which described the code's problem rather than the user's. |
+| `410` | verify with an already-used code | Single-use, per V005. |
+| `503` | bmp-user or bmp-salon unreachable | `lookupUserByPhone`/`resolveSalonScope` no longer swallow outages as "no such user"/"no salon". Retry. |
 
 ---
 

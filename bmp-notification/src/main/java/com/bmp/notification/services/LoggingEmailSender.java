@@ -39,4 +39,20 @@ public class LoggingEmailSender implements EmailSender {
         log.info("[EMAIL STUB — no SMTP provider configured] to={} subject=\"{}\" body=\"{}\"",
                 toEmail, subject, body);
     }
+
+    /**
+     * Logs the PLAIN-TEXT part, not the HTML. Session 48.
+     *
+     * <p>Deliberate: dumping a few hundred lines of table markup into the console for every mail
+     * would bury the one thing anyone reads a stub log for — the OTP code, the salon name, the
+     * rejection reason. The text alternative carries the same information by design (see
+     * {@link EmailSender#sendHtml}), so logging it loses nothing that matters here.
+     *
+     * <p>If you need to eyeball the HTML itself, switch to smtp and send to your own address.
+     */
+    @Override
+    public void sendHtml(String toEmail, String subject, String htmlBody, String textBody) {
+        log.info("[EMAIL STUB — no SMTP provider configured] to={} subject=\"{}\" (html, {} chars) body=\"{}\"",
+                toEmail, subject, htmlBody == null ? 0 : htmlBody.length(), textBody);
+    }
 }

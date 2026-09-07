@@ -198,10 +198,43 @@ public class Booking {
     @Column(name = "cancellation_fee_reason", length = 20)
     private String cancellationFeeReason;
 
+    // ══ V009 (Session 52) — bookings taken at the counter or over the phone. ══════════════════
+
+    /**
+     * {@code online} = booked in the app by a BMP account. {@code counter} = taken by salon staff
+     * for somebody with no account.
+     *
+     * <p>Not derivable from "customerId is null" for long — a counter customer who later signs up
+     * gets linked, and would then have both — so it is stored rather than inferred. It decides who
+     * gets notified, whether an online payment order is opened, and how the row is read back.
+     */
+    @Setter
+    @Column(name = "source", nullable = false, length = 10)
+    private String source = "online";
+
+    /**
+     * {@code salon_schema.salon_customer.id} — the SALON's own contact record (V026), NOT a BMP
+     * user. Set for counter bookings, null for online ones; the CHECK in V009 makes that exclusive.
+     *
+     * <p>No foreign key: it points into another service's schema, and a cross-service FK turns one
+     * service's migration into the other's outage.
+     */
+    @Setter
+    @Column(name = "salon_customer_id")
+    private UUID salonCustomerId;
+
+    /** Which member of salon staff took it down. Useful when a quoted price is disputed. */
+    @Setter
+    @Column(name = "taken_by_staff_id")
+    private UUID takenByStaffId;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    /** True when this was taken at the salon rather than booked through the app. */
+    public boolean isCounterBooking() { return "counter".equals(source); }
 
     protected Booking() {} // JPA
 

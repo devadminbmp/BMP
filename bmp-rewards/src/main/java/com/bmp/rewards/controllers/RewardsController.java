@@ -46,18 +46,27 @@ public class RewardsController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.createCoupon(req));
     }
 
-    /**
-     * Any signed-in user. Validation is a read: it answers "would this code work for this
-     * basket", changes nothing, and reveals nothing the customer couldn't learn by trying.
-     * Deliberately NOT public — an unauthenticated caller could brute-force the coupon
-     * namespace to discover live codes.
+    /*
+     * ═══════════════════════════════════════════════════════════════════════════════════════════
+     * REMOVED IN SESSION 55: POST /api/v1/coupons/validate
+     * ═══════════════════════════════════════════════════════════════════════════════════════════
+     * There were TWO live implementations of "is this coupon valid for this basket", and they
+     * disagreed. This endpoint ran RewardsService.validate — six rules, and NONE of:
+     *
+     *   · the audience check (selected_users / new_users / referred_users, V003). A coupon issued
+     *     to three named people validated for everybody.
+     *   · max_discount_paise. "20% up to ₹100" validated as an uncapped 20%.
+     *   · the first-booking rule for welcome coupons, which was commented
+     *     "skipped (assumed true) in this CRUD-first pass".
+     *
+     * POST /api/v1/coupons/quote (CouponRedemptionController) applies all of them, and is what the
+     * app has always called. So the weaker one was reachable by any authenticated user and shipped
+     * answers the real redemption would refuse — which is worse than no preview at all, because a
+     * customer is shown a discount and then charged full price.
+     *
+     * The rule this restores: ONE QUESTION, ONE IMPLEMENTATION. Two of them is two answers, and
+     * the one that quietly wins is whichever runs second.
      */
-    @Operation(summary = "Validate a coupon against an in-progress order", description = "Runs all 6 locked validation rules in order; returns the FIRST failure, not all of them.")
-    @PreAuthorize("isAuthenticated()")
-    @PostMapping("/api/v1/coupons/validate")
-    public ValidateCouponResponse validate(@Valid @RequestBody ValidateCouponRequest req) {
-        return service.validate(req);
-    }
 
     /**
      * Your own wallet, or a service.

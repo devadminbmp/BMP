@@ -12,6 +12,9 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.UUID;
 
@@ -58,5 +61,51 @@ public class BookingAvailabilityService {
         }
 
         return windows;
+    }
+
+    /**
+     * Busy windows for EVERY stylist at a salon on one day, in two queries. Session 52.
+     *
+     * <h2>The problem this solves</h2>
+     * bmp-salon's {@code freeSlotsAnyStylist} loops over the salon's team and calls
+     * {@link #getBusyWindows} once per stylist — each one a separate cross-service HTTP round
+     * trip. Six stylists meant six sequential calls for one "what's free today?", which is the
+     * lag on the slot picker.
+     *
+     * <p>This does the same work in one item query plus one lock query, whatever the team size.
+     *
+     * @param stylistIds the salon's stylists. Slot locks have no salon column, so they are looked
+     *                   up by id; an empty list skips that query entirely rather than emitting
+     *                   {@code IN ()}, which is invalid SQL.
+     * @return stylist id → their busy windows. A stylist with nothing booked is ABSENT from the
+     *         map rather than present with an empty list — callers must use
+     *         {@code getOrDefault(id, List.of())}, which is the same shape as asking individually
+     *         and getting nothing back.
+     */
+    public Map<UUID, List<BusyWindow>> getBusyWindowsForSalon(
+            UUID salonId, LocalDate date, Collection<UUID> stylistIds, UUID excludeBookingId) {
+
+        Instant dayStart = date.atStartOfDay(BmpTimeZone.ZONE).toInstant();
+        Instant dayEnd = date.plusDays(1).atStartOfDay(BmpTimeZone.ZONE).toInstant();
+
+        Map<UUID, List<BusyWindow>> out = new HashMap<>();
+
+        for (BookingServiceItem item : itemRepo.findBusyItemsForSalon(
+                salonId, dayStart, dayEnd, excludeBookingId)) {
+            LocalTime start = item.getServiceStart().atZone(BmpTimeZone.ZONE).toLocalTime();
+            LocalTime end = item.getServiceEnd().atZone(BmpTimeZone.ZONE).toLocalTime();
+            out.computeIfAbsent(item.getAssignedStylistId(), k -> new ArrayList<>())
+               .add(new BusyWindow(start, end, "booking"));
+        }
+
+        if (stylistIds != null && !stylistIds.isEmpty()) {
+            for (SlotLock lock : lockRepo.findActiveLocksForStylists(stylistIds, date, Instant.now())) {
+                out.computeIfAbsent(lock.getStylistId(), k -> new ArrayList<>())
+                   .add(new BusyWindow(LocalTime.parse(lock.getStartTime()),
+                                       LocalTime.parse(lock.getEndTime()), "slot_lock"));
+            }
+        }
+
+        return out;
     }
 }

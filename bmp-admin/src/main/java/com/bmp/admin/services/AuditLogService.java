@@ -19,6 +19,9 @@ import java.util.UUID;
 @Service
 public class AuditLogService {
 
+    private static final org.slf4j.Logger log =
+            org.slf4j.LoggerFactory.getLogger(AuditLogService.class);
+
     private final AuditLogRepository repo;
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -70,6 +73,14 @@ public class AuditLogService {
         try {
             metadata = mapper.readValue(a.getMetadata(), Map.class);
         } catch (Exception e) {
+            /*
+             * Session 65 — was a silent empty map. An audit entry whose metadata will not parse is
+             * an audit entry that has quietly lost the detail somebody is reading it for, and an
+             * empty map is indistinguishable from an action that carried no metadata. Still
+             * degrades rather than throwing — a broken row must not hide the rest of the log.
+             */
+            log.warn("Audit entry {} has metadata that will not parse — showing it as empty ({})",
+                    a.getId(), e.toString());
             metadata = Map.of();
         }
         return new AuditLogResponse(a.getId(), a.getActorType(), a.getActorId(), a.getAction(),

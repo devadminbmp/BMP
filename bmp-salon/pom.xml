@@ -68,6 +68,15 @@
       <groupId>org.springframework.cloud</groupId>
       <artifactId>spring-cloud-starter-bus-kafka</artifactId>
     </dependency>
+  <!-- Session 44: image upload. bmp-common declares the S3 SDK as OPTIONAL so the other
+       twelve services don't carry ~12MB they never use; bmp-salon is the one service that
+       stores files, so it opts in here. Version comes from the BOM in the root pom. This
+       dependency is also what activates StorageAutoConfiguration's @ConditionalOnClass. -->
+  <dependency>
+    <groupId>software.amazon.awssdk</groupId>
+    <artifactId>s3</artifactId>
+  </dependency>
+
 </dependencies>
 
   <build>

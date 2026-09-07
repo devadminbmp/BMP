@@ -45,14 +45,18 @@ public class ReviewController {
     /**
      * CUSTOMER only, and the author is taken from the token.
      *
-     * <p>Still does NOT verify the customer attended — that check needs bmp-booking and is
-     * PENDING_WORK S3. So this remains open to a logged-in customer reviewing a booking that
-     * isn't theirs. Narrower than before (it was open to anyone with any role) and not yet right;
-     * recording the author is what makes the eventual check possible.
+     * <p><b>Session 54 — attendance IS now verified.</b> This javadoc previously read "still does
+     * NOT verify the customer attended… so this remains open to a logged-in customer reviewing a
+     * booking that isn't theirs", which was accurate and stayed true for eleven sessions.
+     * {@code ReviewService.requireReviewable} now confirms, against bmp-booking, that the booking
+     * exists, belongs to the caller, is COMPLETED, and finished inside the review window.
+     *
+     * <p>The salon and stylist on the review are taken from the BOOKING. The request still carries
+     * both for backward compatibility and both are ignored — trusting them let a genuine customer
+     * attach a genuine review to a salon they never visited.
      */
     @Operation(summary = "Leave a review for a completed booking",
-               description = "The author is taken from your token, never the body. Attendance is "
-                   + "NOT yet verified — see PENDING_WORK S3.")
+               description = "The author is taken from your token, never the body. Session 54: the booking must exist, be yours, be COMPLETED, and have finished within the last 90 days — 404 / 403 / 409 respectively. The salon and stylist are resolved from the booking; the ones in the body are ignored.")
     @PreAuthorize("hasRole('CUSTOMER')")
     @PostMapping("/api/v1/bookings/{bookingId}/review")
     public ResponseEntity<ReviewResponse> create(@PathVariable UUID bookingId,
@@ -60,6 +64,27 @@ public class ReviewController {
                                                   @AuthenticationPrincipal AuthenticatedUser caller) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(service.create(bookingId, req, caller.userId()));
+    }
+
+    /**
+     * The review this customer already left for this booking, or 404. Session 54.
+     *
+     * <h2>Why it is scoped to the author, not public</h2>
+     * A salon's reviews are public and readable at {@code /salons/{id}/reviews}. This route
+     * answers a different question — "have I reviewed this yet?" — and the booking id is the key.
+     * Making it public would turn a booking id into a lookup for whether that specific
+     * appointment was reviewed and how, which is the customer's business.
+     *
+     * <p>{@code requireAuthor} is what makes it theirs: the review's {@code authorUserId} must be
+     * the caller. Without it, any customer holding a booking id could read its review.
+     */
+    @Operation(summary = "The review I left for this booking",
+               description = "Your own review for this booking, or 404 if you haven't left one. Used so the app shows your rating instead of offering a button that would be refused as a duplicate.")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @GetMapping("/api/v1/bookings/{bookingId}/review")
+    public ReviewResponse myReviewForBooking(@PathVariable UUID bookingId,
+                                              @AuthenticationPrincipal AuthenticatedUser caller) {
+        return service.myReviewForBooking(bookingId, caller.userId());
     }
 
     @Operation(summary = "Get a review by id")
@@ -74,6 +99,41 @@ public class ReviewController {
                                       @RequestParam(defaultValue = "0") int page,
                                       @RequestParam(defaultValue = "20") int size) {
         return service.listForSalon(salonId, page, size);
+    }
+
+    /**
+     * What customers said about one stylist. Session 48.
+     *
+     * <h2>Why the path is {@code /api/v1/reviews/...} and not {@code /api/v1/stylists/...}</h2>
+     * The gateway routes {@code /api/v1/stylists/**} to bmp-salon-service. A stylist-shaped path
+     * here would never reach this service — it would 404 at the gateway, and the symptom would
+     * look like a broken screen rather than a routing mistake. Same class of bug as Session 44's
+     * missing {@code /api/v1/coupon-requests/**} route.
+     *
+     * <p>(Related, and NOT fixed here: {@code GET /api/v1/salons/&#123;id&#125;/reviews} above has
+     * the same problem — {@code /api/v1/salons/**} routes to bmp-salon, so that endpoint is
+     * unreachable through the gateway today. Flagged rather than fixed, because it needs a route
+     * ordered ahead of salon-service and that is a change worth making deliberately.)
+     *
+     * <h2>Why it needs a login but not a specific role</h2>
+     * Two segments after {@code /reviews}, so this service's {@code /api/v1/reviews/*} public-path
+     * does not match it — Ant's single {@code *} is one segment. A token is therefore required.
+     *
+     * <p>Any signed-in user may read it, and that is intentional: review content is public by
+     * nature (salon reviews already are), and restricting it to the stylist themselves would mean
+     * bmp-review needed to know the user→stylist mapping, which lives in bmp-salon. The response
+     * carries no author identity, so there is nothing here a customer could not already see on the
+     * salon's page.
+     */
+    @Operation(summary = "Reviews about one stylist",
+               description = "Rating, 1-5 distribution and the reviews themselves. Carries NO "
+                   + "customer identity — a stylist cannot tell who left a bad review.")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/api/v1/reviews/stylist/{stylistId}")
+    public StylistReviews listForStylist(@PathVariable UUID stylistId,
+                                          @RequestParam(defaultValue = "0") int page,
+                                          @RequestParam(defaultValue = "20") int size) {
+        return service.listForStylist(stylistId, page, Math.min(size, 100));
     }
 
     @Operation(summary = "Edit a review", description = "Only within 7 days of creation. Editing the review text (not just the star rating) sets needsRemoderation.")

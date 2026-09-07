@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -69,6 +70,40 @@ public class AdminSecurityConfig {
                         "/api/v1/admin/auth/activate",
                         "/api/v1/admin/auth/refresh").permitAll()
                 .anyRequest().authenticated())
+            /*
+             * ══════════════════════════════════════════════════════════════════════════════════
+             * 401 WHEN THERE IS NO SESSION, 403 ONLY WHEN THERE IS ONE AND IT IS NOT ENOUGH.
+             * Session 65.
+             * ══════════════════════════════════════════════════════════════════════════════════
+             * Without an explicit entry point, Spring Security 6 answers an UNAUTHENTICATED
+             * request to a protected path with 403. That is the wrong code and it produced a
+             * genuinely baffling bug:
+             *
+             *   · The staff token expires (or StaffAuthFilter cannot parse it).
+             *   · No Authentication is set, so `anyRequest().authenticated()` denies.
+             *   · Spring returns 403.
+             *   · The console treats 401 as "session over" and 403 as "you lack a permission",
+             *     so it neither refreshes nor signs out — it just renders "Request failed with
+             *     status code 403" on every panel.
+             *   · The shell still looks signed in, because it restores from sessionStorage
+             *     without revalidating (VITE_DEV_PERSIST_SESSION).
+             *
+             * The result: a SUPER ADMIN — who passes every @PreAuthorize on the platform —
+             * staring at 403 on Salon approvals, which reads as a broken permission model rather
+             * than an expired login.
+             *
+             * The distinction is the whole point of having two codes. 401 means "I don't know who
+             * you are, sign in again". 403 means "I know exactly who you are and the answer is
+             * still no". Only the second is about permissions.
+             */
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.getWriter().write(
+                            "{\"error\":\"SESSION_EXPIRED\","
+                            + "\"message\":\"Your console session has ended. Sign in again.\"}");
+                }))
             .addFilterBefore(staffAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

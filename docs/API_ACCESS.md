@@ -119,6 +119,7 @@ where bookings get abandoned.
 | GET | `/salons/{id}/stylists` | Who works here | On that page. |
 | GET | `/stylists/{id}` | Stylist profile | Ratings are public by design — that's the point of a marketplace. |
 | GET | `/availability/slots`, `/slots/any` | Free times | A guest picks a time, *then* logs in. Reveals no more than a phone call would. |
+| GET | `/availability/salon-day` | Who's free today, batched | Session 52. Same disclosure as the two above — who works here and when they're free — in ONE call instead of one per stylist. Public for the same reason: gating it moves the login wall to before "can you fit me in?", which is where bookings get abandoned. |
 
 > **Known minor exposure:** `/salons/{id}/stylists` returns `stylistUserId` (added Session 26 so
 > the stylist dashboard can identify its own user). It is an opaque UUID that grants nothing —
@@ -138,6 +139,14 @@ where bookings get abandoned.
 | PUT | `/salons/{id}/stylists/{sid}/available-today` | Owner, manager, **or stylist** | "I'm not in today" is the stylist's own call. See the caveat below. |
 | POST | `/salons/{id}/stylists/{sid}/alumni` | **Owner only** | Ends an employment relationship, freezes ratings permanently, and **cannot be undone**. |
 | POST | `/salons/{id}/stylists/{sid}/services` | Owner or manager | Can carry a per-stylist price override. |
+| POST | `/bookings/counter` | Owner or manager of THIS salon | Session 52. Takes a real booking for someone with no BMP account. The salon comes from the **token**, never the body — a `salonId` here would let one salon write bookings, and contact records, into another's diary. The customer record is created server-side from the name and phone, so a manager cannot attach a booking to a customer id they typed. Stylists are excluded: taking bookings and holding contact details is the desk's job. |
+| GET/POST | `/salon-customers`, `/salon-customers/{id}` | Owner or manager of THIS salon | Session 52. The salon's own contact book. **No `salonId` parameter on any customer-facing route** — a contact list is the most saleable thing a salon owns, and a parameter here would let any owner page through a competitor's regulars with names and numbers. Not visible to stylists, consistent with Sessions 48/49. |
+| POST | `/salon-customers/internal/{salonId}/**` | `ROLE_SERVICE` | Called by bmp-booking during a counter booking. `salonId` IS a parameter here because a service caller has no salon of its own; safe only because `ROLE_SERVICE` comes from the internal key, and bmp-booking passes the salon it took from the manager's token. |
+| POST | `/bookings/{id}/review` | `ROLE_CUSTOMER` **and** the booking must be yours | Session 54. Previously any customer could review any booking id, including invented ones. Now verified against bmp-booking: exists / yours / COMPLETED / within 90 days. Salon and stylist resolved from the booking, not the body. **Routed to bmp-review**, not bmp-booking — see the gateway comment. |
+| GET | `/bookings/{id}/review` | Author only | Session 54. "Have I reviewed this yet?" 404 both when no review exists and when one exists but isn't yours — a booking id must not reveal somebody else's review. |
+| PUT | `/salon-customers/{id}` | Owner or manager of THIS salon | Session 53. Name, email and note only — the PHONE is deliberately not editable, being the unique key the customer's whole visit history was matched by. |
+| GET | `/bookings/salon/counter-customer/{id}` | Owner or manager of THIS salon | Session 53. One counter customer's visits here. Salon-scoped from the token; 404 on none, so one salon cannot probe for another's customer ids by watching which return 200. |
+| GET | `/salons/internal/stylist-contact/{id}` | `ROLE_SERVICE` | Session 53. Name + userId only, so bmp-booking can resolve an address to notify a stylist. Deliberately narrower than `/stylists/{id}`: a booking service has no business holding somebody's moderation history. |
 | POST | `/availability/walk-in` | Owner or manager | Blocks a stylist's calendar. Unprotected, this was a way to take the platform's supply offline silently. Stylists are excluded: blocking their own time is the *time-off* flow, which records it as such. |
 | All | `/salons/{id}/combos/**` | Owner or manager | Class-level rule. Reads are included because combos have **no customer-facing UI at all** — widening access for a hypothetical consumer is how things end up open. |
 | POST | `/salons/{id}/invites`, GET/DELETE invites | Owner or manager | Staffing the floor. |
@@ -294,39 +303,327 @@ must live under `/api/v1/admin/**` or carry its own rule.
 
 ---
 
+## 8b. Sessions 48–49 — stylist self-service, leave, the booking window, invoices
+
+Everything added since the table above was last regenerated. Same rule as the rest of this file:
+**every endpoint gets a reason, and if you can't write the reason that's the finding.**
+
+### bmp-salon — a stylist's own account (`/api/v1/stylist-profile/**`)
+
+Scoped entirely from the token. **No endpoint here takes a stylist id**, so there is nothing in a
+path or body to swap for a colleague's — the shape of hole this codebase keeps finding
+("authorise the path, then trust the body") is absent because there is no id to trust.
+
+| Method + path | Guard | Why |
+|---|---|---|
+| `POST /stylist-profile` | `isAuthenticated()` | A **customer** presses "I'm a stylist". Requiring the stylist role to become one would be a door openable only from inside. Grants no salon access. |
+| `GET/PUT /stylist-profile` | `isAuthenticated()` | Their own record. Editable with no salon attached — the profile is theirs, not the salon's. |
+| `GET /stylist-profile/salons` | `isAuthenticated()` | Work history, including alumni. That list is what survives changing jobs. |
+| `POST /stylist-profile/leave` | `hasRole('STYLIST')` | Ask for time off. Blocks nothing until approved. |
+| `GET /stylist-profile/leave` | `hasRole('STYLIST')` | Their own requests. |
+| `DELETE /stylist-profile/leave/{id}` | `hasRole('STYLIST')` | Withdraw — works **after** approval too; ownership re-checked against the caller. |
+| `GET/PUT /stylist-profile/available-today` | `hasRole('STYLIST')` | The salon-scoped version lists STYLIST **and** requires `principal.salonId()`, which a stylist's JWT never has — so it could never pass for the role it names. |
+| `POST /stylist-profile/join-requests` | `isAuthenticated()` | Ask a salon to add you. Creates **no** link. |
+| `POST /stylist-profile/leave` etc. | — | All resolve the stylist from `caller.userId()`. |
+
+> **Path note.** These live under `/stylist-profile`, **not** `/stylists/me`.
+> `/api/v1/stylists/*` is in bmp-salon's **public-paths** (it serves a stylist's page to browsing
+> customers) and a single Ant `*` matches one segment — so `/stylists/me` would have had the JWT
+> filter skipped entirely and run with no principal.
+
+### bmp-salon — the salon's side
+
+| Method + path | Guard | Why |
+|---|---|---|
+| `GET /salons/{id}/join-requests` | owner/manager **of that salon** | Adding someone to the floor is day-to-day work. |
+| `POST /salons/{id}/join-requests/{r}/decide` | owner/manager of that salon | **Accepting is the only thing that creates a `stylist_salon` row.** Decline requires a note. |
+| `GET /salons/{id}/leave-requests` | owner/manager of that salon | Soonest first — next week needs answering before next month. |
+| `POST /salons/{id}/leave-requests/{r}/decide` | owner/manager of that salon | **Approving writes the blocking availability rows.** Decline requires a note. |
+| `DELETE /salons/{id}/leave-requests/{r}` | owner/manager of that salon | Revoke an approval; removes the rows. |
+| `POST /salons/{id}/policy` | `hasRole('SALON_OWNER')` + own salon | Carries the V022 booking window. **`commissionBps` is refused here** — Session 48 closed that money hole. |
+| `GET /salons/internal/stylist-by-user/{userId}` | `hasRole('SERVICE')` | bmp-booking resolving a stylist's scope. **This call IS the authorization** for the stylist schedule endpoints. |
+
+### bmp-booking — the stylist's schedule, and money
+
+| Method + path | Guard | Why |
+|---|---|---|
+| `GET /bookings/stylist/day` | `hasRole('STYLIST')` | Own appointments. **No `stylistId` parameter** — resolved from the token via bmp-salon, so there is nothing to change to read a colleague's day. |
+| `GET /bookings/stylist/upcoming` | `hasRole('STYLIST')` | As above. |
+| `GET /bookings/stylist/history` | `hasRole('STYLIST')` | As above. |
+| `GET /bookings/{id}/invoice` | `hasRole('CUSTOMER')` | Own bill. Ownership checked against the **invoice's** frozen customer, not the booking's. 404 (not 403) on mismatch, so a bill's existence can't be probed. |
+| `GET /salons/{s}/bookings/{b}/invoice` | owner/manager of that salon | The salon's copy. |
+| `POST /salons/{s}/bookings/{b}/invoice` | owner/manager of that salon | Raise a bill for a pre-feature booking. Idempotent. |
+| `POST /salons/{s}/invoices/{i}/payment` | owner/manager of that salon | Record a counter payment. Stores **who** said so. |
+
+> **STYLIST is deliberately absent from every row in the money half of that table.** A stylist has
+> no money surface anywhere in BMP — `BookingDtos.StylistScheduleEntry` has no field for a
+> customer id, phone, email, surname or any amount — and an invoice endpoint would be the single
+> hole in it.
+
+### bmp-review
+
+| Method + path | Guard | Why |
+|---|---|---|
+| `GET /reviews/stylist/{id}` | `isAuthenticated()` | A stylist's own reviews. Two segments after `/reviews`, so the public-path `/api/v1/reviews/*` does **not** match it. Any signed-in user may read it — review content is public by nature — and the response carries **no author identity**, so a stylist cannot work out who left a bad review. |
+
+### Gateway routing is part of the access story
+
+Three salon-shaped paths are served by other services and their routes **must stay declared above
+`salon-service`**, which claims all of `/api/v1/salons/**`:
+
+```
+/api/v1/salons/*/reviews              -> bmp-review
+/api/v1/salons/*/bookings/**          -> bmp-booking
+/api/v1/salons/*/invoices/**          -> bmp-booking
+```
+
+`GatewayRouteTest.salonShapedPathsGoToTheRightService` pins this by asking which route matches
+FIRST for each real path. It exists because the reviews route was mis-pointed from the day the
+endpoint was written, and `/api/v1/stylist-profile/**` had no route at all — every Session 48/49
+stylist endpoint 404'd at the gateway while working perfectly against the service directly.
+
+---
+
+## 8c. Sessions 50–51 — payments, and platform power over a stylist
+
+### bmp-payment
+
+| Method + path | Guard | Why |
+|---|---|---|
+| `POST /payment-orders/booking/{bookingId}` | `hasRole('SERVICE')` | Called by bmp-booking at booking time. Freezes the split using the **SALON'S own rate**, never a platform constant. Idempotent — a retried booking returns the existing order rather than failing a customer who did nothing wrong. |
+| `POST /payment-orders/webhook` | **PUBLIC — by necessity** | The gateway calls it from its own servers holding no BMP credential, so there is no token to require. **Its only defence is the HMAC-SHA256 signature check**, verified in constant time. An unset webhook secret makes the verifier refuse *everything* rather than accept everything — payments stop, which someone notices in minutes; the alternative is forged webhooks, which nobody notices. |
+| `GET /payment-orders/{id}` | `hasRole('SERVICE')` | A payment order reveals what somebody paid and the commission split on it. No end-user role belongs here, not even for reads. |
+
+> **The public path is an EXACT match**, not a prefix. `/api/v1/payment-orders/**` would re-open
+> the dev-only status setter that can mark a payment captured — the very hole the file's own note
+> records closing.
+
+### bmp-salon — platform power over a stylist (V025)
+
+| Method + path | Guard | Why |
+|---|---|---|
+| `POST /salons/{id}/stylists/{sid}/alumni` | owner **or manager** of that salon | Employment. Widened from owner-only in Session 51: it was restricted because removal was irreversible, and Session 48 made re-adding restore the same row. |
+| `GET /salons/internal/stylists/{id}` | `hasRole('SERVICE')` | The console's read, including suspension state and current salons. |
+| `POST /salons/internal/stylists/{id}/suspend` | `hasRole('SERVICE')` | Bars them from BMP. Reason required (min 5 chars) — enforced here, in bmp-admin, and by a CHECK constraint. |
+| `POST /salons/internal/stylists/{id}/reinstate` | `hasRole('SERVICE')` | Lifts the bar. |
+| `POST /salons/internal/salons/{sid}/stylists/{id}/remove` | `hasRole('SERVICE')` | Admin-initiated employment removal. Routes through the SAME `markAlumni` the owner calls, so "removed" means one thing however it happened. |
+
+### bmp-admin — the console's door to the above
+
+| Method + path | Guard | Why |
+|---|---|---|
+| `GET /admin/stylists/{id}` | `SUPER_ADMIN`, `OPS_ADMIN`, `SUPPORT_AGENT` | Reading a record is support work. |
+| `GET /admin/stylists/suspended` | same | The "who is barred" list. |
+| `POST /admin/stylists/{id}/suspend` | `SUPER_ADMIN`, `OPS_ADMIN` | **Not SUPPORT_AGENT.** Ending somebody's ability to earn is not support work — an agent on an angry 9pm call should not be able to bar the person being complained about. |
+| `POST /admin/stylists/{id}/reinstate` | `SUPER_ADMIN`, `OPS_ADMIN` | Same reasoning inverted. |
+| `POST /admin/salons/{sid}/stylists/{id}/remove` | `SUPER_ADMIN`, `OPS_ADMIN` | Employment, not a ban. |
+
+All five write actions are written to the audit log with the staff member, their role, the IP and
+the justification — "who barred this person, and why?" has to outlive the person who decided.
+
+### Enforcement is not in the UI
+
+A suspended stylist is blocked at **four** independent points, via `StylistSuspensionGuard`:
+invite redemption, owner add, join-request acceptance, and **availability**. The last matters most
+— without it, somebody suspended today keeps taking bookings at the salon they were already on,
+which is exactly the case suspension exists for.
+
+---
+
+## 8d. Session 65 — account administration, scoped by whose account it is
+
+Darshan's rule, verbatim: *"number changes, email changes, account block, account remove of
+customers can be done by support ... customer and support accounts can be done by ops admin ...
+all kind of accounts can be done by main admin."*
+
+### The thing that is easy to get wrong
+
+**There are two account tables, not one.**
+
+| Table | Who is in it | How they sign in | Screen | Rule lives in |
+|---|---|---|---|---|
+| `user_schema.users` | customers, salon owners, managers, stylists | phone + emailed OTP | Users / Customer help | `AccountScope.java` |
+| `admin_schema.bmp_staff` | support agents and leads, finance, ops, the owner | password + TOTP | Staff accounts | `StaffAccountScope.java` |
+
+"Ops admin can manage support accounts" **cannot** be satisfied by the user endpoints, because
+support agents have no row there. That half of the requirement is the staff screen, and it needed
+its own change: the route was `staff:manage` (owner-only) and had to become `account:manage_staff`.
+
+### Permissions
+
+| Permission | Held by | Means |
+|---|---|---|
+| `account:manage_customer` | support agent, support lead, ops admin | act on a customer |
+| `account:manage_staff` | ops admin | act on salon-side people, and on the support desk |
+| `account:manage_any` | super admin only | act on anyone, including other admins |
+
+Finance deliberately has **none**: whoever moves the money should not be able to alter the identity
+the money is attached to.
+
+`StaffPermission.permissionsFor(super_admin)` now **derives** its set by reading the constants off
+the class instead of listing them. The hand-written list had already drifted — the three
+permissions above existed, `has()` granted them to the owner as a wildcard, and `permissionsFor`
+did not return them, so the endpoints allowed the action while the console hid the button.
+
+### Endpoints
+
+| Endpoint | Guard | Notes |
+|---|---|---|
+| `PATCH /api/v1/admin/users/{id}/contact` | authenticated staff, then `AccountScope` | changing the phone changes who can log in. Reason required; old and new both audited |
+| `POST /api/v1/admin/users/{id}/block` | authenticated staff, then `AccountScope` | reversible. Bookings and history untouched |
+| `POST /api/v1/admin/users/{id}/remove` | authenticated staff, then `AccountScope` | **anonymise, not delete** — past bookings are also the salon's record of paid work |
+| `PATCH /api/v1/users/{id}/contact` (bmp-user) | `hasRole('SERVICE')` | internal. Re-checks phone uniqueness against `uk_users_phone` |
+| `POST /api/v1/admin/staff` and `/{id}/status`, `/{id}/reissue` | `hasAnyRole('SUPER_ADMIN','OPS_ADMIN')`, then `StaffAccountScope` | ops may act on the desk only; never on an admin, never on themselves |
+
+**`@PreAuthorize` cannot express any of these rules.** It only proves the caller is staff at all.
+The real question — *may this caller act on THIS account?* — depends on the **target's** role, which
+is unknown until the row is loaded. So every one of the endpoints above loads first and authorises
+second, which is the reverse of the usual order and is the point.
+
+### Reasons are mandatory
+
+Every action carries a justification, enforced in the service (the audit column is nullable because
+migrations and system actions write rows too). "Phone changed" is not reviewable; "phone changed
+from X to Y by this agent because the customer had lost the SIM" is — and it is the only record
+that survives if the change turns out to have been social engineering.
+
+## 8e. Session 65 — a block that actually blocks, and self-service contact change
+
+### The Block button shipped doing nothing
+
+It called `deactivate()`, which sets `deactivated_at`. Two consequences, neither obvious:
+
+1. bmp-auth **reactivates** a deactivated account on its owner's next OTP login — Instagram-style
+   soft deactivation, written for people who pause their own account. A blocked person logged in
+   and was silently unblocked.
+2. Neither `/auth/refresh` nor `/auth/me` read `deactivated_at`, so anyone already signed in kept
+   working until their refresh token expired — days.
+
+The button worked, the audit entry was written, and nothing happened.
+
+### The fix
+
+`blocked_at` / `blocked_by` / `blocked_reason` on `user_schema.users` (V006), separate from
+`deactivated_at` because the two say opposite things about the person's wishes:
+
+| Column | Means | Next login |
+|---|---|---|
+| `deactivated_at` | "I want a break" | reactivates — correct, unchanged |
+| `blocked_at` | "we stopped you" | refused |
+
+Refused in **three** places, all of which had to be found: `verifyOtp` (before the reactivation
+line — the ordering IS the fix), `refresh` (which also revokes the token), and `me` (403, not 401,
+so the app can say what happened instead of looping through the login screen).
+
+| Endpoint | Guard | Notes |
+|---|---|---|
+| `POST /api/v1/users/{id}/block` (bmp-user) | `hasRole('SERVICE')` | refuses re-blocking, so a second block cannot overwrite the first one's reason |
+| `POST /api/v1/users/{id}/unblock` (bmp-user) | `hasRole('SERVICE')` | does not reactivate a self-deactivated account |
+| `POST /api/v1/auth/internal/revoke-sessions/{id}` | `hasRole('SERVICE')` | called right after a block |
+| `POST /api/v1/admin/users/{id}/unblock` | staff, then `AccountScope` | same authority as blocking |
+
+**A 15-minute gap remains and is not closed.** Revoking refresh tokens ends the session at the next
+renewal; an access token already issued stays valid until it expires (`BMP_ACCESS_TOKEN_TTL_SECONDS`,
+900 by default). Stateless JWTs cost this. Closing it needs a revocation check on the resource
+services, which bmp-auth cannot do alone.
+
+### Self-service contact change
+
+| Endpoint | Guard | Notes |
+|---|---|---|
+| `POST /api/v1/auth/contact/request` | `isAuthenticated()` | issues a code; nothing changes yet |
+| `POST /api/v1/auth/contact/confirm` | `isAuthenticated()` | single-use, 10 min, 5 attempts |
+
+Neither takes a user id — **the id comes from the token**. An endpoint that accepted one would have
+to authorise it, and the day that check is wrong, anybody signed in can point somebody else's
+account at their own number. Both are absent from bmp-auth's `public-paths`, so they authenticate
+by default.
+
+**What the code proves depends on where it went**, and the API says so via `provesNewNumber`:
+
+- **Email change** → code goes to the NEW address. Real ownership proof.
+- **Phone change** → code goes to the address already on file. Proves the requester, not the
+  number. SMS is undeliverable until DLT registration completes, so no better proof exists today.
+  A typo produces a self-inflicted lockout; the session deliberately survives the change so it can
+  be corrected, and support can fix it.
+
+**This replaced an unverified email edit.** `PUT /users/{id}` was changing the email outright from
+the profile form, with nothing confirming it — on a platform whose login codes arrive by email,
+that let anyone holding a session redirect them. That field is gone from the form.
+
+## 8f. Session 65 — leave hierarchy, team gating, salon profile editing
+
+### Leave: one rung above, or higher
+
+`LeaveApprovalScope` replaced a flat "ops_admin or super_admin" check that was wrong in both
+directions — a support LEAD could not approve their own team's day off, and one ops admin COULD
+approve another's.
+
+| Whose leave | Who decides |
+|---|---|
+| support agent, finance, read-only | support lead, ops admin, or the owner |
+| support lead | ops admin or the owner |
+| ops admin | the owner only |
+| anyone | **never themselves**, at any rank |
+
+`GET /api/v1/admin/team/leave/pending` is filtered with the SAME predicate that guards the
+decision, so nobody is shown a row whose buttons would 403.
+
+### The Team screen was showing controls that always failed
+
+`TeamController` was already correct — `updateMember` is ops-only, `setAvailability` self-checks,
+`PUT /queues/{tier}` is ops-only. The **console** showed Edit and Pause on every row to everyone,
+so a support agent clicking either got a 403. Now: your own Pause, and nothing else, unless you are
+ops. The Queues tab is hidden from anyone who cannot even read it, and read-only for a lead.
+
+### Salon profile editing — new, nothing existed before
+
+| Endpoint | Guard | Notes |
+|---|---|---|
+| `PATCH /api/v1/salons/internal/{id}/profile` | `hasRole('SERVICE')` | bmp-salon still rejects `status` |
+| `PATCH /api/v1/admin/salons/{id}/profile` | authenticated staff, then `SalonEditScope` | per-FIELD, reason required |
+
+`SalonEditScope` is per-field rather than per-record, unlike the other scope classes:
+
+- **support agent / lead** — `bookingNotifyEmail`, `bookingNotifyPhone`
+- **ops admin / owner** — those plus `name`, `area`, `pincode`, `address`, `about`, `categories`
+
+**Nobody, through this path:** `status` (moderation owns it, with its own audit trail) or
+`location` (the owner sets the map pin from the shop; nobody in an office has that evidence).
+
+A request containing a field the caller may not change is **rejected whole**, naming the refused
+fields. A partial save reported as success is the worst outcome: the agent believes the address is
+fixed, the customer still cannot find the shop, and nothing says the two disagree.
+
+### 401 vs 403 on the console
+
+`AdminSecurityConfig` had no `AuthenticationEntryPoint`, so Spring Security 6 answered an
+*unauthenticated* request with **403**. A super admin whose token had expired saw "Request failed
+with status code 403" on every panel while the shell still looked signed in — the console only
+treats 401 as "session over". Now 401 with `SESSION_EXPIRED` when there is no session; 403 only
+when there is one and it is not enough.
+
 ## 9. Re-running the scan
 
 After changing any controller:
 
-```bash
-cd BMP
-python3 - <<'EOF'
-import re,glob,os
-for f in sorted(glob.glob('*/src/main/java/**/controllers/*.java',recursive=True)):
-    svc=f.split('/')[0]; t=open(f,encoding='utf-8').read()
-    base=re.search(r'@RequestMapping\("([^"]+)"\)',t); base=base.group(1) if base else ''
-    head=t[:t.index('public class')] if 'public class' in t else ''
-    cls=re.search(r'@PreAuthorize\("([^"]+)"\)',head)
-    for c in re.split(r'\n\n(?=\s*(?:/\*\*|@Operation|@PreAuthorize|@(?:Get|Post|Put|Patch|Delete)Mapping))',t):
-        m=re.search(r'@(Get|Post|Put|Patch|Delete)Mapping(?:\(\s*"([^"]*)")?',c)
-        if not m: continue
-        pre=re.search(r'@PreAuthorize\("([^"]+)"\)',c)
-        rule=pre.group(1) if pre else (cls.group(1) if cls else 'NONE')
-        print(f"{svc:18} {m.group(1).upper():6} {base+(m.group(2) or ''):58} {rule}")
-EOF
+```powershell
+mvn -q -pl bmp-common test
 ```
 
-`NONE` is not automatically a bug — auth endpoints are public by design, and bmp-booking
-enforces ownership in the method body. But **every `NONE` needs a reason, and the reason belongs
-in this file.** If you can't write the reason, that's the finding.
+`WriteEndpointAuthTest` fails and names any POST/PUT/PATCH/DELETE with no `@PreAuthorize`;
+`PublicPathsTest` fails if a service stopped declaring `public-paths`, or set it to `/**`.
 
-Also check every service still declares `public-paths`:
+> **Session 43:** these were two `python3` heredocs pasted into this document — you had to know
+> they existed, find them, and paste them into a shell. They are JUnit tests now, so they run on
+> every build whether or not anyone remembers this section. **A check you have to remember to run
+> is a check that stops being run**, and the whole point of this file is the invariant, not the
+> ritual.
 
-```bash
-python3 -c "
-import yaml,glob
-for f in sorted(glob.glob('*/src/main/resources/application.yml')):
-    d=yaml.safe_load(open(f)) or {}
-    pp=(d.get('bmp') or {}).get('security',{}).get('public-paths')
-    print(f.split('/')[0], 'OK' if pp else 'MISSING — will not start')"
-```
+A GET without `@PreAuthorize` is not automatically a bug — browsing must work before sign-in, and
+bmp-booking enforces ownership in the method body. But **every unprotected endpoint needs a
+reason, and the reason belongs in this file.** If you can't write the reason, that's the finding.
+
+To see the full picture rather than just the failures — every endpoint with the rule that guards
+it — read the tables in §§2–8 above, which are maintained by hand precisely so that the *reason*
+sits next to the rule.

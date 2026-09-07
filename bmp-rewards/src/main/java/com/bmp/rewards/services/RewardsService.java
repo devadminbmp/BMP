@@ -48,43 +48,22 @@ public class RewardsService {
         return toResponse(c);
     }
 
-    /** Runs the 6 locked validation rules IN ORDER, returns the FIRST failing reason. */
-    public ValidateCouponResponse validate(ValidateCouponRequest req) {
-        Coupon c = coupons.findByCode(req.code()).orElse(null);
-        if (c == null) {
-            return new ValidateCouponResponse(false, null, null, null, "INACTIVE_OR_EXPIRED");
-        }
-        Instant now = Instant.now();
-        // Rule 1: active window
-        if (now.isBefore(c.getActiveFrom()) || now.isAfter(c.getActiveTo())) {
-            return new ValidateCouponResponse(false, c.getId(), null, null, "INACTIVE_OR_EXPIRED");
-        }
-        // Rule 2: salon match (null salon_id = platform-wide, always matches)
-        if (c.getSalonId() != null && req.salonId() != null && !c.getSalonId().equals(req.salonId())) {
-            return new ValidateCouponResponse(false, c.getId(), null, null, "SALON_MISMATCH");
-        }
-        // Rule 3: per-user limit
-        long usedByUser = couponUsages.findByCouponIdAndUserId(c.getId(), req.userId()).size();
-        if (c.getPerUserLimit() > 0 && usedByUser >= c.getPerUserLimit()) {
-            return new ValidateCouponResponse(false, c.getId(), null, null, "PER_USER_LIMIT_EXCEEDED");
-        }
-        // Rule 4: minimum spend
-        if (req.subtotalPaise() < c.getMinSpendPaise().paise()) {
-            return new ValidateCouponResponse(false, c.getId(), null, null, "MIN_SPEND_NOT_MET");
-        }
-        // Rule 5: total usage cap
-        if (c.getTotalUsageCap() > 0 && couponUsages.countByCouponId(c.getId()) >= c.getTotalUsageCap()) {
-            return new ValidateCouponResponse(false, c.getId(), null, null, "TOTAL_CAP_EXCEEDED");
-        }
-        // Rule 6: welcome coupons require this to be the user's first booking.
-        // TODO(Phase 3 / inter-service): verify via a Feign call to bmp-booking-service.
-        // Skipped (assumed true) in this CRUD-first pass per the team's phased build order.
+    /*
+     * ═══════════════════════════════════════════════════════════════════════════════════════════
+     * REMOVED IN SESSION 55: validate(ValidateCouponRequest)
+     * ═══════════════════════════════════════════════════════════════════════════════════════════
+     * The second, weaker implementation of "is this coupon valid for this basket". It applied six
+     * rules and none of the audience targeting (V003), the max_discount cap, or the welcome
+     * coupon's first-booking requirement — that last one carried the comment "skipped (assumed
+     * true) in this CRUD-first pass", which meant a first-booking-only code validated for anybody,
+     * every time.
+     *
+     * CouponRedemptionService.quote is the single implementation now. It is what the app has
+     * always called, and it applies every rule the real redemption applies — which is the point:
+     * a preview that is more permissive than the redemption shows a customer a discount and then
+     * charges them full price.
+     */
 
-        Money discount = "percent".equals(c.getDiscountType())
-                ? Money.ofPaise(req.subtotalPaise()).percentBps((int) (c.getValue() * 100))
-                : Money.ofPaise(c.getValue());
-        return new ValidateCouponResponse(true, c.getId(), discount.paise(), c.getCommissionBase(), null);
-    }
 
     public WalletResponse getWallet(UUID userId) {
         Wallet w = wallets.findByUserId(userId).orElseGet(() -> wallets.save(new Wallet(userId, Money.ZERO, false)));
@@ -101,7 +80,26 @@ public class RewardsService {
         return new PagedTransactions(content, page, size, p.getTotalElements());
     }
 
-    /** ADMIN-ONLY, dev/testing credit. wallet_transaction is otherwise append-only and never directly POSTed by a client. */
+    /**
+     * The one place money enters a wallet.
+     *
+     * <p>Session 64: the name and the old comment ("ADMIN-ONLY, dev/testing credit") are no longer
+     * the whole truth — ReferralService now calls this to settle a referral, which is a real,
+     * customer-facing credit rather than a testing affordance. The MECHANISM was always general;
+     * only the caller list was narrow.
+     *
+     * <p>Left named {@code adminCredit} deliberately rather than renamed: it is referenced by an
+     * admin endpoint whose route is public API, and a rename would either break that or leave a
+     * misleading alias. The javadoc is the honest fix.
+     *
+     * <p>{@code wallet_transaction} stays append-only and is never POSTed directly by a client —
+     * every balance change goes through here so that the transaction row and the new balance
+     * snapshot cannot disagree.
+     *
+     * @param type a wallet_transaction type, e.g. 'referral_bonus', 'goodwill', 'admin_credit'.
+     *             Not free text in practice — the ledger is read by finance, and a typo becomes a
+     *             category nobody can total.
+     */
     @Transactional
     public WalletResponse adminCredit(UUID userId, long amountPaise, String type) {
         Wallet w = wallets.findByUserId(userId).orElseGet(() -> wallets.save(new Wallet(userId, Money.ZERO, false)));

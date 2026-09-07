@@ -27,8 +27,13 @@ public class ReviewEditHistory {
     private int version;
     @Column(name = "salon_rating", nullable = false)
     private int salonRating;
+    /**
+     * 1–5, or null when the stylist wasn't rated. Session 48 — was a primitive {@code int}, which
+     * would have thrown on the first NULL row this table ever held. Nothing writes here yet, so it
+     * never fired; changed alongside {@link Review#getStylistRating()} so it never can.
+     */
     @Column(name = "stylist_rating")
-    private int stylistRating;
+    private Integer stylistRating;
     @Column(name = "review_text")
     private String reviewText;
     @Column(name = "salon_response_hidden", nullable = false)
@@ -38,7 +43,7 @@ public class ReviewEditHistory {
 
     protected ReviewEditHistory() {} // JPA
 
-    public ReviewEditHistory(UUID reviewId, int version, int salonRating, int stylistRating, String reviewText, boolean salonResponseHidden) {
+    public ReviewEditHistory(UUID reviewId, int version, int salonRating, Integer stylistRating, String reviewText, boolean salonResponseHidden) {
         this.id = UuidV7.generate();
         this.reviewId = reviewId;
         this.version = version;
@@ -53,7 +58,7 @@ public class ReviewEditHistory {
     public UUID getReviewId() { return reviewId; }
     public int getVersion() { return version; }
     public int getSalonRating() { return salonRating; }
-    public int getStylistRating() { return stylistRating; }
+    public Integer getStylistRating() { return stylistRating; }
     public String getReviewText() { return reviewText; }
     public boolean isSalonResponseHidden() { return salonResponseHidden; }
     public Instant getCreatedAt() { return createdAt; }

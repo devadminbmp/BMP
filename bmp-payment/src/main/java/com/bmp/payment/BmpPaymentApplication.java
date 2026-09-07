@@ -23,6 +23,18 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
  * {@code @ComponentScan}, CommonSecurityConfig is silently never registered and Spring
  * Boot falls back to its own auto-generated-password HTTP Basic security on everything.
  */
+/*
+ * Session 50 — @EnableScheduling is REQUIRED, not decorative.
+ *
+ * OutboxKafkaRelay drains the transactional outbox on a @Scheduled poll. Without this annotation
+ * the bean is created, looks healthy, and its scheduled method is never invoked — so
+ * payment.captured events pile up in the outbox table forever and no booking is ever confirmed.
+ *
+ * Exactly the bug found in bmp-admin in Session 48: an event published into a relay that never
+ * runs is indistinguishable from an event that was never published, right up until someone
+ * queries the table.
+ */
+@org.springframework.scheduling.annotation.EnableScheduling
 @SpringBootApplication
 @EnableDiscoveryClient
 @ComponentScan(basePackages = {"com.bmp.payment", "com.bmp.common"})

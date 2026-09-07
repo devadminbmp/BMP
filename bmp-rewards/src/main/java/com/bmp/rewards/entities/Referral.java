@@ -66,4 +66,23 @@ public class Referral {
     public Instant getExpiresAt() { return expiresAt; }
     public String getFraudReason() { return fraudReason; }
     public Instant getCompletedAt() { return completedAt; }
+
+    /**
+     * Mark the reward as paid. Session 64.
+     *
+     * <p>A named mutator rather than a setter, and it REFUSES to run twice. This is the idempotency
+     * guard for the whole payout: `booking.completed` is an at-least-once Kafka event, so a
+     * redelivery — a consumer restart, a rebalance, a retried outbox row — will call this again with
+     * the same referral. Without the guard, each redelivery credits two wallets again.
+     *
+     * <p>A setter would express none of that and would invite exactly the "just set it" call that
+     * causes the double credit. Returning false is the caller's signal to skip the money.
+     *
+     * @return true if this call is the one that completed it; false if it was already complete.
+     */
+    public boolean markCompleted() {
+        if (this.completedAt != null) return false;
+        this.completedAt = Instant.now();
+        return true;
+    }
 }

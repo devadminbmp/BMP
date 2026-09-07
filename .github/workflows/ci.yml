@@ -74,126 +74,33 @@ jobs:
           done
 
   # ═════════════════════════════════════════════════════════════════════════════════════════
-  # The one check that isn't the compiler's job
+  # Repo-wide invariants now live in bmp-common's tests, not here
   # ═════════════════════════════════════════════════════════════════════════════════════════
   #
-  # `bmp.security.public-paths` has no default any more: CommonSecurityConfig fails to start
-  # without it, precisely so that forgetting it is loud. But "fails at startup" only helps if
-  # somebody starts the service — and a service nobody runs locally gets merged unstarted.
+  # Session 43: three guards used to run as inline `python3` heredocs in this file, plus two
+  # scripts under scripts/. They are now JUnit tests in bmp-common/src/test/.../repo/:
   #
-  # This catches it at push time instead. It exists because the omission has already happened
-  # FOUR times (bmp-salon, bmp-payment, bmp-review, bmp-notification), leaving 52 endpoints
-  # reachable with no credential at all. Not one of those was a decision; every one was the
-  # same forgotten line.
-  security-config:
-    name: Every service declares its public paths
+  #   PublicPathsTest       every service declares bmp.security.public-paths, none sets /**
+  #   WriteEndpointAuthTest every POST/PUT/PATCH/DELETE carries @PreAuthorize
+  #   SeedSchemaTest        every seed INSERT names columns that exist
+  #   ApiContractTest       every Zod schema matches its backend record (skips without BMP-FE)
+  #
+  # They run under `mvn -B -ntp verify` in the job above — so they also run on every developer's
+  # machine, in their IDE, before the push rather than after it. A check that only lives in CI
+  # tells you what you broke once it's too late to fix quietly, and needs a second toolchain
+  # (Python, PyYAML) that nothing else in this repo uses.
+  #
+  # The history each one encodes is in its class javadoc, where the next person to trip over it
+  # will actually be reading.
+
+  migration-hygiene:
+    name: Migrations are append-only
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Check bmp.security.public-paths is set everywhere
-        run: |
-          python3 - <<'EOF'
-          import glob, sys, yaml
-
-          # Infrastructure — no CommonSecurityConfig, so nothing to declare.
-          EXEMPT = {'api-gateway', 'eureka-server', 'bmp-config-server', 'bmp-monitoring', 'bmp-app'}
-
-          missing, wide_open = [], []
-          for f in sorted(glob.glob('*/src/main/resources/application.yml')):
-              svc = f.split('/')[0]
-              if svc in EXEMPT:
-                  continue
-              d = yaml.safe_load(open(f)) or {}
-              pp = (d.get('bmp') or {}).get('security', {}).get('public-paths')
-              if not pp:
-                  missing.append(svc)
-              elif '/**' in str(pp).split(','):
-                  # The specific value that caused the original problem. A service can legitimately
-                  # have broad public paths; it cannot legitimately have ALL of them public.
-                  wide_open.append(svc)
-
-          for svc in missing:
-              print(f"::error::{svc} has no bmp.security.public-paths — it will not start, "
-                    f"and before Session 29 it would have served every endpoint unauthenticated.")
-          for svc in wide_open:
-              print(f"::error::{svc} sets public-paths to /** — that makes every endpoint public. "
-                    f"List the paths that genuinely need no token.")
-
-          sys.exit(1 if (missing or wide_open) else 0)
-          EOF
-
-      # ═══════════════════════════════════════════════════════════════════════════════════════
-      # Every WRITE endpoint must carry its own authorization
-      # ═══════════════════════════════════════════════════════════════════════════════════════
-      #
-      # Session 40 found `PUT /api/v1/reviews/{id}` reachable with NO CREDENTIAL AT ALL: it had
-      # no @PreAuthorize, and bmp-review's public-paths contains `/api/v1/reviews/*` — added so a
-      # review could be READ without logging in. Anyone on the internet could rewrite any review.
-      #
-      # The trap is that public-paths are PATH-ONLY and METHOD-BLIND. The pattern doesn't say
-      # "GET", it says "this URL". A read that should be public silently publishes the write on
-      # the same path.
-      #
-      # The Session 29 sweep missed it twice over: it looked for endpoints with no credential at
-      # all (this one *looked* covered by a deliberate public path), and `PUT /salons/{id}` — also
-      # unprotected, and accepting `status`, so any logged-in user could approve their own salon.
-      #
-      # So: POST/PUT/PATCH/DELETE must have @PreAuthorize on the method or the class. GETs are
-      # exempt — plenty are legitimately public, and flagging them all would produce noise that
-      # trains people to ignore this job.
-      - name: Every write endpoint has @PreAuthorize
-        run: |
-          python3 - <<'EOF'
-          import re, glob, sys
-
-          # Credential-establishing endpoints: you cannot require a role in order to obtain one.
-          #
-          # Each of these is gated by something other than a role, and that something IS the
-          # credential:
-          #   login / oauth2   — email+password, or Google's signed assertion
-          #   totp/verify|enrol— the challenge token issued by step 1 of the admin login
-          #   activate         — a one-time activation code
-          #   otp              — the code sent to the phone
-          #   refresh / logout — the refresh token itself
-          #   auth/me          — reads only the caller's own principal
-          #   webhook          — a provider signature (Razorpay, when it lands)
-          #
-          # Adding to this list is adding an endpoint anyone on the internet can call. Do it only
-          # when the endpoint genuinely cannot know who the caller is yet, and say what gates it.
-          EXEMPT = re.compile(
-              r'/(login|logout|refresh|activate|signup|register|otp|auth/me|webhook|totp|oauth2)')
-
-          bad = []
-          for f in sorted(glob.glob('*/src/main/java/**/*Controller.java', recursive=True)):
-              src = open(f, encoding='utf-8').read()
-              # A class-level @PreAuthorize covers every method in it.
-              head = src[:src.find('public class')] if 'public class' in src else ''
-              if '@PreAuthorize' in head:
-                  continue
-              base = re.search(r'@RequestMapping\("([^"]+)"\)', src)
-              base = base.group(1) if base else ''
-
-              for m in re.finditer(r'@(Post|Put|Patch|Delete)Mapping(?:\("([^"]*)"\))?', src):
-                  path = (base + (m.group(2) or '')).replace('//', '/')
-                  if EXEMPT.search(path):
-                      continue
-                  # Look between the previous mapping and this one, plus the signature after it.
-                  window = src[max(0, m.start() - 900):m.start()]
-                  prev = max(window.rfind(f'@{v}Mapping') for v in
-                             ('Get', 'Post', 'Put', 'Patch', 'Delete'))
-                  if prev >= 0:
-                      window = window[prev:]
-                  after = src[m.end():m.end() + 400].split('{')[0]
-                  if '@PreAuthorize' not in window and '@PreAuthorize' not in after:
-                      bad.append((f, m.group(1).upper(), path))
-
-          for f, verb, path in bad:
-              print(f"::error file={f}::{verb} {path} has no @PreAuthorize. A write endpoint must "
-                    f"state who may call it — being inside a public-paths pattern does NOT make it "
-                    f"read-only, and 'authenticated' is not 'authorised'.")
-          sys.exit(1 if bad else 0)
-          EOF
 
       - name: Check no migration was edited after being released
         run: |

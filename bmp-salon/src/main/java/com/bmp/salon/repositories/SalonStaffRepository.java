@@ -22,4 +22,13 @@ public interface SalonStaffRepository extends JpaRepository<SalonStaff, UUID> {
     /** Session 15 (owner team management): scoping the lookup by salon means an owner can
      * never touch a seat that isn't theirs, even by guessing a staff id from another salon. */
     Optional<SalonStaff> findByIdAndSalonId(UUID id, UUID salonId);
+
+    /**
+     * Every salon this user is staff at, any role. Session 48.
+     *
+     * <p>Added for the one-salon-per-owner guard — findFirstByUserIdOrderByCreatedAtDesc returns
+     * only the newest row, which cannot answer "do they own one anywhere" for somebody who is a
+     * stylist at two places and an owner at a third.
+     */
+    List<SalonStaff> findByUserId(UUID userId);
 }

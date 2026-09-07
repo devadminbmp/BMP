@@ -73,6 +73,47 @@ public class NotificationLogController {
         return service.getByRecipient(recipientUserId, pageable);
     }
 
+    /**
+     * The subject-access view: what we sent this person, for their DPDP export. Session 64.
+     *
+     * <h2>Why this exists next to an almost identical endpoint</h2>
+     * {@code /recipient/{id}} returns {@code Page<LogResponse>}, which is right for a console that
+     * pages through history and wrong for a Feign caller: a Spring Data {@code Page} serialises to
+     * {@code {content, pageable, totalElements, ...}}, which does not deserialise into a plain list
+     * without registering {@code PageJacksonModule} in every consumer. Adding that module to
+     * bmp-admin so one export can read one list is a lot of machinery, and the failure mode when
+     * somebody later forgets it is an empty section in a legal disclosure.
+     *
+     * <p>It also lets this service decide what leaves it, rather than the caller deciding what to
+     * ignore.
+     *
+     * <h2>What is deliberately withheld</h2>
+     * {@code payload} — the template variables. They routinely name a THIRD PARTY: a booking
+     * notification carries the salon and the stylist, a closure notice can carry a manager's phone
+     * number. The export owes the subject what we sent them, when, on which channel, and whether it
+     * arrived. It does not owe them somebody else's contact details because those appeared inside
+     * an email.
+     *
+     * <p>Also {@code error_reason} and {@code provider_message_id}: SMTP diagnostics and vendor ids
+     * are our operational data about our own systems, not personal data about the recipient.
+     * {@code status} already carries the fact that matters to them — whether it was sent.
+     */
+    @Operation(summary = "Notification history for a data-subject export",
+               description = "Flat list, no paging, no payload. See the javadoc for what is withheld and why.")
+    @GetMapping("/recipient/{recipientUserId}/export")
+    public List<ExportEntry> forExport(@PathVariable UUID recipientUserId) {
+        return service.getByRecipient(recipientUserId, Pageable.unpaged())
+                .getContent().stream()
+                .map(l -> new ExportEntry(l.id(), l.channel(), l.templateCode(),
+                        l.status(), l.createdAt(), l.sentAt(), l.deliveredAt()))
+                .toList();
+    }
+
+    /** Deliberately narrower than LogResponse — see forExport. */
+    public record ExportEntry(UUID id, String channel, String templateCode, String status,
+                               java.time.Instant createdAt, java.time.Instant sentAt,
+                               java.time.Instant deliveredAt) {}
+
     @Operation(summary = "Pending (queued or sent, not yet delivered/failed) notifications for a recipient", description = "Session 7 addition — surfaces \"still in flight\" sends.")
     @GetMapping("/recipient/{recipientUserId}/pending")
     public Page<LogResponse> getPending(@PathVariable UUID recipientUserId, Pageable pageable) {

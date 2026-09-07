@@ -86,7 +86,13 @@ public class DevStaffSeeder implements ApplicationRunner {
      */
     private static final List<DevStaff> ACCOUNTS = List.of(
             new DevStaff("Dev Superadmin", "dev.super@bemyprofessional.in",   "+910000000011", StaffPermission.SUPER_ADMIN),
+            // Session 65 — the ADMIN rung, and the SUPPORT MANAGER rung. Both were missing here, so
+            // neither could be exercised locally without hand-writing SQL. Every rung of the
+            // hierarchy Darshan specified now has a dev login, which is the only way to test that
+            // "ops cannot manage ops" and "an admin can" are actually true rather than assumed.
+            new DevStaff("Dev Admin",      "dev.admin@bemyprofessional.in",   "+910000000016", RoleHierarchy.ADMIN),
             new DevStaff("Dev Ops",        "dev.ops@bemyprofessional.in",     "+910000000012", StaffPermission.OPS_ADMIN),
+            new DevStaff("Dev Support Lead","dev.lead@bemyprofessional.in",   "+910000000017", StaffPermission.SUPPORT_LEAD),
             new DevStaff("Dev Support",    "dev.support@bemyprofessional.in", "+910000000013", StaffPermission.SUPPORT_AGENT),
             new DevStaff("Dev Finance",    "dev.finance@bemyprofessional.in", "+910000000014", StaffPermission.FINANCE_ADMIN),
             new DevStaff("Dev Read Only",  "dev.readonly@bemyprofessional.in","+910000000015", StaffPermission.READ_ONLY)
@@ -180,20 +186,39 @@ public class DevStaffSeeder implements ApplicationRunner {
                 Password for ALL of the accounts below:
                     {}
 
-                  {}  super_admin      (admin door + Staff accounts)
-                  {}  ops_admin        (admin door, no Staff accounts)
-                  {}  support_agent    (support door only)
-                  {}  finance_admin    (support door, refund approver)
-                  {}  read_only        (support door, NO PII reveal)
+{}
 
-                Two-factor: add this ONE entry to your authenticator — it works for all five.
+                Two-factor: ONE entry covers every account above.
+
+                  Base32 secret (paste into tools\\totp.mjs if you have no authenticator app):
                     {}
+
+                  Or scan / paste this into an authenticator:
+                    {}
+
+                  No app?  node tools\\totp.mjs <the-secret-above>
 
                 Console: http://localhost:5180  ·  admin door /admin/login  ·  support /support/login
                 ============================================================================""",
                 created, password,
-                ACCOUNTS.get(0).email(), ACCOUNTS.get(1).email(), ACCOUNTS.get(2).email(),
-                ACCOUNTS.get(3).email(), ACCOUNTS.get(4).email(),
+                /*
+                 * Built from ACCOUNTS rather than five positional indexes.
+                 *
+                 * The previous form named entries 0..4 by hand, so adding a sixth role printed a
+                 * login block that silently omitted it — the account would exist, work, and be
+                 * invisible in the one place a developer looks for it. Session 61 added
+                 * support_lead and hit exactly that.
+                 */
+                ACCOUNTS.stream()
+                        .map(a -> "  %-36s %s".formatted(a.email(), a.role()))
+                        .collect(java.util.stream.Collectors.joining("\n")),
+                /*
+                 * The raw secret is printed as well as the otpauth:// URI. The URI is what an
+                 * authenticator wants; the bare Base32 is what `tools/totp.mjs` wants, and digging
+                 * it out of a query string by eye is exactly the sort of step people get wrong at
+                 * the point they are already blocked on logging in.
+                 */
+                sharedSecret,
                 totp.provisioningUri(sharedSecret, "dev@bemyprofessional.in"));
     }
 
